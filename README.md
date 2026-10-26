@@ -2,7 +2,7 @@
 
 **A personal AI that keeps your secrets and shows its receipts.**
 
-Confidant is an always-on personal assistant whose memory you can audit and whose privacy you can verify.
+Confidant is a personal assistant whose memory you can audit and whose outbound traffic you can inspect.
 Every memory carries its provenance and version history. A guard decides, memory by memory, what may leave
 your device. When a private fact is needed, the cloud model never sees it: NVIDIA Nemotron on Nebius Token
 Factory writes the answer with a placeholder such as `⟦m7⟧`, and Confidant fills in the real value locally.
@@ -29,14 +29,14 @@ assistant and one that knows too much. Confidant removes that trade-off with thr
 
 | Step | Model (Nebius Token Factory) | Why this model |
 |---|---|---|
-| Route the request (answer, remember, correct, search, brief) | Nemotron 3 Nano | fast, cheap, strict JSON |
+| Route the request (answer, remember, correct, search, brief) | Nemotron 3 Nano | fast and cheap; the reply is parsed as JSON, with keyword rules as fallback |
 | Classify a new memory's sensitivity | Nemotron 3 Nano | runs on every new fact |
 | Compose the answer or the daily brief from guarded context | Nemotron 3 Ultra | long-context reasoning over many memories |
 
 All calls use the OpenAI-compatible Token Factory API (`https://api.tokenfactory.nebius.com/v1`).
 Model ids are discovered at start-up from `/v1/models` and can be pinned with `CONFIDANT_MODEL_REASON` and
-`CONFIDANT_MODEL_FAST`. Web search uses **Tavily**; queries pass the same guard, so the web never learns
-your private facts. Results are stored as `web` memories with their URL and retrieval date.
+`CONFIDANT_MODEL_FAST`. Web search uses **Tavily**; queries pass the same guard: private values are removed
+from the query, or the search is blocked. Results are stored as `web` memories with their URL and retrieval date.
 
 ## Architecture
 
@@ -64,7 +64,8 @@ python -m confidant chat         # terminal chat
 python app.py                    # web UI on http://127.0.0.1:7860
 ```
 
-Without a key, the app runs in clearly labelled **replay** mode from recorded turns.
+Without a key, the app runs in clearly labelled **replay** mode: from turns recorded live when `data/replay/`
+holds them, otherwise from hand-written sample answers, which the interface labels as samples.
 
 ### Use it from Hermes Agent (or any MCP client)
 
@@ -83,6 +84,9 @@ hermes mcp add confidant --command python3 --args -m confidant serve-mcp
 - Late binding protects the value, not the existence of a withheld memory: the model sees "private:
   dermatologist appointment, value withheld", which is itself information. Labels are chosen to be generic.
 - Credentials are refused at write time (passwords, PINs, card numbers, API keys): Confidant never stores them.
+- **Personal** memories (not private ones) may be sent to Token Factory when a task needs them, for example a
+  birthday message; change the policy in `confidant/guard.py` to keep them local too.
+- Receipts are written by Confidant itself: they show exactly what it sent, but they are not an external audit.
 
 ## Repository layout
 
@@ -91,7 +95,7 @@ hermes mcp add confidant --command python3 --args -m confidant serve-mcp
 | `confidant/` | memory store, guard, receipts, budget, Token Factory and Tavily clients, assistant, MCP server, CLI |
 | `app.py`, `assets/` | Gradio web demo |
 | `data/demo_persona.json` | the synthetic persona (25 memories) |
-| `data/replay/` | recorded Nemotron outputs used only in replay mode |
+| `data/replay/` | turns replayed when no key is set (hand-written samples until a live recording replaces them) |
 | `space/` | the three files of the Hugging Face Space |
 | `scripts/` | macOS keychain wrapper and a Token Factory probe |
 | `tests/` | offline test suite (all HTTP mocked) |
