@@ -96,6 +96,14 @@ def test_web_search_is_guarded_recorded_and_cited(make_rig: Callable[..., Rig]) 
     assert turn.receipts[1].provider == "tavily" and turn.receipts[1].cost_usd_estimate == 0.008
 
 
+def test_live_without_tavily_reports_no_search_and_no_guard_check(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig(web=False)
+    turn = rig.ask(TAPER)
+    assert "Web search is off" in turn.notice
+    assert all(d.purpose != "web search" for d in turn.guard.decisions)
+    assert all(r.provider != "tavily" for r in turn.receipts)
+
+
 def test_personal_details_in_a_web_query_are_redacted(make_rig: Callable[..., Rig]) -> None:
     query = '{"intent": "search", "query": "bouldering gifts for Léa turning 30 on 14 November"}'
     rig = make_rig(replies(route=query))

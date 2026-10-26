@@ -170,6 +170,7 @@ footer {
 #cf-chat-col {
   grid-area: chat;
   gap: 0 !important;
+  flex-wrap: nowrap !important;
   background: var(--cf-sheet);
   border: 1px solid var(--cf-rule);
   border-radius: var(--cf-radius-lg);

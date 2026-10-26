@@ -40,7 +40,7 @@ def call(path: str, body: dict | None = None) -> dict:
 
 
 def main() -> None:
-    """List Nemotron models and ping the reasoning and fast candidates."""
+    """List Nemotron models and ping the reasoning, fast and Lightning candidates."""
     ids = sorted(m.get("id", "") for m in call("/models").get("data", []))
     nemotron = [i for i in ids if "nemotron" in i.lower()]
     print(f"{len(ids)} models visible, {len(nemotron)} Nemotron:")
@@ -50,7 +50,8 @@ def main() -> None:
         (i for i in nemotron if "ultra" in i.lower()), None)
     fast = os.environ.get("CONFIDANT_MODEL_FAST") or next(
         (i for i in nemotron if "nano" in i.lower() or "super" in i.lower()), None)
-    for role, model_id in (("reason", reason), ("fast", fast)):
+    lightning = next((i for i in nemotron if "lightning" in i.lower()), None)
+    for role, model_id in (("reason", reason), ("fast", fast), ("fast-alt", lightning)):
         if not model_id:
             print(f"{role}: no matching Nemotron model")
             continue

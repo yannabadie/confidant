@@ -319,6 +319,9 @@ class _Exchange:
     def web(self, query: str) -> list[WebResult]:
         """Run a guarded web search (live) or return the recorded results (replay)."""
         assistant = self.assistant
+        if self.mode != "replay" and assistant.search is None:
+            self.notices.append("Web search is off (no TAVILY_API_KEY), so the answer uses memory only.")
+            return []
         decision = assistant.guard.check_outbound(query, TAVILY, assistant.store.all_current(), purpose="web search")
         self.decisions.append(decision)
         self.withheld_ids.update(decision.withheld_ids)
@@ -333,9 +336,6 @@ class _Exchange:
             else:
                 self.notices.append("Replay has no recorded web results for this request.")
             return results
-        if assistant.search is None:
-            self.notices.append("Web search is off (no TAVILY_API_KEY), so the answer uses memory only.")
-            return []
         started = time.perf_counter()
         try:
             results = assistant.search.search(decision.redacted_text, max_results=WEB_RESULT_COUNT)

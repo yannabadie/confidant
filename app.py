@@ -22,7 +22,7 @@ import uuid
 from collections import Counter
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 from typing import Any, NamedTuple
 
@@ -151,6 +151,12 @@ class Runtime:
     budget: Any
 
 
+def replay_is_recorded(book: ReplayBook) -> bool:
+    """Whether every replay turn comes from a live recording (hand-written samples have no recorded_at)."""
+    turns = [book.lookup(question) for question in book.questions()]
+    return bool(turns) and all(turn is not None and turn.recorded_at for turn in turns)
+
+
 def recorded_models(book: ReplayBook) -> dict[str, str]:
     """Model ids named in the replay recordings (shown in the header in replay mode)."""
     for question in book.questions():
@@ -166,11 +172,16 @@ def build_runtime() -> Runtime:
     budget = Budget()
 
     def replay_runtime(reason: str) -> Runtime:
-        return Runtime("replay", recorded_models(replay), "recorded results", reason, None, None, replay, budget)
+        if replay_is_recorded(replay):
+            return Runtime("replay", recorded_models(replay), "recorded results", reason, None, None, replay, budget)
+        samples = {"reason": "sample answers, no model call", "fast": "sample answers, no model call"}
+        return Runtime("replay", samples, "sample results", reason, None, None, replay, budget)
 
     api_key = env("NEBIUS_API_KEY")
     if not api_key:
-        return replay_runtime("No API key on this Space, so recorded Nemotron outputs are replayed.")
+        if replay_is_recorded(replay):
+            return replay_runtime("No API key on this Space, so recorded Nemotron outputs are replayed.")
+        return replay_runtime("No API key on this Space, and no live recording yet, so hand-written sample answers are shown.")
     llm = TokenFactory(api_key)
     try:
         models = discover_models(llm)
@@ -537,7 +548,8 @@ def render_header(runtime: Runtime, *, fell_back: bool = False) -> str:
             '<span class="cf-badge__extra">· Nemotron on Nebius Token Factory</span></span>'
         )
     else:
-        why = "live limit reached, replaying recorded turns" if fell_back else "recorded Nemotron turns"
+        why = ("live limit reached, replaying recorded turns" if fell_back
+               else "recorded Nemotron turns" if replay_is_recorded(runtime.replay) else "sample answers, not a live recording")
         title = runtime.reason or "The live budget is used up for now, so recorded outputs are replayed."
         title += " Memory, guard, late binding and receipts still run here."
         badge = (
@@ -634,11 +646,10 @@ def render_actions(turn: TurnView) -> str:
 
 
 def render_slip(summary: SummaryView) -> str:
-    """Today's receipt totals, printed like a till slip."""
-    today = datetime.now(timezone.utc).strftime("%a %d %b %Y")
+    """This session's receipt totals, printed like a till slip."""
     calls = f"{summary.calls}" + (f" ({summary.replay_calls} replayed)" if summary.replay_calls else "")
     return (
-        f'<div class="cf-slip"><div class="cf-slip__head">Today<span>{today}</span></div>'
+        '<div class="cf-slip"><div class="cf-slip__head">This session<span>receipts</span></div>'
         '<dl class="cf-leaders">'
         f"<div><dt>Outbound calls</dt><dd>{calls}</dd></div>"
         f"<div><dt>Tokens sent</dt><dd>{summary.prompt_tokens:,}</dd></div>"
@@ -871,11 +882,13 @@ def render_guard_panel(turn: TurnView | None) -> str:
     sent = render_memlinks(
         turn.shared, lambda m: f"{m.sensitivity.capitalize()} memories may go to {cloud}", "No memory was shared."
     )
+    went_out = answered(turn)
     kept = render_memlinks(
         turn.kept_local,
         lambda m: (
             f"Sent only as ⟦m{m.id}⟧ and its label, filled in here"
-            if m.id in placeholder_ids else "Kept out of every request"
+            if m.id in placeholder_ids and went_out
+            else "Kept out of every request" if went_out else "Stayed on this device: nothing was sent this turn"
         ),
         "No private memory was involved.",
     )
@@ -891,7 +904,7 @@ def render_guard_panel(turn: TurnView | None) -> str:
     if turn.values:
         compare = (
             '<section class="cf-section"><h4 class="cf-section-title">Late binding</h4><div class="cf-binding">'
-            '<div class="cf-binding__row"><p class="cf-binding__who">Nemotron wrote</p>'
+            f'<div class="cf-binding__row"><p class="cf-binding__who">{"Nemotron wrote" if went_out else "Written on this device"}</p>'
             f'<div class="cf-binding__text cf-answer">{render_rich(turn.draft, known=known)}</div></div>'
             '<div class="cf-binding__row"><p class="cf-binding__who">You read</p>'
             f'<div class="cf-binding__text cf-answer">{render_rich(turn.draft, turn.values)}</div></div>'
@@ -916,8 +929,10 @@ def render_guard_panel(turn: TurnView | None) -> str:
 # --- Receipts and brief tabs --------------------------------------------------------
 def render_call(r: ReceiptView) -> str:
     """One receipt: what was called, with what, and the payload hash."""
+    recorded = replay_is_recorded(RUNTIME.replay)
     if r.mode == "replay":
-        numbers = "Replayed from a recording: nothing was sent and no tokens were used."
+        source = "a live recording" if recorded else "a hand-written sample"
+        numbers = f"Replayed from {source}: nothing was sent and no tokens were used."
     else:
         numbers = (
             f"{r.prompt_tokens:,} tokens in, {r.completion_tokens:,} out · {r.latency_ms:,} ms · ${r.cost_usd:.4f}"
@@ -931,7 +946,7 @@ def render_call(r: ReceiptView) -> str:
         f'<span class="cf-call__purpose">{esc(PURPOSE_NAMES.get(r.purpose, r.purpose))}</span>'
         f'<span class="cf-call__time">{esc(r.at[11:19])}</span>{tag}</div>'
         f'<div class="cf-call__provider">{esc(PROVIDER_NAMES.get(r.provider, r.provider))}</div>'
-        f'<div class="cf-call__model">{esc(r.model)}</div>'
+        f'<div class="cf-call__model">{esc(r.model if r.mode != "replay" or recorded else "sample, no model call")}</div>'
         f'<div class="cf-call__nums">{numbers}</div><div class="cf-call__nums">{ids}</div>'
         f'<div class="cf-call__hash" title="{esc(r.payload_sha256)}">sha256 {esc(r.payload_sha256[:16])}…</div></li>'
     )
