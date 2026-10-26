@@ -1,0 +1,5 @@
+interface:
+  display_name: "Confidant"
+  short_description: "Guarded personal memory and daily brief"
+policy:
+  allow_implicit_invocation: true

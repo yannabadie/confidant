@@ -7,6 +7,7 @@ recordings when there are any, and from local memory otherwise.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from collections.abc import Iterator, Sequence
 from pathlib import Path
@@ -15,10 +16,10 @@ from typing import TextIO
 from .assistant import Assistant, Turn
 from .budget import Budget
 from .config import DEMO_PERSONA, REPLAY_DIR, env
-from .guard import Guard
+from .guard import PLACEHOLDER_RE, Guard
 from .llm import DEFAULT_BASE_URL, TokenFactory
 from .mcp_server import MCPServer
-from .memory import MemoryStore
+from .memory import MemoryNotFound, MemoryStore
 from .receipts import ReceiptLog
 from .replay import ReplayBook
 from .search import Tavily
@@ -44,7 +45,11 @@ def _parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
     chat = commands.add_parser("chat", help="talk to Confidant, one message per line")
     chat.add_argument("--record", type=Path, metavar="FILE", help="also save live model outputs to this replay file")
-    commands.add_parser("brief", help="print the daily brief")
+    brief = commands.add_parser("brief", help="print the daily brief")
+    brief.add_argument(
+        "--delivery", action="store_true",
+        help="print the version that may leave this device (e.g. to Telegram): private items as their label only",
+    )
     seed = commands.add_parser("seed", help="load a persona (default: the demo persona) into an empty memory")
     seed.add_argument("--persona", type=Path, default=DEMO_PERSONA)
     commands.add_parser("receipts", help="list today's outbound calls")
@@ -122,9 +127,32 @@ def _chat(args: argparse.Namespace) -> int:
     return 0
 
 
+def delivery_text(turn: Turn, store: MemoryStore) -> str:
+    """A turn as it may be sent off this device: built from the draft, where every withheld
+    memory is still a placeholder, and each placeholder shown as its label, never its value."""
+    if not turn.draft.strip():
+        return "Confidant could not prepare this message."
+
+    def label(match: re.Match[str]) -> str:
+        try:
+            memory = store.get(int(match.group(1)))
+        except MemoryNotFound:
+            return "[withheld item]"
+        return f"[{memory.sensitivity}: {memory.label or 'withheld'}]"
+
+    lines = [PLACEHOLDER_RE.sub(label, turn.draft).strip(), "",
+             f"Private items stay on your device; open Confidant to see them. ({turn.guard.summary()}; {turn.mode})"]
+    return "\n".join(lines)
+
+
 def _brief(args: argparse.Namespace) -> int:
-    """Print the daily brief."""
-    _print_turn(_build(args).daily_brief(SESSION_ID), sys.stdout)
+    """Print the daily brief (for the user, or delivery-safe with --delivery)."""
+    assistant = _build(args)
+    turn = assistant.daily_brief(SESSION_ID)
+    if args.delivery:
+        sys.stdout.write(delivery_text(turn, assistant.store) + "\n")
+        return 0
+    _print_turn(turn, sys.stdout)
     return 0
 
 

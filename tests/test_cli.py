@@ -59,3 +59,22 @@ def test_brief_and_receipts(home: Path, capsys: pytest.CaptureFixture[str]) -> N
     assert "Replay has no recorded answer" in out and "Receipts today: 0 outbound calls" in out
     assert main(["--home", str(home), "receipts"]) == 0
     assert "No outbound calls today." in capsys.readouterr().out
+
+
+def test_brief_delivery_sends_labels_never_private_values(home: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    folder = home / "brief-replay"
+    folder.mkdir()
+    (folder / "brief.json").write_text(json.dumps([{
+        "question": "Run my daily brief.",
+        "outputs": {"route": {"intent": "brief"},
+                    "answer": "This week:\n⟦m7⟧\n⟦m11⟧\nThe design review [m6v1]."},
+    }]), encoding="utf-8")
+    capsys.readouterr()
+    assert main(["--home", str(home), "--replay", str(folder), "brief", "--delivery"]) == 0
+    out = capsys.readouterr().out
+    assert "[private: dermatologist appointment]" in out
+    assert "10:30" not in out and "Dermatologist appointment on" not in out
+    assert "⟦" not in out
+    assert "Private items stay on your device" in out and "replay" in out
+    assert main(["--home", str(home), "--replay", str(folder), "brief"]) == 0
+    assert "Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30." in capsys.readouterr().out
