@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "confidant"
+version = "0.1.0"
+description = "A personal AI that keeps your secrets and shows its receipts (Nemotron on Nebius Token Factory)."
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Yann Abadie" }]
+requires-python = ">=3.10"
+dependencies = ["httpx>=0.27"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.optional-dependencies]
+app = ["gradio"]
+dev = ["pytest"]
+
+[project.scripts]
+confidant = "confidant.cli:main"
+
+[tool.setuptools]
+packages = ["confidant"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

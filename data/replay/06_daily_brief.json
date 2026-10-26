@@ -1,0 +1,17 @@
+{
+  "question": "Run my daily brief.",
+  "mode": "replay",
+  "recorded_at": null,
+  "note": "Placeholder written by hand to match the seed persona; regenerate from a live run (recorded_at is null until then).",
+  "models": {
+    "reason": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+  },
+  "outputs": {
+    "route": {
+      "intent": "brief"
+    },
+    "brief": "Good morning. Here is Friday 30 October.\n\nComing up:\n- **Wednesday 4 Nov, 15:00**: quarterly product review with the onboarding redesign [m6v1]\n- **Friday 6 Nov, 20:00**: dinner with friends near Bellecour [m9v1]\n\nPrivate, filled in on your device:\n- ⟦m7⟧\n- ⟦m11⟧\n\nOpen items:\n- Send the onboarding redesign slides before the review [m15v1]\n- Book a table for Léa's birthday dinner by Tuesday 10 November [m14v1]\n\nFor today: your weekly review is at 17:00 [m8v1], a good moment to finish those slides."
+  },
+  "web_results": []
+}

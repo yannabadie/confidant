@@ -1,0 +1,17 @@
+{
+  "question": "What's on my plate next week?",
+  "mode": "replay",
+  "recorded_at": null,
+  "note": "Placeholder written by hand to match the seed persona; regenerate from a live run (recorded_at is null until then).",
+  "models": {
+    "reason": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+  },
+  "outputs": {
+    "route": {
+      "intent": "answer"
+    },
+    "answer": "Next week, Monday 2 to Sunday 8 November:\n\n- **Wednesday 4 Nov, 15:00**: quarterly product review, where the design team presents the onboarding redesign [m6v1]\n- **Friday 6 Nov, 20:00**: dinner with friends at the Lebanese place near Bellecour [m9v1]\n\nAlso next week, kept private:\n- ⟦m7⟧\n- ⟦m11⟧"
+  },
+  "web_results": []
+}

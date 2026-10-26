@@ -1,0 +1,37 @@
+{
+  "question": "Find a 10-day taper plan for my half marathon.",
+  "mode": "replay",
+  "recorded_at": null,
+  "note": "Placeholder written by hand to match the seed persona; regenerate from a live run (recorded_at is null until then).",
+  "models": {
+    "reason": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+  },
+  "outputs": {
+    "route": {
+      "intent": "search",
+      "query": "10-day taper plan half marathon"
+    },
+    "answer": "Your race is on Sunday 15 November [m3v1], so a 10-day taper starts on Thursday 5 November.\n\n- **Thu 5 to Sun 8 Nov**: cut weekly volume by about a third and keep one short session at race pace [m26v1]\n- **Mon 9 to Wed 11 Nov**: easy runs plus a few strides; your coach's rule of about 40 percent less volume applies here [m25v1]\n- **Thu 12 and Fri 13 Nov**: two short, easy runs; sleep and familiar food matter more than mileage now [m27v1]\n- **Sat 14 Nov**: rest, or 15 minutes very easy\n- **Sun 15 Nov**: race day\n\nLess volume with a little intensity lets your legs recover without losing sharpness [m28v1]."
+  },
+  "web_results": [
+    {
+      "title": "How to taper for a half marathon",
+      "url": "https://example.org/running/half-marathon-taper",
+      "content": "Start the taper about ten days out. Reduce weekly volume by 30 to 40 percent, keep one short session at race pace so the legs stay sharp, and make the last two days very easy.",
+      "score": 0.91
+    },
+    {
+      "title": "Race week checklist for a half marathon",
+      "url": "https://example.com/guides/race-week-checklist",
+      "content": "In the final days keep runs short and easy, add a few strides, prioritise sleep and stick to familiar food. Do not try new shoes or gels on race day.",
+      "score": 0.86
+    },
+    {
+      "title": "Tapering: why less training helps",
+      "url": "https://example.net/science/tapering",
+      "content": "Cutting volume while keeping some intensity lets glycogen stores and tissue repair catch up, which improves race performance by a few percent.",
+      "score": 0.78
+    }
+  ]
+}

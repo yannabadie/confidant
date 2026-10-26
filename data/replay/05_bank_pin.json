@@ -1,0 +1,12 @@
+{
+  "question": "Remember my bank PIN is 4821.",
+  "mode": "replay",
+  "recorded_at": null,
+  "note": "No model call: credentials are refused on the device before routing, and nothing is stored or sent. Placeholder written by hand to match the seed persona; regenerate from a live run (recorded_at is null until then).",
+  "models": {
+    "reason": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+  },
+  "outputs": {},
+  "web_results": []
+}

@@ -1,0 +1,1807 @@
+/* Confidant demo styles.
+   1. Tokens   2. Gradio shell   3. Layout and Gradio components
+   4. Components (cf-*)   5. Medium and small screens, motion
+
+   Visual rules: one accent (ledger green) for everything about trust: sources,
+   the guard, values filled in on this device. Ink density encodes sensitivity:
+   hollow ring = public, half disc = personal, solid = private; a private value
+   that crossed the device boundary is drawn as a solid placeholder token.
+
+   Gradio 5 injects this file twice: as written, and with every selector
+   prefixed by ".gradio-container.gradio-container-<version> .contain" (split
+   naively on commas). Inside @media only the prefixed copy exists. So: no
+   ".gradio-container" prefix on component rules, no commas inside :where(),
+   and media queries only for elements inside the app. */
+
+/* 1. Tokens ---------------------------------------------------------------- */
+:root {
+  --cf-page: #f3f5f4;
+  --cf-sheet: #ffffff;
+  --cf-well: #edf1ef;
+  --cf-rule: #dbe2df;
+  --cf-rule-strong: #c3cdc8;
+  --cf-ink: #15201b;
+  --cf-muted: #55635d;
+  --cf-accent: #1d5e4f;
+  --cf-accent-hover: #164b3f;
+  --cf-accent-soft: #e2eee9;
+  --cf-accent-line: #b7d3c8;
+  --cf-on-accent: #ffffff;
+  --cf-shadow: rgba(8, 20, 16, 0.22);
+  --cf-font: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --cf-mono: "Atkinson Hyperlegible Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --cf-radius-lg: 16px;
+  --cf-radius: 10px;
+  --cf-radius-sm: 6px;
+  --cf-gutter: clamp(16px, 2vw, 28px);
+}
+
+.dark {
+  --cf-page: #0e1311;
+  --cf-sheet: #151c19;
+  --cf-well: #101714;
+  --cf-rule: #26302c;
+  --cf-rule-strong: #35423c;
+  --cf-ink: #e3eae6;
+  --cf-muted: #98a69f;
+  --cf-accent: #7dcab3;
+  --cf-accent-hover: #9cdbc8;
+  --cf-accent-soft: #19302a;
+  --cf-accent-line: #2d4c42;
+  --cf-on-accent: #0a1a15;
+  --cf-shadow: rgba(0, 0, 0, 0.55);
+}
+
+/* 2. Gradio shell (elements outside the app root: no media queries here) --- */
+body {
+  background: var(--cf-page) !important;
+}
+
+gradio-app {
+  background: var(--cf-page) !important;
+}
+
+.gradio-container {
+  max-width: 1600px !important;
+  margin: 0 auto !important;
+  padding: 0 var(--cf-gutter) !important;
+  font-family: var(--cf-font) !important;
+  color: var(--cf-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.gradio-container main.app {
+  padding: 0 !important;
+}
+
+footer {
+  display: none !important;
+}
+
+/* HTML blocks are layout containers here, not cards. */
+.cf-bare {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.cf-bare > .html-container {
+  padding: 0 !important;
+}
+
+/* Our markup sits inside Gradio's .prose wrapper; neutralise its typography. */
+.cf h1, .cf h2, .cf h3, .cf h4, .cf p, .cf ul, .cf ol, .cf li, .cf dl, .cf dt, .cf dd,
+.cf figure, .cf pre, .cf table, .cf tr, .cf th, .cf td {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  color: inherit;
+  letter-spacing: normal;
+}
+
+.cf ul, .cf ol, .cf li {
+  list-style: none;
+}
+
+.cf button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+.cf code {
+  font-family: var(--cf-mono);
+  font-size: 0.92em;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+}
+
+.cf {
+  font-family: var(--cf-font);
+  color: var(--cf-ink);
+}
+
+.cf :focus-visible {
+  outline: 2px solid var(--cf-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 3. Layout ---------------------------------------------------------------- */
+#cf-header {
+  flex: 0 0 auto !important;
+}
+
+#cf-main {
+  display: grid !important;
+  grid-template-columns: 272px minmax(0, 1.1fr) minmax(400px, 1fr);
+  grid-template-areas: "script chat inspector";
+  gap: 20px !important;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-bottom: 20px;
+}
+
+#cf-main > .column {
+  min-width: 0 !important;
+  width: auto !important;
+  min-height: 0;
+}
+
+#cf-script-col {
+  grid-area: script;
+  gap: 14px !important;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+#cf-chat-col {
+  grid-area: chat;
+  gap: 0 !important;
+  background: var(--cf-sheet);
+  border: 1px solid var(--cf-rule);
+  border-radius: var(--cf-radius-lg);
+  overflow: hidden;
+}
+
+#cf-inspector-col {
+  grid-area: inspector;
+  background: var(--cf-sheet);
+  border: 1px solid var(--cf-rule);
+  border-radius: var(--cf-radius-lg);
+  overflow: hidden;
+}
+
+/* Conversation: transcript scrolls, composer stays at the bottom. */
+#cf-transcript {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
+#cf-composer {
+  flex: 0 0 auto !important;
+  gap: 10px !important;
+  padding: 12px !important;
+  border-top: 1px solid var(--cf-rule);
+  background: var(--cf-sheet);
+  align-items: flex-end !important;
+  flex-wrap: nowrap !important;
+}
+
+#cf-composer > .form {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  min-width: 0 !important;
+}
+
+#cf-input {
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+#cf-input textarea {
+  font-family: var(--cf-font) !important;
+  font-size: 15px !important;
+  line-height: 1.45 !important;
+  color: var(--cf-ink) !important;
+  background: var(--cf-page) !important;
+  border: 1px solid var(--cf-rule-strong) !important;
+  border-radius: 12px !important;
+  padding: 11px 14px !important;
+  box-shadow: none !important;
+}
+
+#cf-input textarea::placeholder {
+  color: var(--cf-muted) !important;
+  opacity: 1;
+}
+
+#cf-input textarea:focus {
+  border-color: var(--cf-accent) !important;
+  outline: 3px solid var(--cf-accent-soft) !important;
+  outline-offset: 0;
+}
+
+#cf-send {
+  flex: 0 0 auto !important;
+  min-width: 88px !important;
+  height: 46px;
+  border-radius: 12px !important;
+  font-family: var(--cf-font) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  background: var(--cf-accent) !important;
+  color: var(--cf-on-accent) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+#cf-send:hover {
+  background: var(--cf-accent-hover) !important;
+}
+
+/* Inspector: tab strip on top, panel scrolls. */
+#cf-tabs {
+  height: 100%;
+  display: flex !important;
+  flex-direction: column;
+  gap: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+
+#cf-tabs > .tab-wrapper {
+  flex: 0 0 auto;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--cf-rule);
+  background: var(--cf-sheet);
+}
+
+#cf-tabs [role="tablist"] {
+  gap: 2px;
+  border: 0 !important;
+}
+
+#cf-tabs [role="tablist"] button {
+  font-family: var(--cf-font) !important;
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  color: var(--cf-muted) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  padding: 14px 10px 12px !important;
+  margin-bottom: -1px;
+}
+
+#cf-tabs [role="tablist"] button:hover {
+  color: var(--cf-ink) !important;
+}
+
+#cf-tabs [role="tablist"] button.selected {
+  color: var(--cf-ink) !important;
+  border-bottom-color: var(--cf-accent) !important;
+}
+
+#cf-tabs [role="tablist"] button::after {
+  display: none !important;
+}
+
+#cf-tabs > .tabitem {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 20px 28px !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+#cf-tabs > .tabitem > .column {
+  gap: 14px !important;
+}
+
+/* Memory filter as a row of pills. */
+#cf-filter {
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+#cf-filter > span {
+  display: none;
+}
+
+#cf-filter .wrap {
+  gap: 6px !important;
+}
+
+#cf-filter label {
+  font-family: var(--cf-font) !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: var(--cf-muted) !important;
+  background: var(--cf-sheet) !important;
+  border: 1px solid var(--cf-rule-strong) !important;
+  border-radius: 999px !important;
+  padding: 5px 12px !important;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+
+#cf-filter label input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+#cf-filter label span {
+  margin: 0 !important;
+}
+
+#cf-filter label.selected {
+  color: var(--cf-accent) !important;
+  background: var(--cf-accent-soft) !important;
+  border-color: var(--cf-accent-line) !important;
+}
+
+#cf-filter label:focus-within {
+  outline: 2px solid var(--cf-accent);
+  outline-offset: 2px;
+}
+
+/* Buttons that are Gradio components. */
+.cf-button-quiet {
+  font-family: var(--cf-font) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: var(--cf-ink) !important;
+  background: transparent !important;
+  border: 1px solid var(--cf-rule-strong) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  flex: 0 0 auto !important;
+}
+
+.cf-button-quiet:hover {
+  border-color: var(--cf-accent) !important;
+  color: var(--cf-accent) !important;
+}
+
+.cf-button-accent {
+  font-family: var(--cf-font) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  background: var(--cf-accent) !important;
+  color: var(--cf-on-accent) !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  align-self: flex-start;
+  width: auto !important;
+  min-width: 200px !important;
+}
+
+.cf-button-accent:hover {
+  background: var(--cf-accent-hover) !important;
+}
+
+/* 4. Components ------------------------------------------------------------- */
+
+/* Header */
+.cf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 32px;
+  flex-wrap: wrap;
+  padding: 16px 0 18px;
+}
+
+.cf-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.cf-mark {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  color: var(--cf-ink);
+}
+
+.cf-mark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.cf .cf-wordmark {
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.cf .cf-tagline {
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--cf-muted);
+  margin-top: 3px;
+}
+
+.cf-mode {
+  display: flex;
+  align-items: center;
+  gap: 10px 22px;
+  flex-wrap: wrap;
+}
+
+.cf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 7px 15px 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--cf-rule-strong);
+  background: var(--cf-sheet);
+  white-space: nowrap;
+}
+
+.cf-badge__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--cf-accent);
+  flex: 0 0 auto;
+}
+
+.cf-badge--live {
+  border-color: var(--cf-accent-line);
+  background: var(--cf-accent-soft);
+  color: var(--cf-accent);
+}
+
+.cf-badge--live .cf-badge__dot {
+  background: var(--cf-accent);
+}
+
+.cf-badge__extra {
+  font-weight: 400;
+  color: var(--cf-muted);
+}
+
+.cf-badge--live .cf-badge__extra {
+  color: var(--cf-accent);
+}
+
+.cf .cf-models {
+  display: grid;
+  grid-template-columns: max-content minmax(0, max-content);
+  gap: 1px 12px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.cf .cf-models dt {
+  color: var(--cf-muted);
+}
+
+.cf .cf-models dd {
+  font-family: var(--cf-mono);
+  overflow-wrap: anywhere;
+}
+
+/* Demo script rail */
+.cf-script {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cf .cf-script__title {
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: 800;
+}
+
+.cf .cf-script__intro {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--cf-muted);
+  margin-top: 2px;
+}
+
+.cf .cf-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cf .cf-step {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px 11px 10px;
+  border: 1px solid var(--cf-rule);
+  border-radius: var(--cf-radius);
+  background: var(--cf-sheet);
+  transition: border-color 120ms ease;
+}
+
+.cf .cf-step:hover {
+  border-color: var(--cf-accent);
+}
+
+.cf .cf-step:disabled {
+  cursor: progress;
+  opacity: 0.6;
+  border-color: var(--cf-rule);
+}
+
+.cf-step__num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.5px solid var(--cf-rule-strong);
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--cf-muted);
+}
+
+.cf-step__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cf-step__prompt {
+  font-size: 14px;
+  line-height: 1.38;
+  font-weight: 700;
+  color: var(--cf-ink);
+}
+
+.cf-step__note {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--cf-muted);
+}
+
+.cf .cf-step.is-done {
+  background: var(--cf-page);
+}
+
+.cf .cf-step.is-done .cf-step__num {
+  background: var(--cf-accent);
+  border-color: var(--cf-accent);
+  color: var(--cf-on-accent);
+}
+
+/* Transcript */
+.cf-transcript {
+  padding: 26px 28px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.cf-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cf-user {
+  align-self: flex-end;
+  max-width: min(82%, 560px);
+}
+
+.cf .cf-user p {
+  background: var(--cf-well);
+  border-radius: 14px 14px 4px 14px;
+  padding: 10px 14px;
+  font-size: 15px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.cf .cf-user__step {
+  display: block;
+  text-align: right;
+  font-size: 12.5px;
+  color: var(--cf-muted);
+  margin-bottom: 4px;
+}
+
+.cf-reply {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 72ch;
+}
+
+.cf-answer {
+  font-size: 15.5px;
+  line-height: 1.62;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+
+.cf .cf-answer strong {
+  font-weight: 700;
+}
+
+.cf .cf-answer ul {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 1.3em;
+  list-style: disc outside;
+}
+
+.cf .cf-answer ol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 1.4em;
+  list-style: decimal outside;
+}
+
+.cf .cf-answer li {
+  display: list-item;
+  list-style: inherit;
+}
+
+.cf .cf-answer li::marker {
+  color: var(--cf-muted);
+}
+
+.cf .cf-subhead {
+  font-weight: 700;
+}
+
+/* Inline citation, filled-in value, placeholder token */
+.cf .cf-cite {
+  display: inline-block;
+  font-family: var(--cf-mono);
+  font-size: 0.74em;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--cf-accent);
+  background: var(--cf-accent-soft);
+  border-radius: 4px;
+  padding: 0 0.38em;
+  margin: 0 0.1em;
+  vertical-align: 0.12em;
+}
+
+.cf .cf-cite:hover {
+  background: var(--cf-accent-line);
+}
+
+.cf .cf-filled {
+  background: var(--cf-accent-soft);
+  color: inherit;
+  border-bottom: 2px dotted var(--cf-accent);
+  border-radius: 3px 3px 0 0;
+  padding: 0 0.15em;
+  cursor: pointer;
+}
+
+.cf .cf-token {
+  display: inline-block;
+  font-family: var(--cf-mono);
+  font-size: 0.86em;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--cf-on-accent);
+  background: var(--cf-accent);
+  border-radius: 4px;
+  padding: 0 0.4em;
+  white-space: nowrap;
+}
+
+.cf .cf-token--unknown {
+  color: var(--cf-ink);
+  background: transparent;
+  outline: 1.5px dashed var(--cf-rule-strong);
+}
+
+/* Under each answer: sources, guard line, actions */
+.cf-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.cf .cf-chips__label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--cf-muted);
+  margin-right: 2px;
+}
+
+.cf .cf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 4px 9px 4px 7px;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: 999px;
+  background: var(--cf-sheet);
+  color: var(--cf-muted);
+  white-space: nowrap;
+}
+
+.cf .cf-chip:hover {
+  border-color: var(--cf-accent);
+  color: var(--cf-ink);
+}
+
+.cf .cf-chip__id {
+  font-family: var(--cf-mono);
+  font-weight: 600;
+  color: var(--cf-ink);
+}
+
+.cf-glyph {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+  color: var(--cf-accent);
+  display: inline-block;
+  vertical-align: -1px;
+}
+
+.cf .cf-guardline {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px 10px 14px;
+  background: var(--cf-accent-soft);
+  border-radius: var(--cf-radius);
+  color: var(--cf-accent);
+  text-align: left;
+}
+
+.cf .cf-guardline svg {
+  width: 20px;
+  height: 20px;
+}
+
+.cf .cf-guardline .cf-chevron {
+  width: 16px;
+  height: 16px;
+}
+
+.cf-guardline__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cf .cf-guardline__main {
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.cf .cf-guardline__aside {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--cf-muted);
+}
+
+.cf .cf-guardline:hover .cf-guardline__main {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.cf .cf-action {
+  font-size: 12.5px;
+  line-height: 1.3;
+  padding: 4px 9px;
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-well);
+  color: var(--cf-ink);
+}
+
+.cf .cf-action--refused {
+  background: var(--cf-ink);
+  color: var(--cf-sheet);
+}
+
+.cf .cf-tag {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--cf-rule-strong);
+  color: var(--cf-muted);
+}
+
+.cf .cf-notice {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cf-muted);
+}
+
+.cf .cf-error {
+  font-size: 14.5px;
+  line-height: 1.55;
+  border-left: 3px solid var(--cf-ink);
+  padding-left: 12px;
+}
+
+/* Pending reply */
+.cf .cf-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--cf-muted);
+  font-size: 14.5px;
+}
+
+.cf-pending__dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.cf-pending__dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cf-accent);
+  animation: cf-pulse 1.1s ease-in-out infinite;
+}
+
+.cf-pending__dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.cf-pending__dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes cf-pulse {
+  0%, 80%, 100% { opacity: 0.25; }
+  40% { opacity: 1; }
+}
+
+/* Empty state: the one explanatory moment */
+.cf-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 62ch;
+  padding: 8px 0;
+}
+
+.cf .cf-empty__title {
+  font-size: 27px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.cf .cf-empty__lead {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--cf-muted);
+}
+
+.cf .cf-empty__cta {
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.cf .cf-empty__cta strong {
+  color: var(--cf-accent);
+}
+
+.cf .cf-binding {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  border: 1px solid var(--cf-rule);
+  border-radius: var(--cf-radius);
+  overflow: hidden;
+}
+
+.cf-binding__row {
+  display: contents;
+}
+
+.cf .cf-binding__who {
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 700;
+  color: var(--cf-muted);
+  background: var(--cf-well);
+}
+
+.cf .cf-binding__who small {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.cf .cf-binding__text {
+  padding: 14px 16px;
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+
+.cf .cf-binding__row + .cf-binding__row > * {
+  border-top: 1px dashed var(--cf-rule-strong);
+}
+
+/* Inspector panels */
+.cf-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cf-panel__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cf .cf-panel__title {
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: 800;
+}
+
+.cf .cf-panel__lead {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--cf-muted);
+}
+
+.cf .cf-section-title {
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 800;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cf .cf-count {
+  font-family: var(--cf-mono);
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--cf-muted);
+}
+
+.cf-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cf .cf-quote {
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 700;
+}
+
+.cf .cf-placeholder {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--cf-muted);
+  padding: 16px 18px;
+  border: 1px dashed var(--cf-rule-strong);
+  border-radius: var(--cf-radius);
+}
+
+/* Memory table */
+.cf-tablewrap {
+  border: 1px solid var(--cf-rule);
+  border-radius: var(--cf-radius);
+  overflow: hidden;
+}
+
+.cf .cf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+
+.cf .cf-table th {
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--cf-muted);
+  background: var(--cf-well);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--cf-rule);
+  white-space: nowrap;
+}
+
+.cf .cf-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--cf-rule);
+  vertical-align: top;
+}
+
+.cf .cf-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.cf .cf-table tbody tr {
+  cursor: pointer;
+}
+
+.cf .cf-table tbody tr:hover td {
+  background: var(--cf-page);
+}
+
+.cf .cf-table tbody tr.is-changed td {
+  background: var(--cf-accent-soft);
+}
+
+.cf .cf-table tbody tr.is-changed td:first-child {
+  box-shadow: inset 3px 0 0 var(--cf-accent);
+}
+
+.cf .cf-col-id {
+  font-family: var(--cf-mono);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cf .cf-col-label strong {
+  display: block;
+  font-weight: 700;
+}
+
+.cf .cf-col-label span {
+  color: var(--cf-muted);
+  font-size: 12.5px;
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cf .cf-col-label .cf-new {
+  display: inline;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--cf-accent);
+  margin-left: 6px;
+}
+
+.cf .cf-col-ver {
+  font-family: var(--cf-mono);
+  white-space: nowrap;
+}
+
+.cf-sens {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.cf .cf-status--superseded {
+  color: var(--cf-muted);
+}
+
+/* Guard panel */
+.cf-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.cf-side {
+  border: 1px solid var(--cf-rule);
+  border-radius: var(--cf-radius);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cf-side--kept {
+  border-color: var(--cf-accent-line);
+  background: var(--cf-accent-soft);
+}
+
+.cf-memlist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cf .cf-memlink {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 2px 8px;
+  width: 100%;
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.cf .cf-memlink .cf-glyph {
+  margin-top: 3px;
+}
+
+.cf .cf-memlink__label {
+  font-weight: 700;
+}
+
+.cf .cf-memlink__label code {
+  font-weight: 600;
+  margin-right: 5px;
+}
+
+.cf .cf-memlink__why {
+  grid-column: 2;
+  font-size: 12.5px;
+  color: var(--cf-muted);
+}
+
+.cf .cf-memlink:hover .cf-memlink__label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cf .cf-empty-list {
+  font-size: 13px;
+  color: var(--cf-muted);
+}
+
+.cf-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cf .cf-check {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  font-size: 13.5px;
+  line-height: 1.45;
+  padding: 10px 0;
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf .cf-check:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.cf-check__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cf .cf-check__what {
+  font-weight: 700;
+}
+
+.cf .cf-payload summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--cf-accent);
+  margin-top: 4px;
+  width: max-content;
+}
+
+.cf .cf-payload[open] summary {
+  margin-bottom: 8px;
+}
+
+.cf .cf-verdict {
+  justify-self: start;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--cf-accent-line);
+  color: var(--cf-accent);
+  white-space: nowrap;
+}
+
+.cf .cf-verdict--blocked {
+  background: var(--cf-ink);
+  border-color: var(--cf-ink);
+  color: var(--cf-sheet);
+}
+
+.cf .cf-check__reasons {
+  display: block;
+  color: var(--cf-muted);
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+
+.cf .cf-context {
+  font-family: var(--cf-mono);
+  font-size: 12.5px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--cf-well);
+  color: var(--cf-ink);
+  border: 1px solid var(--cf-rule);
+  border-radius: var(--cf-radius);
+  padding: 14px 16px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.cf .cf-ctx-cite {
+  color: var(--cf-accent);
+  font-weight: 600;
+}
+
+/* Receipts */
+.cf-slip {
+  background: var(--cf-well);
+  border: 1px solid var(--cf-rule);
+  border-radius: var(--cf-radius);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cf .cf-slip__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.cf .cf-slip__head span {
+  font-weight: 400;
+  color: var(--cf-muted);
+}
+
+.cf-leaders {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cf .cf-leaders > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.cf .cf-leaders > div::after {
+  content: "";
+  order: 1;
+  flex: 1 1 24px;
+  border-bottom: 1.5px dotted var(--cf-rule-strong);
+  transform: translateY(-4px);
+}
+
+.cf .cf-leaders dd {
+  order: 2;
+  font-family: var(--cf-mono);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cf .cf-leaders .cf-leaders__strong {
+  color: var(--cf-accent);
+  font-weight: 800;
+}
+
+.cf .cf-slip__foot {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--cf-muted);
+  border-top: 1px dashed var(--cf-rule-strong);
+  padding-top: 10px;
+}
+
+.cf .cf-calls {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--cf-rule);
+  border-radius: var(--cf-radius);
+  overflow: hidden;
+}
+
+.cf .cf-call {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.cf .cf-call + .cf-call {
+  border-top: 1px solid var(--cf-rule);
+}
+
+.cf-call__top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cf .cf-call__purpose {
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.cf .cf-call__time {
+  font-family: var(--cf-mono);
+  color: var(--cf-muted);
+}
+
+.cf .cf-call__provider {
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--cf-muted);
+}
+
+.cf .cf-call__model {
+  font-family: var(--cf-mono);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+.cf .cf-call__nums {
+  color: var(--cf-muted);
+}
+
+.cf .cf-call__hash {
+  font-family: var(--cf-mono);
+  font-size: 12px;
+  color: var(--cf-muted);
+  overflow-wrap: anywhere;
+}
+
+/* Daily brief output */
+.cf-brief {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cf-brief .cf-reply {
+  max-width: none;
+}
+
+/* Provenance dialog: created by confidant.js on <body>, outside the app. */
+.cf-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(720px, calc(100dvh - 48px));
+  padding: 0;
+  border: 1px solid var(--cf-rule-strong);
+  border-radius: var(--cf-radius-lg);
+  background: var(--cf-sheet);
+  color: var(--cf-ink);
+  font-family: var(--cf-font);
+  box-shadow: 0 24px 64px var(--cf-shadow);
+}
+
+.cf-dialog::backdrop {
+  background: rgba(10, 20, 16, 0.4);
+}
+
+.cf-dialog__body {
+  padding: 22px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  max-height: inherit;
+}
+
+.cf-dialog__body h3,
+.cf-dialog__body h4,
+.cf-dialog__body p,
+.cf-dialog__body ol,
+.cf-dialog__body li,
+.cf-dialog__body dl,
+.cf-dialog__body dt,
+.cf-dialog__body dd {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cf-dialog code {
+  font-family: var(--cf-mono);
+  font-size: 0.92em;
+}
+
+.cf-dialog__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--cf-rule);
+  background: var(--cf-sheet);
+  color: var(--cf-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cf-dialog__close:hover {
+  color: var(--cf-ink);
+  border-color: var(--cf-rule-strong);
+}
+
+.cf-dialog :focus-visible {
+  outline: 2px solid var(--cf-accent);
+  outline-offset: 2px;
+}
+
+.cf-detail__kicker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--cf-muted);
+  padding-right: 44px !important;
+}
+
+.cf-detail__kicker code {
+  font-weight: 600;
+  color: var(--cf-ink);
+}
+
+.cf-detail__title {
+  font-size: 21px;
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-top: -6px !important;
+}
+
+.cf-detail__text {
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+
+.cf-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 16px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.cf-facts dt {
+  color: var(--cf-muted);
+}
+
+.cf-facts dd {
+  overflow-wrap: anywhere;
+}
+
+.cf-facts a {
+  color: var(--cf-accent);
+}
+
+.cf-detail__section {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.cf-history {
+  display: flex;
+  flex-direction: column;
+  border-left: 2px solid var(--cf-rule);
+  margin-left: 6px !important;
+}
+
+.cf-history li {
+  position: relative;
+  padding: 0 0 14px 18px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cf-history li:last-child {
+  padding-bottom: 0 !important;
+}
+
+.cf-history li::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--cf-rule-strong);
+  background: var(--cf-sheet);
+  box-sizing: border-box;
+}
+
+.cf-history li.is-current::before {
+  border-color: var(--cf-accent);
+  background: var(--cf-accent);
+}
+
+.cf-history__meta {
+  font-size: 12.5px;
+  color: var(--cf-muted);
+}
+
+.cf-history__meta code {
+  font-weight: 600;
+  color: var(--cf-ink);
+}
+
+.cf-history li.is-cited .cf-history__text {
+  background: var(--cf-accent-soft);
+  border-radius: 4px;
+  padding: 2px 6px !important;
+  margin-left: -6px !important;
+}
+
+.cf-cited-note {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cf-accent);
+}
+
+.cf-dialog .cf-glyph {
+  color: var(--cf-accent);
+}
+
+/* 5. Screen sizes and motion (only elements inside the app root) ----------- */
+@media (min-width: 1200px) {
+  .column:has(> #cf-main) {
+    height: 100dvh;
+    min-height: 640px;
+    gap: 0 !important;
+  }
+
+  .cf-header {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 1199px) {
+  #cf-main {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "script script" "chat inspector";
+  }
+
+  #cf-chat-col,
+  #cf-inspector-col {
+    height: min(80dvh, 820px);
+  }
+
+  #cf-script-col {
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .cf .cf-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .cf .cf-step {
+    height: 100%;
+  }
+
+  .cf-button-quiet {
+    align-self: flex-start;
+    width: auto !important;
+  }
+}
+
+/* The table lists current memories only, so Status is the first column to go when space is short. */
+@media (min-width: 1200px) and (max-width: 1439px) {
+  .cf .cf-col-status {
+    display: none;
+  }
+}
+
+@media (max-width: 959px) {
+  .cf .cf-col-status {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  #cf-main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "script" "chat" "inspector";
+  }
+
+  #cf-chat-col {
+    height: auto;
+    overflow: visible;
+  }
+
+  #cf-transcript {
+    overflow: visible !important;
+  }
+
+  #cf-composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    border-radius: 0 0 var(--cf-radius-lg) var(--cf-radius-lg);
+  }
+
+  #cf-inspector-col {
+    height: auto;
+  }
+
+  #cf-tabs > .tabitem {
+    overflow: visible;
+    padding: 16px 14px 22px !important;
+  }
+
+  #cf-tabs > .tab-wrapper {
+    padding: 0 6px;
+  }
+
+  #cf-tabs [role="tablist"] button {
+    padding: 13px 8px 11px !important;
+    font-size: 14px !important;
+  }
+
+  .cf-header {
+    padding: 14px 0 16px;
+  }
+
+  .cf .cf-wordmark {
+    font-size: 23px;
+  }
+
+  .cf .cf-tagline {
+    font-size: 14px;
+  }
+
+  .cf-mark {
+    width: 36px;
+    height: 36px;
+  }
+
+  .cf-transcript {
+    padding: 20px 16px 22px;
+    gap: 26px;
+  }
+
+  .cf .cf-empty__title {
+    font-size: 23px;
+  }
+
+  .cf .cf-binding {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cf .cf-binding__who {
+    padding-bottom: 8px;
+  }
+
+  .cf .cf-binding__row + .cf-binding__row > .cf-binding__text {
+    border-top: 0;
+  }
+
+  .cf-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cf .cf-steps {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding-bottom: 6px;
+  }
+
+  .cf-steps > li {
+    flex: 0 0 228px;
+    scroll-snap-align: start;
+  }
+
+  .cf .cf-col-source {
+    display: none;
+  }
+
+  .cf-user {
+    max-width: 92%;
+  }
+
+  .cf .cf-chip__date {
+    display: none;
+  }
+
+  .cf .cf-models {
+    font-size: 11.5px;
+    gap: 0 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-pending__dots i {
+    animation: none;
+    opacity: 0.7;
+  }
+
+  .cf .cf-step {
+    transition: none;
+  }
+}

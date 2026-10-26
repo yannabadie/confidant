@@ -1,0 +1,17 @@
+{
+  "question": "Draft a birthday message for Léa.",
+  "mode": "replay",
+  "recorded_at": null,
+  "note": "Placeholder written by hand to match the seed persona; regenerate from a live run (recorded_at is null until then).",
+  "models": {
+    "reason": "nvidia/Nemotron-3-Ultra-550b-a55b",
+    "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+  },
+  "outputs": {
+    "route": {
+      "intent": "answer"
+    },
+    "answer": "Here is a draft for Saturday 14 November [m4v1]:\n\nHappy 30th, Léa. Thirty suits you: still the boldest climber I know, and the only person whose puns get worse every year. I hope this one brings you new routes, a big bunch of peonies and far too much cake. Love, Alex\n\nThe bouldering pass and peonies stay a surprise [m13v1], and the birthday dinner still needs booking by Tuesday 10 November [m14v1]."
+  },
+  "web_results": []
+}

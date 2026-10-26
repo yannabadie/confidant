@@ -1,0 +1,211 @@
+{
+  "persona": {
+    "name": "Alex Martin",
+    "role": "Product designer",
+    "city": "Lyon",
+    "note": "Synthetic demo persona. Every person, number and appointment in this file is invented."
+  },
+  "as_of": "2026-10-30",
+  "memories": [
+    {
+      "id": 1,
+      "text": "Alex Martin is a product designer living in Lyon, in the Croix-Rousse district.",
+      "kind": "fact",
+      "sensitivity": "public",
+      "label": "profile",
+      "created_at": "2026-09-01T08:00:00Z"
+    },
+    {
+      "id": 2,
+      "text": "The design team works in Figma for design files, Linear for tickets, Notion for specs and Slack for chat.",
+      "kind": "fact",
+      "sensitivity": "public",
+      "label": "team tools",
+      "created_at": "2026-09-01T08:05:00Z"
+    },
+    {
+      "id": 3,
+      "text": "Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.",
+      "kind": "event",
+      "sensitivity": "personal",
+      "label": "half marathon",
+      "created_at": "2026-09-03T19:12:00Z"
+    },
+    {
+      "id": 4,
+      "text": "Sister Léa turns 30 on Saturday 14 Nov 2026; she loves peonies, bouldering and terrible puns.",
+      "kind": "event",
+      "sensitivity": "personal",
+      "label": "sister's birthday",
+      "created_at": "2026-09-08T21:40:00Z"
+    },
+    {
+      "id": 5,
+      "text": "Meeting preferences: nothing before 10:00, 25-minute slots by default, and an agenda shared the day before.",
+      "kind": "preference",
+      "sensitivity": "personal",
+      "label": "meeting preferences",
+      "created_at": "2026-09-10T09:30:00Z"
+    },
+    {
+      "id": 6,
+      "text": "Quarterly product review on Wednesday 4 Nov 2026 at 15:00, where the design team presents the onboarding redesign.",
+      "kind": "event",
+      "sensitivity": "public",
+      "label": "quarterly product review",
+      "created_at": "2026-10-05T10:15:00Z"
+    },
+    {
+      "id": 7,
+      "text": "Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30.",
+      "kind": "event",
+      "sensitivity": "private",
+      "label": "dermatologist appointment",
+      "created_at": "2026-10-19T17:02:00Z"
+    },
+    {
+      "id": 8,
+      "text": "Weekly review, every Friday at 17:00: clear the inbox, check the calendar for the next two weeks, pick three priorities and log the week's running kilometres.",
+      "kind": "skill",
+      "sensitivity": "personal",
+      "label": "weekly review",
+      "created_at": "2026-09-12T17:30:00Z"
+    },
+    {
+      "id": 9,
+      "text": "Dinner with friends at the Lebanese place near Bellecour on Friday 6 Nov 2026 at 20:00.",
+      "kind": "event",
+      "sensitivity": "personal",
+      "label": "dinner with friends",
+      "created_at": "2026-10-22T12:48:00Z"
+    },
+    {
+      "id": 10,
+      "text": "Monthly rent is €1,180, paid on the 5th of each month.",
+      "kind": "fact",
+      "sensitivity": "private",
+      "label": "rent amount",
+      "created_at": "2026-09-02T20:10:00Z"
+    },
+    {
+      "id": 11,
+      "text": "Confidential: final-round interview for a lead designer role on Thursday 5 Nov 2026 at 11:00 (video call); not to be mentioned at work.",
+      "kind": "event",
+      "sensitivity": "private",
+      "label": "confidential job interview",
+      "created_at": "2026-10-23T22:05:00Z"
+    },
+    {
+      "id": 12,
+      "text": "Partner Sam is vegetarian, so dinner plans need a good veggie option.",
+      "kind": "fact",
+      "sensitivity": "personal",
+      "label": "partner's diet",
+      "created_at": "2026-09-05T19:00:00Z"
+    },
+    {
+      "id": 13,
+      "text": "Gift idea for Léa: a bouldering day pass and a small bunch of peonies.",
+      "kind": "fact",
+      "sensitivity": "personal",
+      "label": "gift idea",
+      "created_at": "2026-10-11T11:20:00Z"
+    },
+    {
+      "id": 14,
+      "text": "To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.",
+      "kind": "fact",
+      "sensitivity": "personal",
+      "label": "birthday dinner booking",
+      "created_at": "2026-10-24T09:45:00Z"
+    },
+    {
+      "id": 15,
+      "text": "To do: send the onboarding redesign slides to the product team before the quarterly review.",
+      "kind": "fact",
+      "sensitivity": "personal",
+      "label": "review slides",
+      "created_at": "2026-10-27T16:30:00Z"
+    },
+    {
+      "id": 16,
+      "text": "Running club track session every Tuesday at 19:00 at the Gerland stadium.",
+      "kind": "fact",
+      "sensitivity": "personal",
+      "label": "track session",
+      "created_at": "2026-09-04T07:50:00Z"
+    },
+    {
+      "id": 17,
+      "text": "Long run every Sunday morning along the Rhône quays at an easy 5:45 per km.",
+      "kind": "preference",
+      "sensitivity": "personal",
+      "label": "long run routine",
+      "created_at": "2026-09-06T08:30:00Z"
+    },
+    {
+      "id": 18,
+      "text": "Prefers trains over planes for trips under five hours and usually books a window seat.",
+      "kind": "preference",
+      "sensitivity": "personal",
+      "label": "travel preference",
+      "created_at": "2026-09-14T15:00:00Z"
+    },
+    {
+      "id": 19,
+      "text": "Usual coffee order: oat flat white, no sugar.",
+      "kind": "preference",
+      "sensitivity": "personal",
+      "label": "coffee order",
+      "created_at": "2026-09-15T08:10:00Z"
+    },
+    {
+      "id": 20,
+      "text": "Learning Italian on weekday mornings ahead of a spring 2027 trip to Turin.",
+      "kind": "fact",
+      "sensitivity": "personal",
+      "label": "language learning",
+      "created_at": "2026-09-20T07:15:00Z"
+    },
+    {
+      "id": 21,
+      "text": "Savings goal: €6,000 by June 2027 for a sabbatical month.",
+      "kind": "fact",
+      "sensitivity": "private",
+      "label": "savings goal",
+      "created_at": "2026-09-21T21:00:00Z"
+    },
+    {
+      "id": 22,
+      "text": "Design critique happens every Wednesday at 14:00 in the team's critique channel.",
+      "kind": "fact",
+      "sensitivity": "public",
+      "label": "design critique",
+      "created_at": "2026-09-01T08:10:00Z"
+    },
+    {
+      "id": 23,
+      "text": "Accessibility checklist for every screen: 4.5:1 text contrast, visible focus states, 44 px touch targets and no colour-only meaning.",
+      "kind": "skill",
+      "sensitivity": "public",
+      "label": "accessibility checklist",
+      "created_at": "2026-09-18T14:25:00Z"
+    },
+    {
+      "id": 24,
+      "text": "Race shoes: the carbon-plated pair is for race day only; daily trainers for everything else.",
+      "kind": "preference",
+      "sensitivity": "personal",
+      "label": "race shoes",
+      "created_at": "2026-10-02T18:40:00Z"
+    },
+    {
+      "id": 25,
+      "text": "Running club coach's advice for race week: keep a little intensity but cut weekly volume by about 40 percent.",
+      "kind": "fact",
+      "sensitivity": "personal",
+      "label": "taper advice",
+      "created_at": "2026-10-20T19:55:00Z"
+    }
+  ]
+}
