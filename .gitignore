@@ -3,3 +3,6 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 probe-latest.log
+.venv/
+.hermes-demo/
+*.egg-info/
