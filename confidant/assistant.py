@@ -19,9 +19,11 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Protocol
 
 from .budget import Budget
-from .guard import NEBIUS, TAVILY, Guard, GuardDecision, PreparedContext, placeholder
+from .guard import NEBIUS, PLACEHOLDER_RE, TAVILY, Guard, GuardDecision, PreparedContext, placeholder
 from .llm import ChatResult, ModelSelectionError, discover_models, estimate_cost, strip_reasoning
-from .memory import KINDS, SENSITIVITIES, Memory, MemoryStore, SecretRefused, VersionConflict, utc_timestamp
+from .memory import (
+    KINDS, SENSITIVITIES, Memory, MemoryNotFound, MemoryStore, SecretRefused, VersionConflict, utc_timestamp,
+)
 from .net import ServiceError
 from .receipts import Receipt, ReceiptLog
 from .replay import RecordedTurn, ReplayBook
@@ -29,6 +31,7 @@ from .rules import (
     INTENTS,
     Route,
     classify_kind,
+    classify_new_fact,
     classify_sensitivity,
     event_date,
     is_open_item,
@@ -37,12 +40,12 @@ from .rules import (
     memory_text_from,
     recurs_on,
     rule_route,
-    stricter,
+    stem,
     time_window,
     web_query_from,
 )
-from .scan import detect_secret, find_secrets, find_values, words
-from .search import COST_PER_SEARCH_USD, WebResult, record_results
+from .scan import STOPWORDS, detect_secret, digit_runs, find_secrets, find_values, has_value_cues, words
+from .search import COST_PER_SEARCH_USD, WebResult, record_results, search_payload
 
 REASON_MAX_TOKENS = 1024  # leaves room for a reasoning trace before the answer
 FAST_MAX_TOKENS = 256
@@ -50,6 +53,7 @@ REASON_TEMPERATURE = 0.3
 FAST_TEMPERATURE = 0.0
 MAX_CONTEXT_MEMORIES = 10
 BRIEF_HORIZON_DAYS = 7
+WITHHELD_HORIZON_DAYS = 60  # private events this far ahead are listed for any period asked, so none is dated
 BRIEF_QUESTION = "Run my daily brief."
 WEB_RESULT_COUNT = 5
 TAVILY_MODEL = "tavily-search-basic"
@@ -58,9 +62,10 @@ ANSWER_SYSTEM_PROMPT = """\
 You are Confidant, a personal assistant that answers from the user's own memories.
 Rules:
 1. Use the memories provided. Cite every memory you rely on with its tag exactly as written, for example [m12v2].
-2. Some memories are withheld for privacy and appear as placeholders such as ⟦m7⟧ with a short label. \
-Copy the placeholder verbatim where that information belongs; it is filled in on the user's device after you answer. \
-A placeholder stands for a whole sentence, so put it on its own line or after a colon.
+2. Some memories are withheld for privacy and appear as placeholders such as ⟦m7⟧ with a short label, \
+listed after the others with no date. Copy the placeholder verbatim where that information belongs; it is filled in, \
+with its date, on the user's device after you answer. A placeholder stands for a whole sentence, so put it on its \
+own line or after a colon, and do not say when it happens.
 3. Never guess, reconstruct or ask for a withheld value, and add nothing that its label does not say.
 4. If the memories hold nothing relevant, say so clearly ("Nothing in memory about that.") and offer only \
 general knowledge, labelled as such.
@@ -145,6 +150,20 @@ class GuardReport:
 
 
 @dataclass(frozen=True)
+class Outbound:
+    """One call that left (or, in replay, would leave) the device, exactly as sent: ``payload`` is the
+    messages list sent to Nemotron or the query sent to Tavily, and ``sha256`` the hash its receipt keeps.
+    Held in memory for the turn only; receipts never store the payload."""
+
+    provider: str
+    model: str
+    purpose: str
+    payload: Any
+    sha256: str
+    mode: str
+
+
+@dataclass(frozen=True)
 class Turn:
     """The result of one message.
 
@@ -165,6 +184,25 @@ class Turn:
     intent: str = "answer"
     draft: str = ""
     notice: str = ""
+    outbound: list[Outbound] = field(default_factory=list)
+
+
+def delivery_text(turn: Turn, store: MemoryStore) -> str:
+    """A turn as it may be sent off this device (Telegram, another agent): built from the draft, where every
+    withheld memory is still a placeholder, and each placeholder shown as its label, never its value."""
+    if not turn.draft.strip():
+        return "Confidant could not prepare this message."
+
+    def label(match: re.Match[str]) -> str:
+        try:
+            memory = store.get(int(match.group(1)))
+        except MemoryNotFound:
+            return "[withheld item]"
+        return f"[{memory.sensitivity}: {memory.label or 'withheld'}]"
+
+    lines = [PLACEHOLDER_RE.sub(label, turn.draft).strip(), "",
+             f"Private items stay on your device; open Confidant to see them. ({turn.guard.summary()}; {turn.mode})"]
+    return "\n".join(lines)
 
 
 @dataclass(frozen=True)
@@ -207,6 +245,31 @@ def parse_route(text: str) -> Route | None:
     )
 
 
+def masked(message: str, *, keep_kind: bool = True) -> str:
+    """``message`` with every date, time, number, e-mail address and name replaced by its kind
+    ("[date]", "[number]"…), or removed when ``keep_kind`` is False: enough for a router to choose
+    an intent, nothing of the values."""
+    spans = [(value.start, value.end, value.kind) for value in find_values(message)]
+    spans += [(start, end, "number") for start, end, _ in digit_runs(message)]
+    out, cursor = [], 0
+    for start, end, kind in sorted(spans, key=lambda span: (span[0], -span[1])):  # longest first at a start
+        if start < cursor:
+            continue
+        out += [message[cursor:start], f"[{kind}]" if keep_kind else ""]
+        cursor = end
+    out.append(message[cursor:])
+    return "".join(out)
+
+
+def _stated_text(route: Route, message: str) -> str:
+    """The text to store for a remember or correct route: the route's text when the device
+    chose the route, the user's own words when a cloud router did (it decides the intent,
+    never the content of a memory)."""
+    if route.source == "model":
+        return memory_text_from(message)
+    return route.text or memory_text_from(message)
+
+
 def parse_classification(text: str) -> tuple[str, str, str] | None:
     """``(sensitivity, kind, label)`` from the classifier's raw output, or None.
 
@@ -241,6 +304,15 @@ def _long_date(day: date) -> str:
     return f"{day:%A} {day.day} {day:%B %Y}"
 
 
+def _period(window: tuple[date, date], today: date) -> str:
+    """A period by its start and length, never its end date: "the 5 days from today",
+    "Wednesday 4 November 2026", "the 7 days from Monday 2 November 2026"."""
+    first, last = window
+    days = (last - first).days + 1
+    start = "today" if first == today else _long_date(first)
+    return start if days == 1 else f"the {days} days from {start}"
+
+
 class _Exchange:
     """Every outbound call of one turn, live or replayed, and what the turn will report."""
 
@@ -261,6 +333,7 @@ class _Exchange:
         self.tokens = 0
         self.outputs: dict[str, str] = {}
         self.web_results: list[WebResult] = []
+        self.outbound: list[Outbound] = []
 
     def complete(
         self,
@@ -272,14 +345,18 @@ class _Exchange:
         prepared: PreparedContext | None = None,
         max_tokens: int = FAST_MAX_TOKENS,
         temperature: float = FAST_TEMPERATURE,
+        header: str = "",
     ) -> str | None:
         """Ask the ``role`` model (live) or read its recorded output (replay).
 
-        The user message passes the guard first and goes out redacted. Returns
-        None when it is blocked or no output is available, so callers fall back.
+        The user message passes the guard first and goes out redacted. ``header`` is
+        text Confidant wrote from the clock and the request alone (today's date, the
+        period asked); it is sent as is, so redacting it cannot hint that a private
+        value shares its date. Returns None when the message is blocked or no output
+        is available, so callers fall back.
         """
         assistant = self.assistant
-        decision = assistant.guard.check_outbound(user, NEBIUS, assistant.store.all_current(), purpose=purpose)
+        decision = assistant.guard.check_outbound(user, NEBIUS, assistant.store.all_versions(), purpose=purpose)
         self.decisions.append(decision)
         sent = prepared.shared_ids if prepared else []
         withheld = sorted(set((prepared.withheld_ids if prepared else []) + decision.withheld_ids))
@@ -288,7 +365,8 @@ class _Exchange:
             self.notices.append(f"The guard blocked the {purpose} request, so nothing was sent.")
             return None
         self.sent_ids.update(sent)
-        messages = [{"role": "system", "content": system}, {"role": "user", "content": decision.redacted_text}]
+        content = f"{header}\n{decision.redacted_text}" if header else decision.redacted_text
+        messages = [{"role": "system", "content": system}, {"role": "user", "content": content}]
         if self.mode == "replay":
             if self.recorded is None or purpose not in self.recorded.outputs:
                 return None
@@ -322,13 +400,15 @@ class _Exchange:
         if self.mode != "replay" and assistant.search is None:
             self.notices.append("Web search is off (no TAVILY_API_KEY), so the answer uses memory only.")
             return []
-        decision = assistant.guard.check_outbound(query, TAVILY, assistant.store.all_current(), purpose="web search")
+        decision = assistant.guard.check_outbound(
+            query, TAVILY, assistant.store.all_versions(), purpose="web search", strict=True
+        )
         self.decisions.append(decision)
         self.withheld_ids.update(decision.withheld_ids)
         if not decision.allowed:
             self.notices.append("The guard blocked the web query: it would have revealed private details.")
             return []
-        payload = {"query": decision.redacted_text, "max_results": WEB_RESULT_COUNT, "search_depth": "basic"}
+        payload = search_payload(decision.redacted_text, WEB_RESULT_COUNT)
         if self.mode == "replay":
             results = list(self.recorded.web_results) if self.recorded else []
             if results:
@@ -364,13 +444,15 @@ class _Exchange:
         latency_ms: int = 0,
         cost: float = 0.0,
     ) -> None:
-        """Write one receipt for this turn's mode."""
-        self.receipts.append(self.assistant.receipts.record(
+        """Write one receipt for this turn's mode, and keep the payload with it for this turn only."""
+        receipt = self.assistant.receipts.record(
             provider=provider, model=model, purpose=purpose, payload=payload, mode=self.mode,
             prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, latency_ms=latency_ms,
             sent_memory_ids=sent, withheld_memory_ids=withheld, cost_usd_estimate=cost,
             session_id=self.session_id,
-        ))
+        )
+        self.receipts.append(receipt)
+        self.outbound.append(Outbound(provider, model, purpose, payload, receipt.payload_sha256, self.mode))
 
 
 class Assistant:
@@ -510,6 +592,7 @@ class Assistant:
             answer=self.guard.late_bind(outcome.draft, prepared), citations=cited_memories(outcome.draft, prepared),
             guard=report, actions=exchange.actions, receipts=exchange.receipts, mode=exchange.mode,
             intent=route.intent, draft=outcome.draft, notice=" ".join(exchange.notices),
+            outbound=list(exchange.outbound),
         )
 
     def _refuse(self, message: str, reason: str, session_id: str) -> Turn:
@@ -540,7 +623,12 @@ class Assistant:
             ))
             exchange.withheld_ids.update(ids)
             return rule_route(message), True
-        raw = exchange.complete("route", "fast", ROUTER_SYSTEM_PROMPT, message)
+        local = rule_route(message)
+        if local.intent != "answer" or has_value_cues(message):
+            # the rules already know, or the message may carry a date, time or amount in some form
+            # the scanners do not read: either way, no need to show it to a router
+            return local, False
+        raw = exchange.complete("route", "fast", ROUTER_SYSTEM_PROMPT, masked(message))
         route = parse_route(raw) if raw is not None else None
         if route is None:
             if raw is not None:
@@ -552,7 +640,7 @@ class Assistant:
         """Why a message must stay local: private values in it, private labels it
         names, or a private topic according to the local rules."""
         current = self.store.all_current()
-        decision = self.guard.check_outbound(message, NEBIUS, current, purpose="route")
+        decision = self.guard.check_outbound(message, NEBIUS, self.store.all_versions(), purpose="route", strict=True)
         reasons, ids = list(decision.reasons), list(decision.withheld_ids)
         for memory in current:
             named = label_mentioned(memory.label, message)
@@ -567,20 +655,17 @@ class Assistant:
 
     def _answer(self, exchange: _Exchange, message: str, route: Route, private: bool) -> _Outcome:
         """Answer from memory with the reasoning model."""
-        window = time_window(message, self.today())
-        notes = []
-        if window:
-            first, last = window
-            notes.append(
-                f"Period asked about: {_long_date(first)}"
-                + ("" if first == last else f" to {_long_date(last)}")
-                + "; every event of that period is listed below."
-            )
+        today = self.today()
+        window = time_window(message, today)
+        if window and (private or self.guard.check_outbound(message, NEBIUS, self.store.all_versions(), strict=True).withheld_ids):
+            window = None  # a period read from a private message could date a private item
+        notes = [f"Period asked about: {_period(window, today)}; every shared event of it is listed below."] if window else []
         return self._compose(exchange, "answer", message, self._retrieve(message, window), notes)
 
     def _remember(self, exchange: _Exchange, message: str, route: Route, private: bool) -> _Outcome:
-        """Store what the user stated, classified locally first (and by the fast model if not private)."""
-        text = route.text or memory_text_from(message)
+        """Store what the user stated, in the user's words when a cloud router chose this intent,
+        classified on the device."""
+        text = _stated_text(route, message)
         if not text:
             return _Outcome("Tell me what to remember, for example: Remember that I prefer aisle seats.",
                             self.guard.prepare_context([], NEBIUS))
@@ -594,18 +679,20 @@ class Assistant:
             exchange.actions.append(f"refused {exc.reason}: nothing stored")
             return _Outcome(str(exc), self.guard.prepare_context([], NEBIUS))
         exchange.actions.append(f"recorded {memory.cite()}")
+        if not self.guard.may_send(memory, NEBIUS):
+            exchange.withheld_ids.add(memory.id)
         lead = f"Saved as [{memory.cite()}] ({memory.sensitivity} {memory.kind}, “{memory.label}”): "
         return self._confirm(memory, lead)
 
     def _correct(self, exchange: _Exchange, message: str, route: Route, private: bool) -> _Outcome:
         """Add a new version of the memory the message corrects (or record it if none matches)."""
-        target = self._find_target(route.target, message)
+        target = self._find_target(route.target, message, from_model=route.source == "model")
         if target is None:
             exchange.actions.append("no existing memory matched the correction; recorded it as new")
             return self._remember(exchange, message, route, private)
         try:
             updated = self.store.correct(
-                target.id, route.text or memory_text_from(message), author="user",
+                target.id, _stated_text(route, message), author="user",
                 source_ref=exchange.session_id, expected_version=target.version,
             )
         except VersionConflict as exc:
@@ -619,11 +706,18 @@ class Assistant:
             exchange.actions.append(f"refused {exc.reason}: nothing stored")
             return _Outcome(str(exc), self.guard.prepare_context([], NEBIUS))
         exchange.actions.append(f"corrected m{updated.id} → v{updated.version}")
+        if not self.guard.may_send(updated, NEBIUS):
+            exchange.withheld_ids.add(updated.id)  # kept on the device: counted in the turn's guard summary
         return self._confirm(updated, f"Updated [{updated.cite()}] (“{updated.label}”, was v{target.version}): ")
 
     def _search(self, exchange: _Exchange, message: str, route: Route, private: bool) -> _Outcome:
-        """Search the web with a guarded query, record the results, then answer from them."""
-        results = exchange.web(route.query or web_query_from(message))
+        """Search the web with a guarded query, record the results, then answer from them.
+        The query is built from the user's words: a cloud router only saw them masked."""
+        if route.source == "model":  # the user did not ask for the web: send only words, none of the values typed
+            query = " ".join(masked(web_query_from(message), keep_kind=False).split())
+        else:
+            query = route.query or web_query_from(message)
+        results = exchange.web(query)
         found = record_results(self.store, results)
         if found:
             exchange.actions.append("recorded web sources " + ", ".join(f"{m.cite()} ({m.author})" for m in found))
@@ -636,15 +730,18 @@ class Assistant:
         if exchange.mode == "replay" and exchange.recorded is None and self.replay:
             exchange.recorded = self.replay.lookup(BRIEF_QUESTION)
         today = self.today()
-        events = self._events_between(today, today + timedelta(days=BRIEF_HORIZON_DAYS))
+        events = [
+            memory for memory in self._events_between(today, today + timedelta(days=BRIEF_HORIZON_DAYS))
+            if self.guard.may_send(memory, NEBIUS)
+        ] + self._upcoming_withheld()
         event_ids = {memory.id for memory in events}
         extras = [
             memory for memory in self.store.all_current()
             if memory.id not in event_ids and (is_open_item(memory) or recurs_on(memory, today))
         ]
         request = (
-            f"Write my daily brief for {_long_date(today)}: the events of the next {BRIEF_HORIZON_DAYS} days, "
-            "soonest first; my open to-do items; and one practical suggestion for today."
+            f"Write my daily brief: the events of the next {BRIEF_HORIZON_DAYS} days, soonest first, then the "
+            "withheld ones; my open to-do items; and one practical suggestion for today."
         )
         outcome = self._compose(exchange, "brief", request, events + extras)
         summary = self.receipts.today_summary(exchange.session_id).line()
@@ -653,17 +750,10 @@ class Assistant:
     # --- helpers ---------------------------------------------------------------
 
     def _classify(self, exchange: _Exchange, text: str, private: bool) -> tuple[str, str, str]:
-        """``(sensitivity, kind, label)``: local rules, refined by the fast model unless
-        the text is private (then nothing is sent). The model can only make it stricter."""
-        sensitivity, kind, label = classify_sensitivity(text), classify_kind(text), make_label(text)
-        if private or sensitivity == "private":
-            return "private", kind, label
-        raw = exchange.complete("classify", "fast", CLASSIFY_SYSTEM_PROMPT, text)
-        parsed = parse_classification(raw) if raw is not None else None
-        if parsed is None:
-            return sensitivity, kind, label
-        model_sensitivity, model_kind, model_label = parsed
-        return stricter(model_sensitivity, sensitivity), model_kind or kind, model_label or label
+        """``(sensitivity, kind, label)`` by the local rules only: asking a cloud model whether
+        a fact is private would show it the fact. A message judged private stays private."""
+        sensitivity = "private" if private else classify_new_fact(text)
+        return sensitivity, classify_kind(text), make_label(text, sensitivity)
 
     def _confirm(self, memory: Memory, lead: str) -> _Outcome:
         """A local confirmation draft; private values appear as their placeholder."""
@@ -673,16 +763,25 @@ class Assistant:
                             "cloud models only ever see its label.", prepared)
         return _Outcome(f"{lead}{memory.text}", prepared)
 
-    def _find_target(self, hint: str, message: str) -> Memory | None:
-        """The memory a correction refers to: one whose label the hint or message names
-        (most specific label first), else the best full-text match."""
+    def _find_target(self, hint: str, message: str, *, from_model: bool = False) -> Memory | None:
+        """The memory a correction refers to: one whose label the message (or the router's
+        hint) names, most specific label first, else a full-text match sharing at least two
+        topic words with the message. A hint from a cloud router never selects a memory it
+        may not see."""
         candidates = [memory for memory in self.store.all_current() if memory.source_type != "web"]
-        for text in (hint, message):
+        for text in (message, hint):
+            if text is hint and from_model:  # a cloud router may name only memories it is allowed to see
+                candidates = [memory for memory in candidates if self.guard.may_send(memory, NEBIUS)]
             named = [memory for memory in candidates if text and label_mentioned(memory.label, text)]
             if named:
                 return max(named, key=lambda memory: (len(words(memory.label)), -memory.id))
-        hits = [memory for memory in self.store.search(hint or message, limit=3) if memory.source_type != "web"]
-        return hits[0] if hits else None
+        allowed = {memory.id for memory in candidates}
+        topic = {stem(word) for word in words(message) if len(word) > 2 and word not in STOPWORDS}
+        for memory in self.store.search(message, limit=3):
+            shared = topic & {stem(word) for word in words(memory.text)}
+            if memory.id in allowed and len(shared) >= 2:  # one common word ("flat") is not enough to overwrite
+                return memory
+        return None
 
     def _events_between(self, first: date, last: date) -> list[Memory]:
         """Current event memories dated within [first, last], soonest first."""
@@ -692,24 +791,47 @@ class Assistant:
         return [memory for _, memory in sorted(within, key=lambda pair: (pair[0], pair[1].id))]
 
     def _retrieve(self, message: str, window: tuple[date, date] | None) -> list[Memory]:
-        """Events in the asked period (if any), then the best full-text matches."""
-        found = {memory.id: memory for memory in (self._events_between(*window) if window else [])}
+        """For a period: its shared events, then every upcoming withheld event whatever the
+        period (so the list dates none of them); then the best full-text matches."""
+        found: dict[int, Memory] = {}
+        if window:
+            for memory in self._events_between(*window):
+                if self.guard.may_send(memory, NEBIUS):
+                    found[memory.id] = memory
+            for memory in self._upcoming_withheld():
+                found.setdefault(memory.id, memory)
         for memory in self.store.search(message, limit=8):
             found.setdefault(memory.id, memory)
         return list(found.values())[:MAX_CONTEXT_MEMORIES]
+
+    def _upcoming_withheld(self) -> list[Memory]:
+        """Current events the reasoning model may not see, from today to WITHHELD_HORIZON_DAYS
+        ahead, by id."""
+        today = self.today()
+        horizon = today + timedelta(days=WITHHELD_HORIZON_DAYS)
+        return [
+            memory for memory in self.store.all_current()
+            if memory.kind == "event" and not self.guard.may_send(memory, NEBIUS)
+            and (day := event_date(memory, today)) is not None and today <= day <= horizon
+        ]
 
     def _compose(
         self, exchange: _Exchange, purpose: str, request: str, memories: list[Memory], notes: Sequence[str] = ()
     ) -> _Outcome:
         """Prepare the guarded context, ask the reasoning model, fall back to a local list."""
         prepared = self.guard.prepare_context(memories, NEBIUS)
+        typed = self.guard.check_outbound(request, NEBIUS, self.store.all_versions(), purpose=purpose, strict=True)
+        if typed.withheld_ids or typed.reasons:  # what the user typed: no shared-value exemption
+            exchange.decisions.append(typed)
+            exchange.withheld_ids.update(typed.withheld_ids)
+            request = typed.redacted_text
+        header = "\n".join([f"Today is {_long_date(self.today())}.", *notes])
         prompt = "\n".join([
-            f"Today is {_long_date(self.today())}.", *notes, "",
-            "Memories:", prepared.context_text or "(none relevant)", "", f"Request: {request}",
+            "", "Memories:", prepared.context_text or "(none relevant)", "", f"Request: {request}",
         ])
         raw = exchange.complete(
             purpose, "reason", ANSWER_SYSTEM_PROMPT, prompt, prepared=prepared,
-            max_tokens=REASON_MAX_TOKENS, temperature=REASON_TEMPERATURE,
+            max_tokens=REASON_MAX_TOKENS, temperature=REASON_TEMPERATURE, header=header,
         )
         return _Outcome(raw if raw is not None else self._fallback(exchange, prepared, memories), prepared)
 

@@ -2,3 +2,5 @@
 # Keep gradio in sync with sdk_version in SPACE_README.md.
 gradio==5.49.1
 httpx==0.28.1
+babel==2.18.0
+num2words==0.5.14

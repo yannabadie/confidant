@@ -303,6 +303,16 @@ class MemoryStore:
             ).fetchall()
         return [_to_memory(row) for row in rows]
 
+    def all_versions(self) -> list[Memory]:
+        """Every version of every memory (current, superseded and retracted), by id and version.
+
+        The guard protects old versions too: correcting a private memory must not make
+        its previous value shareable.
+        """
+        with self._lock:
+            rows = self._db.execute("SELECT * FROM memories ORDER BY id, version").fetchall()
+        return [_to_memory(row) for row in rows]
+
     def as_of(self) -> date | None:
         """Snapshot date of the loaded seed persona, or None if no seed set one."""
         with self._lock:

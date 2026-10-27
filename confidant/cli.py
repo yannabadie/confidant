@@ -7,19 +7,18 @@ recordings when there are any, and from local memory otherwise.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import TextIO
 
-from .assistant import Assistant, Turn
+from .assistant import Assistant, Turn, delivery_text
 from .budget import Budget
 from .config import DEMO_PERSONA, REPLAY_DIR, env
-from .guard import PLACEHOLDER_RE, Guard
+from .guard import Guard
 from .llm import DEFAULT_BASE_URL, TokenFactory
 from .mcp_server import MCPServer
-from .memory import MemoryNotFound, MemoryStore
+from .memory import MemoryStore
 from .receipts import ReceiptLog
 from .replay import ReplayBook
 from .search import Tavily
@@ -125,24 +124,6 @@ def _chat(args: argparse.Namespace) -> int:
         recorder.save(args.record)
         print(f"Saved {len(recorder)} recorded turns to {args.record}.", file=sys.stderr)
     return 0
-
-
-def delivery_text(turn: Turn, store: MemoryStore) -> str:
-    """A turn as it may be sent off this device: built from the draft, where every withheld
-    memory is still a placeholder, and each placeholder shown as its label, never its value."""
-    if not turn.draft.strip():
-        return "Confidant could not prepare this message."
-
-    def label(match: re.Match[str]) -> str:
-        try:
-            memory = store.get(int(match.group(1)))
-        except MemoryNotFound:
-            return "[withheld item]"
-        return f"[{memory.sensitivity}: {memory.label or 'withheld'}]"
-
-    lines = [PLACEHOLDER_RE.sub(label, turn.draft).strip(), "",
-             f"Private items stay on your device; open Confidant to see them. ({turn.guard.summary()}; {turn.mode})"]
-    return "\n".join(lines)
 
 
 def _brief(args: argparse.Namespace) -> int:

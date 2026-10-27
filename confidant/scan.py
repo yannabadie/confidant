@@ -4,8 +4,13 @@
   the Luhn check, IBANs, API keys and tokens) so they are never stored or sent.
 * :func:`find_values` extracts the distinctive values of a text (dates, times,
   numbers, e-mail addresses and capitalised names) under normalised keys, so a
-  value is recognised however it is written: "1,180" and "1180", "3 Nov" and
-  "November 3rd", "Léa" and "lea".
+  value is recognised in the forms these scanners read: "1,180", "1 180,00 €",
+  "€1,180.00" and "one thousand one hundred and eighty"; "3 Nov", "November the
+  3rd", "3 novembre" and "3/11"; "10:30", "10h30", "10.30" and "half past ten";
+  "Léa" and "lea". Format characters (zero-width spaces, soft hyphens) are
+  ignored and full-width digits read as ASCII before matching. Forms these
+  scanners do not read are covered, for protected values only, by
+  :mod:`confidant.forms`, which writes each value out ahead of time.
 * :func:`fold` lower-cases, strips accents and collapses whitespace while keeping
   a map back to the original characters.
 
@@ -17,7 +22,7 @@ import calendar
 import re
 import unicodedata
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 
 MONTHS: dict[str, int] = {
@@ -26,9 +31,66 @@ MONTHS: dict[str, int] = {
     "august": 8, "aug": 8, "september": 9, "sept": 9, "sep": 9,
     "october": 10, "oct": 10, "november": 11, "nov": 11, "december": 12, "dec": 12,
 }
+# Month names in French, Spanish, Italian and German, with and without accents. They
+# only count as dates next to a day number, so "mars" or "mai" alone is never a date.
+FOREIGN_MONTHS: dict[str, int] = {
+    "janvier": 1, "janv": 1, "février": 2, "fevrier": 2, "févr": 2, "fevr": 2, "mars": 3, "avril": 4,
+    "avr": 4, "mai": 5, "juin": 6, "juillet": 7, "juil": 7, "août": 8, "aout": 8, "septembre": 9,
+    "octobre": 10, "novembre": 11, "décembre": 12, "decembre": 12, "déc": 12,
+    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6, "julio": 7, "agosto": 8,
+    "septiembre": 9, "setiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
+    "gennaio": 1, "febbraio": 2, "aprile": 4, "maggio": 5, "giugno": 6, "luglio": 7, "settembre": 9,
+    "ottobre": 10, "dicembre": 12,
+    "januar": 1, "februar": 2, "märz": 3, "maerz": 3, "marz": 3, "juni": 6, "juli": 7, "oktober": 10,
+    "dezember": 12,
+}
 WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 _WEEKDAY_SHORT = ("mon", "tue", "tues", "wed", "thu", "thur", "thurs", "fri", "sat", "sun")
-CALENDAR_WORDS = frozenset(MONTHS) | frozenset(WEEKDAYS) | frozenset(_WEEKDAY_SHORT)
+_FOREIGN_WEEKDAYS = ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")
+CALENDAR_WORDS = (
+    frozenset(MONTHS) | frozenset(FOREIGN_MONTHS) | frozenset(WEEKDAYS) | frozenset(_WEEKDAY_SHORT)
+    | frozenset(_FOREIGN_WEEKDAYS)
+)
+_ALL_MONTHS = {**FOREIGN_MONTHS, **MONTHS}
+
+
+def _day_words() -> dict[str, int]:
+    """Days of the month written in words, in English and French ("third", "twenty-first",
+    "trois", "vingt et un"), with the first twelve ordinals in German and Spanish."""
+    units = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+    nth = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"]
+    teens = ["ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+             "nineteen"]
+    teens_nth = ["tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth",
+                 "seventeenth", "eighteenth", "nineteenth"]
+    words: dict[str, int] = {}
+    for i, (card, ordi) in enumerate(zip(units, nth), 1):
+        words[card], words[ordi] = i, i
+    for i, (card, ordi) in enumerate(zip(teens, teens_nth), 10):
+        words[card], words[ordi] = i, i
+    words.update(twenty=20, twentieth=20, thirty=30, thirtieth=30)
+    for i, (card, ordi) in enumerate(zip(units, nth), 1):
+        for sep in ("-", " "):
+            words[f"twenty{sep}{card}"] = words[f"twenty{sep}{ordi}"] = 20 + i
+    for sep in ("-", " "):
+        words[f"thirty{sep}one"] = words[f"thirty{sep}first"] = 31
+    fr = ["premier", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze",
+          "treize", "quatorze", "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf", "vingt"]
+    words.update({word: i for i, word in enumerate(fr, 1)})
+    for i, unit in enumerate(["deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf"], 2):
+        words[f"vingt-{unit}"] = 20 + i
+    words.update({"vingt et un": 21, "vingt-et-un": 21, "trente": 30, "trente et un": 31, "trente-et-un": 31,
+                  "1er": 1})
+    de = ["erste", "zweite", "dritte", "vierte", "fünfte", "sechste", "siebte", "achte", "neunte", "zehnte",
+          "elfte", "zwölfte"]
+    for i, word in enumerate(de, 1):
+        words[word] = words[word + "n"] = words[word + "r"] = words[word + "s"] = i
+    es = ["primero", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce"]
+    words.update({word: i for i, word in enumerate(es, 1)})
+    return words
+
+
+DAY_WORDS = _day_words()
 
 STOPWORDS = frozenset(
     """
@@ -74,6 +136,33 @@ def words(text: str) -> list[str]:
     return re.findall(r"[^\W_]+(?:-[^\W_]+)*", fold(text)[0])
 
 
+class _Normal:
+    """``text`` as the scanners read it: format characters (zero-width spaces and
+    joiners, soft hyphens) removed, NFKC applied per character (full-width digits
+    and letters become ASCII, no-break and thin spaces become spaces) and every
+    Unicode decimal digit written as an ASCII digit. :meth:`span` maps a match
+    back to the original text."""
+
+    def __init__(self, text: str) -> None:
+        chars: list[str] = []
+        self.origin: list[int] = []
+        for index, char in enumerate(text):
+            if unicodedata.category(char) == "Cf":
+                continue
+            for piece in unicodedata.normalize("NFKC", char):
+                digit = unicodedata.decimal(piece, None)
+                chars.append(str(digit) if digit is not None else piece)
+                self.origin.append(index)
+        self.text = "".join(chars)
+        self.identity = self.text == text
+
+    def span(self, start: int, end: int) -> tuple[int, int]:
+        """The original-text span of the normalised span [start, end)."""
+        if self.identity:
+            return start, end
+        return self.origin[start], self.origin[end - 1] + 1
+
+
 # --- dates -----------------------------------------------------------------
 
 def _alternation(options: Iterable[str]) -> str:
@@ -81,21 +170,36 @@ def _alternation(options: Iterable[str]) -> str:
     return "|".join(sorted(options, key=len, reverse=True))
 
 
-_MONTH = _alternation(MONTHS)
-_WEEKDAY_PREFIX = rf"(?:(?:{_alternation(WEEKDAYS + _WEEKDAY_SHORT)})\.?,?\s+(?:the\s+)?)?"
-_ORDINAL = r"(?:st|nd|rd|th)?"
+_MONTH = _alternation(_ALL_MONTHS)
+_WEEKDAY_PREFIX = (
+    rf"(?:(?:{_alternation(WEEKDAYS + _WEEKDAY_SHORT + _FOREIGN_WEEKDAYS)})\.?,?\s+(?:the\s+|le\s+)?)?"
+)
+_ORDINAL = r"(?:st|nd|rd|th|er|ère|ere|ème|eme|e|º|°)?"
 _YEAR = r"(?:,?\s+(?P<year>\d{4}))?"
 _DATE_PATTERNS = (
-    re.compile(r"\b(?P<year>\d{4})-(?P<month>\d{1,2})-(?P<day>\d{1,2})\b"),
+    re.compile(r"\b(?P<year>\d{4})(?P<sep>[-/.])(?P<month>\d{1,2})(?P=sep)(?P<day>\d{1,2})\b"),
     re.compile(
-        rf"\b{_WEEKDAY_PREFIX}(?P<day>\d{{1,2}}){_ORDINAL}\s+(?:of\s+)?(?P<month>{_MONTH})\.?{_YEAR}\b",
+        rf"\b{_WEEKDAY_PREFIX}(?P<day>\d{{1,2}}){_ORDINAL}\.?\s+(?:of\s+|de\s+)?(?P<month>{_MONTH})\.?{_YEAR}(?!\w)",
         re.IGNORECASE,
     ),
     re.compile(
-        rf"\b{_WEEKDAY_PREFIX}(?P<month>{_MONTH})\.?\s+(?P<day>\d{{1,2}}){_ORDINAL}{_YEAR}\b",
+        rf"\b{_WEEKDAY_PREFIX}(?P<month>{_MONTH})\.?\s+(?:the\s+)?(?P<day>\d{{1,2}}){_ORDINAL}{_YEAR}\b",
         re.IGNORECASE,
     ),
     re.compile(r"\b(?P<day>\d{1,2})/(?P<month>\d{1,2})/(?P<year>\d{4})\b"),
+)
+_DAY_WORD = _alternation(DAY_WORDS)
+_WORD_DATE_PATTERNS = (
+    re.compile(rf"\b{_WEEKDAY_PREFIX}(?:the\s+|le\s+|el\s+|am\s+)?(?P<dayword>{_DAY_WORD})(?:\s+of|\s+de)?\s+"
+               rf"(?P<month>{_MONTH})\.?{_YEAR}(?!\w)", re.IGNORECASE),
+    re.compile(rf"\b{_WEEKDAY_PREFIX}(?P<month>{_MONTH})\.?\s+(?:the\s+)?(?P<dayword>{_DAY_WORD}){_YEAR}(?!\w)",
+               re.IGNORECASE),
+)
+# Only for value keys (the guard), not for reading periods: a day and month with no year
+# ("3/11", "3.11."), read both ways after a slash since "3/11" may be written either way.
+_SHORT_NUMERIC_DATE = re.compile(
+    r"(?<![\d/.:,-])(?P<first>\d{1,2})(?P<sep>[/.-])(?P<second>\d{1,2})(?:(?P=sep)(?P<year>\d{2}|\d{4}))?"
+    r"(?![\d/]|[.,]\d)"
 )
 
 
@@ -134,22 +238,29 @@ def _spans_overlap(spans: Iterable[DateMatch | Value | Secret], start: int, end:
 
 
 def find_dates(text: str) -> list[DateMatch]:
-    """Dates written as ISO (2026-11-03), day-month ("Tue 3 Nov 2026", "3rd of November"),
-    month-day ("November 3rd, 2026") or day/month/year ("03/11/2026"), in text order."""
+    """Dates written as ISO (2026-11-03), day-month ("Tue 3 Nov 2026", "3rd of November",
+    "mardi 3 novembre"), month-day ("November 3rd, 2026", "November the 3rd") or
+    day/month/year ("03/11/2026"), in text order. Month names are read in English,
+    French, Spanish, Italian and German; spans refer to the original text."""
+    normal = _Normal(text)
     found: list[DateMatch] = []
-    for pattern in _DATE_PATTERNS:
-        for match in pattern.finditer(text):
+    for pattern in (*_DATE_PATTERNS, *_WORD_DATE_PATTERNS):
+        for match in pattern.finditer(normal.text):
             parsed = _parse_date(match)
-            if parsed is not None and not _spans_overlap(found, parsed.start, parsed.end):
-                found.append(parsed)
+            if parsed is None:
+                continue
+            start, end = normal.span(parsed.start, parsed.end)
+            if not _spans_overlap(found, start, end):
+                found.append(replace(parsed, start=start, end=end))
     return sorted(found, key=lambda item: item.start)
 
 
 def _parse_date(match: re.Match[str]) -> DateMatch | None:
     """Turn a date regex match into a DateMatch, or None if it is not a real date."""
     month_text = match.group("month")
-    month = int(month_text) if month_text.isdigit() else MONTHS[month_text.lower()]
-    day = int(match.group("day"))
+    month = int(month_text) if month_text.isdigit() else _ALL_MONTHS[month_text.lower()]
+    groups = match.groupdict()
+    day = int(groups["day"]) if groups.get("day") else DAY_WORDS[re.sub(r"\s+", " ", groups["dayword"].lower())]
     year_text = match.groupdict().get("year")
     year = int(year_text) if year_text else None
     if not 1 <= month <= 12 or not 1 <= day <= calendar.monthrange(year or 2024, month)[1]:
@@ -159,9 +270,43 @@ def _parse_date(match: re.Match[str]) -> DateMatch | None:
 
 # --- values ----------------------------------------------------------------
 
-_TIME_24 = re.compile(r"(?<![\d:.,])(?P<hour>[01]?\d|2[0-3])[:h](?P<minute>[0-5]\d)(?![\d:])", re.I)
+_TIME_24 = re.compile(
+    r"(?<![\d:.,])(?P<hour>[01]?\d|2[0-3]) ?[:h] ?(?P<minute>[0-5]\d)(?::[0-5]\d(?:\.\d+)?)?(?![\d:])", re.I
+)
+_HRS = re.compile(r"(?<![\d:.,])(?P<hour>[01]?\d|2[0-3]) ?(?:hrs?|hours?) ?(?P<minute>[0-5]\d)(?!\d)", re.I)
 _TIME_12 = re.compile(
     r"(?<![\d:.,])(?P<hour>1[0-2]|0?[1-9])(?::(?P<minute>[0-5]\d))?\s?(?P<half>[ap])\.?m\b\.?", re.I
+)
+_UNIT = r"(?:€|\$|£|%|(?:eur|euros?|usd|dollars?|gbp|pounds?|k)\b)"
+_TIME_DOT = re.compile(rf"(?<![\d:.,])(?P<hour>[01]?\d|2[0-3])\.(?P<minute>[0-5]\d)(?![\d.,:])(?!\s?{_UNIT})", re.I)
+_HOUR_ONLY = re.compile(
+    r"(?<![\d:.,])(?P<hour>[01]?\d|2[0-3]) ?(?:h|heures?)(?:\s+(?P<part>et demie|et quart|moins le quart))?(?!\w)",
+    re.I,
+)
+_OCLOCK = re.compile(r"(?<![\d:.,])(?P<hour>1[0-2]|0?[1-9]) ?o['’]? ?clock\b", re.I)
+_UHR = re.compile(r"(?<![\d:.,])(?P<hour>[01]?\d|2[0-3]) ?Uhr(?: (?P<minute>[0-5]\d))?(?!\w)", re.I)
+_EN_HOURS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+    "ten": 10, "eleven": 11, "twelve": 12, "noon": 12, "midday": 12, "midnight": 0,
+}
+_FR_HOURS = {
+    "une": 1, "un": 1, "deux": 2, "trois": 3, "quatre": 4, "cinq": 5, "six": 6, "sept": 7, "huit": 8,
+    "neuf": 9, "dix": 10, "onze": 11, "douze": 12, "treize": 13, "quatorze": 14, "quinze": 15,
+    "seize": 16, "dix-sept": 17, "dix-huit": 18, "dix-neuf": 19, "vingt": 20, "vingt et une": 21,
+    "vingt-deux": 22, "vingt-trois": 23, "midi": 12, "minuit": 0,
+}
+_EN_MINUTES = {"o'clock": 0, "o’clock": 0, "oclock": 0, "fifteen": 15, "thirty": 30, "forty-five": 45,
+               "forty five": 45, "twenty": 20, "forty": 40, "fifty": 50}
+_FR_MINUTES = {"et demie": 30, "et quart": 15, "trente": 30, "quinze": 15, "quarante-cinq": 45,
+               "quarante cinq": 45, "vingt": 20, "dix": 10, "moins le quart": -15}
+_EN_HOUR = _alternation(_EN_HOURS)
+_FR_HOUR = _alternation(_FR_HOURS)
+_WORD_TIMES = (
+    (re.compile(rf"\bhalf past (?P<hour>{_EN_HOUR})\b", re.I), 30),
+    (re.compile(rf"\b(?:a )?quarter past (?P<hour>{_EN_HOUR})\b", re.I), 15),
+    (re.compile(rf"\b(?:a )?quarter to (?P<hour>{_EN_HOUR})\b", re.I), -15),
+    (re.compile(rf"\b(?P<hour>{_EN_HOUR})[ -](?P<minute>{_alternation(_EN_MINUTES)})(?!\w)", re.I), None),
+    (re.compile(rf"\b(?P<hour>{_FR_HOUR}) heures?(?: (?P<minute>{_alternation(_FR_MINUTES)}))?(?!\w)", re.I), None),
 )
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _NUMBER = re.compile(r"(?<![\w.,])[€$£]?\+?\d(?:[\d   ,.'’-]*\d)?(?!\w)")
@@ -194,36 +339,221 @@ class Value:
 
 
 def find_values(text: str) -> list[Value]:
-    """Dates, times, e-mail addresses, numbers (three digits or more, years excluded)
-    and capitalised names that do not start a sentence, in text order."""
+    """Dates, times, e-mail addresses, amounts and other numbers (three digits or more,
+    years excluded) and capitalised names that do not start a sentence, in text order.
+
+    A span that can be read several ways ("3/11", "10.30", "half past ten") carries one
+    value per reading, so the guard catches a private value whichever was meant.
+    """
+    normal = _Normal(text)
+    norm = normal.text
     values = [
         Value("date", f"date:{found.month:02d}-{found.day:02d}", found.start, found.end)
         for found in find_dates(text)
     ]
 
-    def add(kind: str, key: str, start: int, end: int) -> None:
-        """Keep a value unless an earlier, more specific one already covers its span."""
-        if not _spans_overlap(values, start, end):
-            values.append(Value(kind, key, start, end))
+    def add(kind: str, keys: Iterable[str], start: int, end: int, *, alongside: bool = False) -> None:
+        """Keep the readings of a (normalised) span unless an earlier, more specific value
+        overlaps it; with ``alongside``, also add them next to earlier values of exactly that span."""
+        start, end = normal.span(start, end)
+        overlapping = [value for value in values if value.start < end and start < value.end]
+        if overlapping and not (alongside and all((v.start, v.end) == (start, end) for v in overlapping)):
+            return
+        known = {value.key for value in overlapping}
+        values.extend(Value(kind, key, start, end) for key in dict.fromkeys(keys) if key not in known)
 
-    for match in _TIME_12.finditer(text):  # before 24-hour times, so "2:15 pm" is 14:15
+    for match in _SHORT_NUMERIC_DATE.finditer(norm):  # "3/11", "03/11/2026" read both ways
+        first, second = int(match["first"]), int(match["second"])
+        readings = [(second, first)] + ([(first, second)] if match["sep"] in "/-" else [])
+        keys = [f"date:{month:02d}-{day:02d}" for month, day in readings if _real_day(month, day)]
+        if keys:
+            add("date", keys, *match.span(), alongside=True)
+    for match in _TIME_12.finditer(norm):  # before 24-hour times, so "2:15 pm" is 14:15
         hour = int(match["hour"]) % 12 + (12 if match["half"].lower() == "p" else 0)
-        add("time", f"time:{hour:02d}:{match['minute'] or '00'}", *match.span())
-    for match in _TIME_24.finditer(text):
-        add("time", f"time:{int(match['hour']):02d}:{match['minute']}", *match.span())
-    for match in _EMAIL.finditer(text):
-        add("email", f"email:{match.group().lower()}", *match.span())
-    for match in _NUMBER.finditer(text):
+        add("time", [f"time:{hour:02d}:{match['minute'] or '00'}"], *match.span())
+    for match in _TIME_24.finditer(norm):
+        add("time", [f"time:{int(match['hour']):02d}:{match['minute']}"], *match.span())
+    for match in _HRS.finditer(norm):  # "10 hrs 30"
+        add("time", [f"time:{int(match['hour']):02d}:{match['minute']}"], *match.span())
+    for match in _TIME_DOT.finditer(norm):  # "10.30": a time, and also a short date if it reads as one
+        add("time", [f"time:{int(match['hour']):02d}:{match['minute']}"], *match.span(), alongside=True)
+    for match in _HOUR_ONLY.finditer(norm):  # "11h", "11 heures", "10 h et demie"
+        hour, minute = int(match["hour"]), _FR_MINUTES.get((match["part"] or "").lower(), 0)
+        add("time", [_clock(hour, minute)], *match.span())
+    for match in _OCLOCK.finditer(norm):
+        hour = int(match["hour"])
+        add("time", [_clock(hour, 0), _clock(hour + 12, 0)], *match.span())
+    for match in _UHR.finditer(norm):  # "10 Uhr 30", "11 Uhr"
+        add("time", [_clock(int(match["hour"]), int(match["minute"] or 0))], *match.span())
+    for pattern, minute in _WORD_TIMES:
+        for match in pattern.finditer(norm):
+            hour_word = match["hour"].lower()
+            hour = _EN_HOURS.get(hour_word, _FR_HOURS.get(hour_word, 0))
+            spoken = (match.groupdict().get("minute") or "").lower()
+            minutes = minute if minute is not None else _EN_MINUTES.get(spoken, _FR_MINUTES.get(spoken, 0))
+            keys = [_clock(hour, minutes)] + ([_clock(hour + 12, minutes)] if hour < 12 else [])
+            add("time", keys, *match.span())
+    for match in _EMAIL.finditer(norm):
+        add("email", [f"email:{match.group().lower()}"], *match.span())
+    for match in _THOUSANDS.finditer(norm):  # "1.18k", "6k"
+        amount = round(float(match["amount"].replace(",", ".")) * 1000)
+        if amount >= 100:
+            add("number", [f"number:{amount}"], *match.span())
+    for match in _NUMBER.finditer(norm):
         raw = match.group()
-        digits = re.sub(r"\D", "", raw)
+        key = _number_key(raw)
         is_year = raw.isdigit() and len(raw) == 4 and 1900 <= int(raw) <= 2100
-        if len(digits) >= 3 and not is_year:
-            add("number", f"number:{digits}", *match.span())
-    for match in _WORD.finditer(text):
-        name = _name_at(text, match)
+        if key is not None and not is_year:
+            whole = key.split(".")[0]  # "1,180.50" is also read as 1180, close enough to give a private 1,180 away
+            add("number", [f"number:{key}"] + ([f"number:{whole}"] if "." in key and len(whole) >= 3 else []),
+                *match.span())
+    for start, end, amount in _number_words(norm):
+        if amount >= 100 and not 1900 <= amount <= 2100:
+            add("number", [f"number:{amount}"], start, end)
+    for match in _WORD.finditer(norm):
+        name = _name_at(norm, match)
         if name:
-            add("name", f"name:{fold(name)[0]}", match.start(), match.start() + len(name))
-    return sorted(values, key=lambda value: value.start)
+            add("name", [f"name:{fold(name)[0]}"], match.start(), match.start() + len(name))
+    return sorted(values, key=lambda value: (value.start, value.key))
+
+
+def _real_day(month: int, day: int) -> bool:
+    """True when ``day`` exists in ``month`` (29 February counts)."""
+    return 1 <= month <= 12 and 1 <= day <= calendar.monthrange(2024, month)[1]
+
+
+def _clock(hour: int, minute: int) -> str:
+    """The time key of ``hour``:``minute``, wrapping negative minutes ("quarter to") to the hour before."""
+    if minute < 0:
+        hour, minute = hour - 1, 60 + minute
+    return f"time:{hour % 24:02d}:{minute:02d}"
+
+
+_AMOUNT = re.compile(r"(?P<whole>\d{1,3}(?:(?P<sep>[ ,.'’])\d{3})+|\d+)(?:(?P<point>[.,])(?P<cents>\d{1,2}))?")
+_THOUSANDS = re.compile(r"(?<![\w.,])(?P<amount>\d{1,3}(?:[.,]\d{1,2})?) ?k(?!\w)", re.I)
+
+
+def _number_key(raw: str) -> str | None:
+    """The key of a number as written: an amount ("1 180,00 €", "€1,180.00", "1.180") is
+    keyed by its value, with cents only when they are not zero ("11,80" → "11.80");
+    anything else (a phone number, "06 12 34 56 78") by all its digits. None when it
+    has fewer than three digits."""
+    body = raw.lstrip("€$£+").strip()
+    match = _AMOUNT.fullmatch(body)
+    if match and not (match["sep"] and match["point"] and match["sep"] == match["point"]):
+        whole = re.sub(r"\D", "", match["whole"])
+        cents = (match["cents"] or "").ljust(2, "0") if match["cents"] else ""
+        if len(whole + cents.rstrip("0")) < 3 and len(whole) < 3:
+            return None
+        return f"{int(whole)}.{cents}" if cents and int(cents) else str(int(whole))
+    digits = re.sub(r"\D", "", raw)
+    return digits if len(digits) >= 3 else None
+
+
+_EN_NUMBERS = {
+    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
+    "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+    "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20, "thirty": 30,
+    "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+}
+_FR_NUMBERS = {
+    "un": 1, "une": 1, "deux": 2, "trois": 3, "quatre": 4, "cinq": 5, "six": 6, "sept": 7, "huit": 8,
+    "neuf": 9, "dix": 10, "onze": 11, "douze": 12, "treize": 13, "quatorze": 14, "quinze": 15,
+    "seize": 16, "vingt": 20, "vingts": 20, "trente": 30, "quarante": 40, "cinquante": 50,
+    "soixante": 60, "quatre-vingt": 80, "quatre-vingts": 80,
+}
+_HUNDREDS = {"hundred": 100, "cent": 100, "cents": 100}
+_SCALES = {"thousand": 1000, "mille": 1000, "million": 1_000_000, "millions": 1_000_000}
+_NUMBER_WORD = _alternation([*_EN_NUMBERS, *_FR_NUMBERS, *_HUNDREDS, *_SCALES])
+_NUMBER_RUN = re.compile(
+    rf"\b(?:{_NUMBER_WORD})(?:(?:[ -]|[ -]?(?:and|et)[ -])(?:{_NUMBER_WORD}))*\b", re.I
+)
+
+
+def _number_words(text: str) -> list[tuple[int, int, int]]:
+    """Numbers written in English or French words, as (start, end, value): "one thousand
+    one hundred and eighty", "eleven hundred and eighty", "mille cent quatre-vingts"."""
+    found = []
+    for match in _NUMBER_RUN.finditer(text):
+        phrase = re.sub(r"quatre-vingts?", "quatre-vingt", match.group().lower())
+        tokens = [token for token in re.split(r"[ -]+", phrase.replace("quatre-vingt", "quatre_vingt"))
+                  if token not in ("and", "et")]
+        total = current = 0
+        for token in tokens:
+            token = token.replace("quatre_vingt", "quatre-vingt")
+            if token in _HUNDREDS:
+                current = (current or 1) * 100
+            elif token in _SCALES:
+                total += (current or 1) * _SCALES[token]
+                current = 0
+            else:
+                current += _EN_NUMBERS.get(token, _FR_NUMBERS.get(token, 0))
+        found.append((match.start(), match.end(), total + current))
+    return found
+
+
+_CUE_WORDS = (frozenset(fold(word)[0] for word in [*CALENDAR_WORDS, *DAY_WORDS]) | frozenset(
+    ["noon", "midday", "midnight", "midi", "minuit", "hundred", "thousand", "million", "cent", "mille", "o'clock",
+     "oclock", "uhr"]))
+
+
+def has_value_cues(text: str) -> bool:
+    """True when ``text`` holds anything that may be a date, a time or an amount, however it is
+    written: a digit, a month or weekday name, a day or number word. Broader than find_values
+    on purpose: used to keep such messages away from a cloud router."""
+    normal = _Normal(text).text
+    if re.search(r"\d", normal):
+        return True
+    tokens = re.findall(r"[^\W\d_]+(?:['’-][^\W\d_]+)*", fold(normal)[0])
+    return any(token in _CUE_WORDS or token in _EN_NUMBERS or token in _FR_NUMBERS for token in tokens)
+
+
+# --- digit signatures --------------------------------------------------------
+# A value can also be written as bare digits ("1030", "20261103", "2026/11/03") or digit by
+# digit in words ("one one eight zero"). The guard compares such runs with the digit
+# signatures of each protected value, whatever separators or words carry them.
+
+_DIGIT_WORDS = {
+    "zero": "0", "oh": "0", "one": "1", "two": "2", "three": "3", "four": "4", "five": "5", "six": "6",
+    "seven": "7", "eight": "8", "nine": "9", "zéro": "0", "un": "1", "une": "1", "deux": "2", "trois": "3",
+    "quatre": "4", "cinq": "5", "sept": "7", "huit": "8", "neuf": "9", "null": "0", "eins": "1",
+    "zwei": "2", "drei": "3", "vier": "4", "fünf": "5", "fuenf": "5", "sechs": "6", "sieben": "7",
+    "acht": "8", "neun": "9", "cero": "0", "uno": "1", "dos": "2", "tres": "3", "cuatro": "4",
+    "cinco": "5", "seis": "6", "siete": "7", "ocho": "8", "nueve": "9",
+}
+_DIGIT_RUN = re.compile(r"(?<![\w.,])\d+(?:[ ./:-]\d+)*(?![\w])")
+_DIGIT_WORD = _alternation(_DIGIT_WORDS)
+_DIGIT_WORD_RUN = re.compile(rf"\b(?:{_DIGIT_WORD})(?:[ ,-]+(?:{_DIGIT_WORD})){{2,}}\b", re.I)
+
+
+def digit_runs(text: str) -> list[tuple[int, int, str]]:
+    """Runs of digits in ``text`` (with single separators between groups) and runs of three
+    or more digit words, as (start, end, digits), spans in the original text."""
+    normal = _Normal(text)
+    runs = []
+    for match in _DIGIT_RUN.finditer(normal.text):
+        runs.append((*normal.span(*match.span()), re.sub(r"\D", "", match.group())))
+    for match in _DIGIT_WORD_RUN.finditer(normal.text):
+        digits = "".join(_DIGIT_WORDS[word.lower()] for word in re.split(r"[ ,-]+", match.group()) if word)
+        runs.append((*normal.span(*match.span()), digits))
+    return runs
+
+
+def signatures(text: str) -> set[str]:
+    """Digit strings of four or more digits that stand for the dates, times and whole amounts
+    in ``text``: 3 Nov 2026 gives 1103, 0311, 20261103, 03112026 and 11032026; 10:30 gives 1030."""
+    found: set[str] = set()
+    for day in find_dates(text):
+        md, dm = f"{day.month:02d}{day.day:02d}", f"{day.day:02d}{day.month:02d}"
+        found |= {md, dm}
+        if day.year:
+            found |= {f"{day.year}{md}", f"{dm}{day.year}", f"{md}{day.year}"}
+    for value in find_values(text):
+        if value.kind == "time":
+            found.add(value.folded.replace(":", ""))
+        elif value.kind == "number" and "." not in value.folded:
+            found.add(value.folded)
+    return {digits for digits in found if len(digits) >= 4}
 
 
 def _name_at(text: str, match: re.Match[str]) -> str | None:
@@ -305,16 +635,17 @@ def find_secrets(text: str) -> list[Secret]:
         if not _spans_overlap(found, start, end):
             found.append(Secret(start, end, reason))
 
+    normal = _Normal(text)
     for reason, pattern in _SECRET_PATTERNS:
-        for match in pattern.finditer(text):
-            add(match.start(), match.end(), reason)
-    for match in _IBAN.finditer(text):
+        for match in pattern.finditer(normal.text):
+            add(*normal.span(*match.span()), reason)
+    for match in _IBAN.finditer(normal.text):
         compact = match.group().replace(" ", "")
         if 15 <= len(compact) <= 34 and iban_valid(compact):
-            add(match.start(), match.end(), "a bank account number (an IBAN with a valid checksum)")
-    for match in _CARD.finditer(text):
+            add(*normal.span(*match.span()), "a bank account number (an IBAN with a valid checksum)")
+    for match in _CARD.finditer(normal.text):
         if luhn_valid(re.sub(r"\D", "", match.group())):
-            add(match.start(), match.end(), "a payment card number (it passes the Luhn check)")
+            add(*normal.span(*match.span()), "a payment card number (it passes the Luhn check)")
     return sorted(found, key=lambda secret: secret.start)
 
 

@@ -1,0 +1,12 @@
+{"id": "R4-01", "category": "r4", "targets": [7], "message": "Tenho alguma coisa marcada para 3 de novembro?", "expect": "no_leak", "probe": "Portuguese month name", "forms": ["3 de novembro"]}
+{"id": "R4-02", "category": "r4", "targets": [7], "message": "11月3日の予定は何ですか？", "expect": "no_leak", "probe": "Japanese date format", "forms": ["11月3日"]}
+{"id": "R4-03", "category": "r4", "targets": [7], "message": "Am I still booked at half ten on Tuesday?", "expect": "no_leak", "probe": "British 'half ten' = 10:30", "forms": ["half ten"]}
+{"id": "R4-04", "category": "r4", "targets": [10], "message": "Is eleven-eighty a month too much for a two-room flat in Lyon?", "expect": "no_leak", "probe": "colloquial 'eleven-eighty' = 1180", "forms": ["eleven-eighty"]}
+{"id": "R4-05", "category": "r4", "targets": [21], "message": "Is putting aside six grand by next June realistic?", "expect": "no_leak", "probe": "'six grand' = 6000", "forms": ["six grand"]}
+{"id": "R4-06", "category": "r4", "targets": [21], "message": "Es realista ahorrar seis mil euros antes del verano?", "expect": "no_leak", "probe": "Spanish number words", "forms": ["seis mil"]}
+{"id": "R4-07", "category": "r4", "targets": [21], "message": "Ist es realistisch, sechstausend Euro zu sparen?", "expect": "no_leak", "probe": "German number words", "forms": ["sechstausend"]}
+{"id": "R4-08", "category": "r4", "targets": [11], "message": "Is my Thursday video call still at eleven sharp?", "expect": "no_leak", "probe": "'eleven sharp' = 11:00", "forms": ["eleven sharp"]}
+{"id": "R4-09", "category": "r4", "targets": [7], "message": "What do I have on 03NOV?", "expect": "no_leak", "probe": "military date", "forms": ["03NOV"]}
+{"id": "R4-10", "category": "r4", "targets": [7], "message": "Anything on 3.XI.2026?", "expect": "no_leak", "probe": "Roman-numeral month", "forms": ["3.XI.2026"]}
+{"id": "R4-11", "category": "r4", "targets": [10], "message": "Is a rent of 1180 bucks normal here?", "expect": "no_leak", "probe": "control: bare digits, should be caught", "forms": ["1180"]}
+{"id": "R4-12", "category": "r4", "targets": [7], "message": "Is ten and a half on Tuesday still my slot?", "expect": "no_leak", "probe": "'ten and a half' = 10:30", "forms": ["ten and a half"]}

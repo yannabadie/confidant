@@ -6,6 +6,8 @@ from collections.abc import Callable
 
 import pytest
 
+from confidant.guard import WITHHELD_HEADING
+
 from confidant import Budget, ReplayBook, ServiceError
 from confidant.assistant import ANSWER_SYSTEM_PROMPT, FAST_MAX_TOKENS, REASON_MAX_TOKENS, extract_json, parse_route
 from confidant.receipts import payload_sha256
@@ -43,7 +45,7 @@ def test_next_week_cites_events_and_late_binds_private_ones(make_rig: Callable[.
     assert [m.cite() for m in turn.citations] == ["m7v1", "m6v1", "m11v1", "m9v1"]
     prepared = turn.guard.prepared
     assert prepared is not None and prepared.shared_ids == [6, 9] and prepared.withheld_ids == [7, 11]
-    assert "⟦m7⟧ (private: dermatologist appointment, value withheld)" in prepared.context_text
+    assert "⟦m7⟧ (private: health appointment, value withheld)" in prepared.context_text
     assert turn.guard.late_bound_ids == [7, 11]
     assert turn.guard.summary() == "2 private memories never left Confidant"
     assert rig.llm is not None and rig.llm.purposes() == ["route", "answer"]
@@ -63,6 +65,15 @@ def test_receipts_record_each_call_with_ids_and_payload_hash(make_rig: Callable[
     assert answer.cost_usd_estimate > 0 and rig.receipts.today("s1") == turn.receipts
 
 
+def test_each_outbound_call_is_kept_with_the_hash_its_receipt_stores(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    turn = rig.ask(PLATE)
+    assert [o.sha256 for o in turn.outbound] == [r.payload_sha256 for r in turn.receipts]
+    assert all(o.sha256 == payload_sha256(o.payload) for o in turn.outbound)
+    assert turn.outbound[-1].payload == rig.llm.calls[-1]["messages"]
+    assert not any(value in json.dumps(turn.outbound[-1].payload, ensure_ascii=False) for value in PRIVATE_VALUES)
+
+
 def test_correcting_a_private_memory_never_leaves_the_device(make_rig: Callable[..., Rig]) -> None:
     rig = make_rig()
     turn = rig.ask(MOVED)
@@ -73,7 +84,7 @@ def test_correcting_a_private_memory_never_leaves_the_device(make_rig: Callable[
     assert "⟦m7⟧" in turn.draft and "moved to Tuesday 4 Nov at 9:00" in turn.answer
     assert [m.cite() for m in turn.citations] == ["m7v2"]
     decision = turn.guard.decisions[0]
-    assert not decision.allowed and decision.withheld_ids == [7]
+    assert not decision.allowed and any("looks private" in reason for reason in decision.reasons)
     assert any("routed on this device" in reason for reason in decision.reasons)
     assert turn.guard.summary() == "1 private memory never left Confidant"
     later = rig.ask(PLATE)
@@ -84,7 +95,7 @@ def test_web_search_is_guarded_recorded_and_cited(make_rig: Callable[..., Rig]) 
     rig = make_rig()
     turn = rig.ask(TAPER)
     assert turn.intent == "search"
-    assert rig.tavily is not None and rig.tavily.queries == ["10-day half marathon taper plan"]
+    assert rig.tavily is not None and rig.tavily.queries == ["10-day taper plan for half marathon"]
     web = [m for m in rig.store.all_current() if m.source_type == "web"]
     assert [(m.id, m.source_ref, m.sensitivity) for m in web] == [
         (26, "https://running.example.org/taper", "public"), (27, "https://www.coach.example.com/half-taper", "public")]
@@ -92,8 +103,8 @@ def test_web_search_is_guarded_recorded_and_cited(make_rig: Callable[..., Rig]) 
     assert [m.cite() for m in turn.citations] == ["m3v1", "m26v1", "m25v1"]
     web_check = next(d for d in turn.guard.decisions if d.purpose == "web search")
     assert web_check.allowed and web_check.withheld_ids == []
-    assert [r.purpose for r in turn.receipts] == ["route", "web_search", "answer"]
-    assert turn.receipts[1].provider == "tavily" and turn.receipts[1].cost_usd_estimate == 0.008
+    assert [r.purpose for r in turn.receipts] == ["web_search", "answer"]  # the rules saw a search: no router
+    assert turn.receipts[0].provider == "tavily" and turn.receipts[0].cost_usd_estimate == 0.008
 
 
 def test_live_without_tavily_reports_no_search_and_no_guard_check(make_rig: Callable[..., Rig]) -> None:
@@ -105,19 +116,32 @@ def test_live_without_tavily_reports_no_search_and_no_guard_check(make_rig: Call
 
 
 def test_personal_details_in_a_web_query_are_redacted(make_rig: Callable[..., Rig]) -> None:
-    query = '{"intent": "search", "query": "bouldering gifts for Léa turning 30 on 14 November"}'
-    rig = make_rig(replies(route=query))
-    turn = rig.ask("Find a birthday present idea.")
+    rig = make_rig()
+    turn = rig.ask("Search for bouldering gifts for Léa turning 30 on 14 November.")
     sent = rig.tavily.queries[0]
     assert "Léa" not in sent and "14 November" not in sent and sent.startswith("bouldering gifts for [withheld]")
     decision = next(d for d in turn.guard.decisions if d.purpose == "web search")
     assert decision.allowed and 4 in decision.withheld_ids
-    assert turn.receipts[1].withheld_memory_ids == decision.withheld_ids
+    assert turn.receipts[0].withheld_memory_ids == decision.withheld_ids
+
+
+def test_a_search_the_router_chose_carries_none_of_the_values_typed(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig(replies(route='{"intent": "search", "query": "bouldering gifts for Léa"}'))
+    rig.ask("Any bouldering gifts for Léa?")  # no search verb and no date or number: the router decides
+    assert rig.llm.calls[0]["messages"][1]["content"] == "Any bouldering gifts for [name]?"
+    assert rig.tavily.queries == ["Any bouldering gifts for"]
+
+
+def test_a_message_that_may_carry_a_value_is_routed_on_the_device(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    for message in ("Is anything on the third of November?", "Am I free on Tuesday morning?", "Is 45,000 a good offer?"):
+        rig.ask(message)
+    assert "route" not in rig.llm.purposes()
 
 
 def test_a_web_query_made_only_of_private_values_is_blocked(make_rig: Callable[..., Rig]) -> None:
-    rig = make_rig(replies(route='{"intent": "search", "query": "3 Nov 10:30"}'))
-    turn = rig.ask("Search the web for it.")
+    rig = make_rig(replies(route='{"intent": "search", "query": "anything"}'))
+    turn = rig.ask("Léa?")  # a personal name only: the web may see none of it
     assert rig.tavily.queries == []
     assert "blocked the web query" in turn.notice
     assert all(r.provider != "tavily" for r in turn.receipts)
@@ -164,9 +188,16 @@ def test_daily_brief_lists_the_week_and_appends_todays_receipts(make_rig: Callab
 
 def test_router_output_that_is_not_json_falls_back_to_keyword_rules(make_rig: Callable[..., Rig]) -> None:
     rig = make_rig(replies(route="I think the user wants to search."))
-    turn = rig.ask(TAPER)
-    assert turn.intent == "search" and rig.tavily.queries == ["10-day taper plan for half marathon"]
+    turn = rig.ask("How should I taper for the half marathon?")
+    assert turn.intent == "answer" and rig.llm.purposes() == ["route", "answer"]
     assert "router reply was not valid JSON; used keyword rules" in turn.actions
+
+
+def test_messages_the_rules_can_route_are_never_shown_to_a_router(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    for message in (TAPER, "Remember that I prefer aisle seats on long trains.", "My gym class moved to Mondays."):
+        rig.ask(message)
+    assert "route" not in rig.llm.purposes()
 
 
 def test_route_parsing_is_defensive() -> None:
@@ -175,15 +206,24 @@ def test_route_parsing_is_defensive() -> None:
     assert parse_route('{"intent": "dance"}') is None and parse_route("no json here") is None
 
 
-def test_remember_asks_the_fast_model_but_never_lowers_sensitivity(make_rig: Callable[..., Rig]) -> None:
+def test_remember_classifies_on_the_device_without_asking_a_model(make_rig: Callable[..., Rig]) -> None:
     rig = make_rig(replies(classify='{"sensitivity": "public", "kind": "preference", "label": "seat preference"}'))
     turn = rig.ask("Remember that I prefer aisle seats on long trains.")
     memory = rig.store.get(26)
     assert turn.intent == "remember" and turn.actions == ["recorded m26v1"]
-    assert (memory.text, memory.sensitivity, memory.kind, memory.label) == (
-        "Prefers aisle seats on long train trips.", "personal", "preference", "seat preference")
-    assert rig.llm.purposes() == ["route", "classify"]
+    assert (memory.text, memory.sensitivity, memory.kind) == (
+        "I prefer aisle seats on long trains.", "personal", "preference")
+    assert rig.llm.calls == []  # neither a router nor a classifier saw the fact
     assert turn.answer.startswith("Saved as [m26v1] (personal preference")
+
+
+def test_new_private_facts_get_a_category_label_and_no_cloud_call(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    rig.ask("Remember that I have a colonoscopy on 9 Dec at 8:00.")
+    rig.ask("Remember that I was diagnosed with type 2 diabetes.")
+    assert [(rig.store.get(i).sensitivity, rig.store.get(i).label) for i in (26, 27)] == [
+        ("private", "health appointment"), ("private", "health")]
+    assert rig.llm.calls == []
 
 
 def test_private_facts_are_remembered_without_any_cloud_call(make_rig: Callable[..., Rig]) -> None:
@@ -199,7 +239,15 @@ def test_a_correction_without_a_matching_memory_is_recorded_as_new(make_rig: Cal
     rig = make_rig(replies(route='{"intent": "correct", "target": "gym membership", "text": "Gym moved to Mondays."}'))
     turn = rig.ask("My gym class moved to Mondays.")
     assert turn.actions[0].startswith("no existing memory matched")
-    assert rig.store.get(26).text == "Gym moved to Mondays."
+    assert rig.store.get(26).text == "Gym class moved to Mondays."
+
+
+def test_a_cloud_router_cannot_point_a_correction_at_a_private_memory(make_rig: Callable[..., Rig]) -> None:
+    hostile = '{"intent": "correct", "target": "health appointment", "text": "⟦m7⟧ leaked"}'
+    rig = make_rig(replies(route=hostile))
+    rig.ask("Please update that for me.")
+    assert rig.store.get(7).version == 1 and rig.store.get(7).text.startswith("Dermatologist appointment on")
+    assert all("leaked" not in memory.text for memory in rig.store.all_current())  # the router's text is not stored
 
 
 def test_exhausted_budget_switches_to_replay_and_says_so(make_rig: Callable[..., Rig]) -> None:
@@ -285,12 +333,30 @@ def test_live_turns_can_be_recorded_and_replayed(make_rig: Callable[..., Rig]) -
     live = make_rig(recorder=recorder)
     original = live.ask(TAPER)
     recorded = recorder.lookup(TAPER)
-    assert recorded is not None and set(recorded.outputs) == {"route", "answer"} and len(recorded.web_results) == 2
+    assert recorded is not None and set(recorded.outputs) == {"answer"} and len(recorded.web_results) == 2
     offline = make_rig(live=False, replay=recorder)
     replayed = offline.ask(TAPER)
     assert replayed.mode == "replay" and replayed.answer == original.answer
-    assert [r.mode for r in replayed.receipts] == ["replay", "replay", "replay"]
+    assert [r.mode for r in replayed.receipts] == ["replay", "replay"]
 
 
 def test_today_comes_from_the_seed_snapshot(make_rig: Callable[..., Rig]) -> None:
     assert make_rig().assistant.today().isoformat() == "2026-10-30"
+
+
+def test_withheld_events_are_listed_apart_for_any_period_so_none_is_dated(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    rig.ask("What's coming up in the next 3 days?")
+    rig.ask("What's coming up in the next 4 days?")
+    rig.ask(PLATE)
+    answers = [call["messages"][1]["content"] for call in rig.llm.calls if call["purpose"] == "answer"]
+    blocks = [prompt.split(WITHHELD_HEADING, 1)[1].split("\n\nRequest:")[0] for prompt in answers]
+    assert len(set(blocks)) == 1 and "⟦m7⟧" in blocks[0] and "⟦m11⟧" in blocks[0]
+    assert "the 5 days from today" in answers[1] and "3 November" not in answers[1] and "[withheld]" not in answers[1]
+
+
+def test_a_message_carrying_a_private_value_never_reaches_the_router(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    rig.ask("Is the 1030 slot on 2026/11/03 still free?")
+    assert "route" not in rig.llm.purposes()
+    assert "1030" not in rig.llm.sent_text() and "2026/11/03" not in rig.llm.sent_text()

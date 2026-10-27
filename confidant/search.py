@@ -30,6 +30,12 @@ class WebResult:
     score: float
 
 
+def search_payload(query: str, max_results: int) -> dict[str, object]:
+    """The JSON body of a Tavily search (the API key travels in a header, not here): the one sent and the
+    one whose SHA-256 the receipt keeps."""
+    return {"query": query, "max_results": max_results, "search_depth": "basic"}
+
+
 class Tavily:
     """Minimal client for Tavily's search endpoint (Bearer auth, basic depth)."""
 
@@ -51,7 +57,7 @@ class Tavily:
 
     def search(self, query: str, *, max_results: int = 5) -> list[WebResult]:
         """Search the web and return results that have a URL. Raises ServiceError on failure."""
-        payload = {"query": query, "max_results": max_results, "search_depth": "basic"}
+        payload = search_payload(query, max_results)
         data, _ = request_json(
             self._http, "POST", TAVILY_SEARCH_URL, service="Tavily search", api_key=self._api_key,
             key_env="TAVILY_API_KEY", timeout=self.timeout, retry_delay=self.retry_delay, payload=payload,

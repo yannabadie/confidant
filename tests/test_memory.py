@@ -41,7 +41,7 @@ def test_correct_adds_a_version_and_supersedes_the_old_one(store: MemoryStore) -
     updated = store.correct(7, "Dermatologist appointment on Wednesday 4 Nov 2026 at 9:00.",
                             author="user", source_ref="conv-2", expected_version=1)
     assert (updated.version, updated.supersedes, updated.status) == (2, 1, "current")
-    assert (updated.sensitivity, updated.label, updated.source_type) == ("private", "dermatologist appointment", "user")
+    assert (updated.sensitivity, updated.label, updated.source_type) == ("private", "health appointment", "user")
     history = store.history(7)
     assert [(m.version, m.status) for m in history] == [(1, "superseded"), (2, "current")]
     assert history[0].text == "Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30."

@@ -60,7 +60,8 @@ def test_handshake_and_tool_listing(make_rig: Callable[..., Rig]) -> None:
     assert init["protocolVersion"] == "2025-06-18" and init["serverInfo"]["name"] == "confidant"
     assert init["capabilities"] == {"tools": {"listChanged": False}} and server.client == "hermes-agent"
     names = [tool["name"] for tool in responses[2]["result"]["tools"]]
-    assert names == ["memory_search", "memory_record", "memory_correct", "memory_history", "guarded_answer"]
+    assert names == ["memory_search", "memory_record", "memory_correct", "memory_history", "guarded_answer",
+                     "daily_brief"]
     assert all(tool["inputSchema"]["type"] == "object" for tool in TOOLS)
     assert responses[3]["result"] == {}
 
@@ -77,7 +78,7 @@ def test_memory_tools_keep_private_values_from_the_client(make_rig: Callable[...
     )
     found = payload(responses[1])["memories"]
     assert found[0]["cite"] == "m7v1" and found[0]["withheld"] is True
-    assert found[0]["text"] == "⟦m7⟧ (private: dermatologist appointment, value withheld)"
+    assert found[0]["text"] == "⟦m7⟧ (private: health appointment, value withheld)"
     recorded = payload(responses[2])["memory"]
     assert (recorded["cite"], recorded["sensitivity"]) == ("m26v1", "personal")
     assert recorded["source_ref"] == "mcp:mcp-client"
@@ -127,13 +128,22 @@ def test_guarded_answer_returns_placeholders_unless_revealed(make_rig: Callable[
     question = call(1, "guarded_answer", question="What's on my plate next week?")
     hidden = payload(converse(MCPServer(rig.assistant), question)[1])
     assert "⟦m7⟧" in hidden["answer"] and "10:30" not in hidden["answer"]
-    assert hidden["placeholders"]["⟦m7⟧"] == "private: dermatologist appointment"
+    assert hidden["placeholders"]["⟦m7⟧"] == "private: health appointment"
     assert hidden["citations"] == ["m7v1", "m6v1", "m11v1", "m9v1"] and hidden["mode"] == "live"
     assert hidden["guard"] == "2 private memories never left Confidant"
     assert rig.llm.purposes() == ["answer"]
     shown = payload(converse(MCPServer(rig.assistant, reveal_private=True), question)[1])
     assert "Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30." in shown["answer"]
     assert shown["placeholders"] == {}
+
+
+def test_daily_brief_tool_returns_the_brief_with_labels_only(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    brief = payload(converse(MCPServer(rig.assistant), call(1, "daily_brief"))[1])
+    assert rig.llm.purposes() == ["brief"], "the brief intent runs, not a plain answer"
+    assert "[private: health appointment]" in brief["brief"] and "⟦m7⟧" not in brief["brief"]
+    assert not any(value in brief["brief"] for value in ("10:30", "Dermatologist", "lead designer"))
+    assert brief["brief"].splitlines()[-1].startswith("Private items stay on your device")
 
 
 def test_serve_mcp_runs_over_real_stdio(tmp_path: Path) -> None:

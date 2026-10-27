@@ -28,9 +28,9 @@ def test_required_memories_are_present() -> None:
     expected = {
         "half marathon": ("personal", "15 Nov 2026"),
         "sister's birthday": ("personal", "14 Nov 2026"),
-        "dermatologist appointment": ("private", "3 Nov 2026 at 10:30"),
-        "rent amount": ("private", "€"),
-        "confidential job interview": ("private", "interview"),
+        "health appointment": ("private", "3 Nov 2026 at 10:30"),
+        "housing cost": ("private", "€"),
+        "private appointment": ("private", "interview"),
         "team tools": ("public", "Figma"),
         "meeting preferences": ("personal", "Meeting"),
         "weekly review": ("personal", "Weekly review"),
@@ -38,7 +38,7 @@ def test_required_memories_are_present() -> None:
     for label, (sensitivity, fragment) in expected.items():
         assert BY_LABEL[label]["sensitivity"] == sensitivity and fragment in BY_LABEL[label]["text"], label
     assert BY_LABEL["weekly review"]["kind"] == "skill"
-    assert BY_LABEL["dermatologist appointment"]["id"] == 7
+    assert BY_LABEL["health appointment"]["id"] == 7
     assert "Léa" in BY_LABEL["sister's birthday"]["text"]
 
 

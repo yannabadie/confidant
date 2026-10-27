@@ -1,8 +1,8 @@
 """Confidant as an MCP server over stdio: JSON-RPC 2.0, one message per line, no SDK.
 
 Tools: ``memory_search``, ``memory_record``, ``memory_correct``,
-``memory_history`` and ``guarded_answer``, so Hermes Agent or any MCP client can
-use Confidant's memory. Private memories reach the client only as placeholders
+``memory_history``, ``guarded_answer`` and ``daily_brief``, so Hermes Agent or any
+MCP client can use Confidant's memory. Private memories reach the client only as placeholders
 with their label, unless the server is started with ``--reveal-private``: an
 MCP client may itself be backed by a cloud model.
 
@@ -30,11 +30,11 @@ import sys
 from collections.abc import Callable, Mapping
 from typing import Any, TextIO
 
-from .assistant import Assistant
+from .assistant import Assistant, delivery_text
 from .config import VERSION
 from .guard import placeholder
 from .memory import KINDS, SENSITIVITIES, Memory
-from .rules import classify_kind, classify_sensitivity, make_label
+from .rules import classify_kind, classify_new_fact, make_label
 
 PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
 PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND, INVALID_PARAMS, INTERNAL_ERROR = (
@@ -90,6 +90,12 @@ TOOLS: list[dict[str, Any]] = [
                        "the cloud model sees placeholders, never private values. Read-only.",
         "inputSchema": _schema({"question": {"type": "string"}}, ["question"]),
     },
+    {
+        "name": "daily_brief",
+        "description": "The user's daily brief (the week ahead and open items), safe to deliver: private "
+                       "items appear only as their label, e.g. [private: health appointment]. Read-only.",
+        "inputSchema": _schema({}, []),
+    },
 ]
 
 
@@ -137,6 +143,7 @@ class MCPServer:
             "memory_correct": self._memory_correct,
             "memory_history": self._memory_history,
             "guarded_answer": self._guarded_answer,
+            "daily_brief": self._daily_brief,
         }
 
     def serve(self, stdin: TextIO | None = None, stdout: TextIO | None = None) -> None:
@@ -244,7 +251,7 @@ class MCPServer:
         memory = self.assistant.store.record(
             text,
             kind=_string(arguments, "kind", classify_kind(text)),
-            sensitivity=_string(arguments, "sensitivity", classify_sensitivity(text)),
+            sensitivity=_string(arguments, "sensitivity", classify_new_fact(text)),
             source_type="user", source_ref=f"mcp:{self.client}", author=self.client,
             label=_string(arguments, "label", make_label(text)),
         )
@@ -262,6 +269,17 @@ class MCPServer:
         """Tool: all versions of a memory."""
         versions = self.assistant.store.history(_integer(arguments, "memory_id"))
         return {"versions": [self._view(memory) for memory in versions]}
+
+    def _daily_brief(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
+        """Tool: the daily brief as it may leave the device (labels, never private values)."""
+        turn = self.assistant.daily_brief(f"mcp:{self.client}")
+        return {
+            "brief": turn.answer if self.reveal_private else delivery_text(turn, self.assistant.store),
+            "citations": [memory.cite() for memory in turn.citations],
+            "guard": turn.guard.summary(),
+            "mode": turn.mode,
+            "notice": turn.notice,
+        }
 
     def _guarded_answer(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
         """Tool: a guarded, read-only answer from memory."""

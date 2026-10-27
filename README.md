@@ -23,15 +23,20 @@ assistant and one that knows too much. Confidant removes that trade-off with thr
    or `private`. Each provider has an allow-list. Private memories are replaced by placeholders before any
    call leaves the device, and every outbound query (including web searches) is checked for private values.
 3. **Receipts for every outbound call.** Provider, model, tokens, which memories were sent, which were
-   withheld, and a SHA-256 of the exact payload. "What left my device today" is a table, not a guess.
+   withheld, and a SHA-256 of the exact messages sent. The Guard tab shows those messages for the last turn,
+   so anyone can hash them and compare. "What left my device today" is a table, not a guess.
 
 ## How Nemotron and Token Factory are used
 
 | Step | Model (Nebius Token Factory) | Why this model |
 |---|---|---|
-| Route the request (answer, remember, correct, search, brief) | Nemotron 3 Nano | fast and cheap; the reply is parsed as JSON, with keyword rules as fallback |
-| Classify a new memory's sensitivity | Nemotron 3 Nano | runs on every new fact |
+| Route a question the local rules cannot route (answer or search) | Nemotron 3 Nano | fast and cheap; the reply is parsed as JSON, with keyword rules as fallback. Messages that touch a private memory, and anything the rules recognise (remember, correct, search, brief), are routed on the device |
 | Compose the answer or the daily brief from guarded context | Nemotron 3 Ultra | long-context reasoning over many memories |
+
+The sensitivity of a new memory is decided on the device: asking a model whether a fact is private would show
+it the fact. Keyword lists cannot name every illness or dispute, so a new fact is private unless the rules see
+something clearly everyday or work-public. Messages that may carry a date, time or amount, in any form, are
+routed on the device; the router sees the others with their values masked.
 
 All calls use the OpenAI-compatible Token Factory API (`https://api.tokenfactory.nebius.com/v1`).
 Model ids are discovered at start-up from `/v1/models` and can be pinned with `CONFIDANT_MODEL_REASON` and
@@ -43,7 +48,7 @@ from the query, or the search is blocked. Results are stored as `web` memories w
 ```mermaid
 flowchart LR
   U[You: web UI, CLI or Hermes Agent] --> A[Assistant]
-  A -->|route, classify| N[Nemotron 3 Nano<br/>Token Factory]
+  A -->|route questions the rules cannot| N[Nemotron 3 Nano<br/>Token Factory]
   A --> M[(Memory store<br/>SQLite + FTS5<br/>provenance, versions)]
   M --> G{Guard}
   G -->|public + personal,<br/>private as placeholders| R[Nemotron 3 Ultra<br/>Token Factory]
@@ -69,20 +74,37 @@ holds them, otherwise from hand-written sample answers, which the interface labe
 
 ### Use it from Hermes Agent (or any MCP client)
 
-Confidant ships a dependency-free MCP server exposing `memory_search`, `memory_record`, `memory_correct`,
-`memory_history` and `guarded_answer`:
+Confidant ships an MCP server (`python -m confidant serve-mcp`, standard library only) exposing
+`memory_search`, `memory_record`, `memory_correct`, `memory_history`, `guarded_answer` and `daily_brief`.
+MCP clients see private memories only as placeholders with their label.
 
-```bash
-hermes mcp add confidant --command python3 --args -m confidant serve-mcp
-```
+`integrations/hermes/` holds a reusable Hermes skill and the morning-brief job: a Hermes cron job in no-agent
+mode runs [`confidant-brief.sh`](integrations/hermes/confidant-brief.sh), that is
+`python -m confidant brief --delivery`, and sends its output to Telegram. The delivered text is built from the
+draft, so each private item appears only as its label, and no Hermes model reads the memories. Setup:
+[`integrations/hermes/README.md`](integrations/hermes/README.md); deliveries so far:
+[`docs/hermes-deliveries.md`](docs/hermes-deliveries.md).
 
 ## Privacy model and limits
 
 - The demo uses a **synthetic persona**; no real personal data is in this repository.
-- The guard matches values (names, dates, amounts) and classes; it is a strong default, not a formal
-  information-flow proof. Paraphrased leaks of a private value are not detected.
-- Late binding protects the value, not the existence of a withheld memory: the model sees "private:
-  dermatologist appointment, value withheld", which is itself information. Labels are chosen to be generic.
+- The guard matches values (names, dates, times, amounts) and classes; it is a strong default, not a formal
+  information-flow proof. It finds a protected value in the forms its scanners read and in the forms it writes
+  out for that value ahead of time: the date and time formats of 82 CLDR locales (74 languages), number words
+  in 44 languages, spoken forms such as `half ten` or `six grand` ([`confidant/forms.py`](confidant/forms.py)).
+  Paraphrase, relative dates (`next Tuesday`) and forms outside those lists are not detected.
+- **Adversarial leak test** ([`docs/leak-test.md`](docs/leak-test.md)): rounds of attack prompts, each written
+  by an AI reviewer that did not write the guard (a separate Claude sub-agent) and run against a cooperative
+  and a hostile fake model. Round 1 (65 prompts) found 20 leaks in the first version; rounds 2, 3 and 4, each
+  written after the previous fixes, still found 27 of 45, 30 of 48 and 11 of 12. Most were values the user
+  typed in forms the guard did not read; early versions also leaked from storage (labels built from a private
+  fact's words, an old version, event order, sensitive facts stored as personal). The current version leaks 0
+  of the 170, a regression result, not an estimate: no round has been written against it yet. Every failure
+  and every fix is listed there.
+- Late binding protects the value, not the existence of a withheld memory: the model sees "private: health
+  appointment, value withheld", which is itself information. Labels name a category only ("health
+  appointment", "private appointment", "housing cost", "finances"), never a word of the memory. Withheld items
+  are listed apart, without dates, so their position in a list does not date them.
 - Credentials are refused at write time (passwords, PINs, card numbers, API keys): Confidant never stores them.
 - **Personal** memories (not private ones) may be sent to Token Factory when a task needs them, for example a
   birthday message; change the policy in `confidant/guard.py` to keep them local too.
@@ -97,7 +119,9 @@ hermes mcp add confidant --command python3 --args -m confidant serve-mcp
 | `data/demo_persona.json` | the synthetic persona (25 memories) |
 | `data/replay/` | turns replayed when no key is set (hand-written samples until a live recording replaces them) |
 | `space/` | the three files of the Hugging Face Space |
-| `scripts/` | macOS keychain wrapper and a Token Factory probe |
+| `scripts/` | macOS keychain wrapper, a Token Factory probe, the live recorder and the offline leak test |
+| `docs/` | leak test report and machine-readable results |
+| `integrations/hermes/` | Hermes Agent skill, the morning-brief cron script and its setup |
 | `tests/` | offline test suite (all HTTP mocked) |
 
 ## Development

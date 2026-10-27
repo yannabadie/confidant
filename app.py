@@ -106,6 +106,19 @@ class ReceiptView:
 
 
 @dataclass(frozen=True)
+class OutboundView:
+    """One call exactly as it left the device: the JSON payload and the SHA-256 its receipt keeps."""
+
+    provider: str
+    model: str
+    purpose: str
+    payload_json: str  # pretty-printed for reading; the hash is over the compact form
+    canonical_json: str  # compact, sorted keys: hash this to get payload_sha256
+    payload_sha256: str
+    mode: str
+
+
+@dataclass(frozen=True)
 class SummaryView:
     """Today's receipt totals for this session."""
 
@@ -131,6 +144,7 @@ class TurnView:
     checks: tuple[CheckView, ...] = ()
     actions: tuple[str, ...] = ()
     receipts: tuple[ReceiptView, ...] = ()
+    outbound: tuple[OutboundView, ...] = ()
     mode: str = "replay"
     is_brief: bool = False
     notice: str = ""
@@ -211,6 +225,18 @@ def _receipt(r: Any) -> ReceiptView:
     )
 
 
+def _outbound(o: Any) -> OutboundView:
+    """Convert a core ``Outbound`` into a view; the canonical JSON is what the receipt hash covers."""
+    payload = o.payload
+    if isinstance(payload, (bytes, str)):
+        text = payload.decode("utf-8") if isinstance(payload, bytes) else payload
+        pretty = canonical = text
+    else:
+        pretty = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+        canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return OutboundView(o.provider, o.model, o.purpose, pretty, canonical, o.sha256, o.mode)
+
+
 class Engine:
     """One visitor's private core objects: a fresh seed memory, a receipt log and the assistant."""
 
@@ -285,6 +311,7 @@ class Engine:
             ),
             actions=tuple(turn.actions),
             receipts=tuple(_receipt(r) for r in turn.receipts),
+            outbound=tuple(_outbound(o) for o in getattr(turn, "outbound", ())),
             mode=turn.mode,
             is_brief=is_brief,
             notice=turn.notice.replace(REPLAY_NOTICE, "").strip(),
@@ -857,7 +884,7 @@ def render_check(check: CheckView, known: Collection[int], *, open_text: bool) -
     payload = ""
     if check.text:
         payload = (
-            f'<details class="cf-payload"{" open" if open_text else ""}><summary>Exact text sent</summary>'
+            f'<details class="cf-payload"{" open" if open_text else ""}><summary>Request after the guard</summary>'
             f"{render_payload(check.text, known)}</details>"
         )
     what = f"{PURPOSE_NAMES.get(check.purpose, check.purpose)} to {PROVIDER_NAMES.get(check.provider, check.provider)}"
@@ -865,6 +892,29 @@ def render_check(check: CheckView, known: Collection[int], *, open_text: bool) -
         f'<li class="cf-check"><span class="cf-verdict{css}">{verdict}</span>'
         f'<div class="cf-check__body"><span class="cf-check__what">{esc(what)}</span>{reasons}{payload}</div></li>'
     )
+
+
+def render_outbound(calls: Sequence[OutboundView], known: Collection[int]) -> str:
+    """Every call of the turn exactly as it left the device, with the hash its receipt keeps."""
+    if not calls:
+        return '<p class="cf-empty-list">Nothing left this device.</p>'
+    items = []
+    for call in calls:
+        what = f"{PURPOSE_NAMES.get(call.purpose, call.purpose)} to {PROVIDER_NAMES.get(call.provider, call.provider)}"
+        verb = "would send in a live run" if call.mode == "replay" else "sent"
+        body = ("request body" if call.provider == "tavily"
+                else "messages (the request also names the model, max_tokens and temperature)")
+        items.append(
+            f'<li class="cf-check"><span class="cf-verdict">{"Replay" if call.mode == "replay" else "Sent"}</span>'
+            f'<div class="cf-check__body"><span class="cf-check__what">{esc(what)} · {esc(call.model)}</span>'
+            f'<span class="cf-check__reasons">SHA-256 <code>{esc(call.payload_sha256)}</code>, the same as its '
+            "receipt. Hash the compact JSON below to check it.</span>"
+            f'<details class="cf-payload"><summary>Exact {body} Confidant {verb} (JSON)</summary>'
+            f"{render_payload(call.payload_json, known)}"
+            f'<p class="cf-panel__lead">Compact form, the one hashed:</p><pre class="cf-context">'
+            f"{html.escape(call.canonical_json, quote=False)}</pre></details></div></li>"
+        )
+    return f'<ul class="cf-checks">{"".join(items)}</ul>'
 
 
 def render_guard_panel(turn: TurnView | None) -> str:
@@ -922,6 +972,8 @@ def render_guard_panel(turn: TurnView | None) -> str:
         "</div>"
         '<section class="cf-section"><h4 class="cf-section-title">Outbound requests'
         f'<span class="cf-count">{len(turn.checks)}</span></h4>{requests}</section>'
+        '<section class="cf-section"><h4 class="cf-section-title">Exactly what left this device'
+        f'<span class="cf-count">{len(turn.outbound)}</span></h4>{render_outbound(turn.outbound, known)}</section>'
         f"{compare}</div>"
     )
 

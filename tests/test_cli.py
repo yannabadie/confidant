@@ -72,7 +72,7 @@ def test_brief_delivery_sends_labels_never_private_values(home: Path, capsys: py
     capsys.readouterr()
     assert main(["--home", str(home), "--replay", str(folder), "brief", "--delivery"]) == 0
     out = capsys.readouterr().out
-    assert "[private: dermatologist appointment]" in out
+    assert "[private: health appointment]" in out
     assert "10:30" not in out and "Dermatologist appointment on" not in out
     assert "⟦" not in out
     assert "Private items stay on your device" in out and "replay" in out

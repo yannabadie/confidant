@@ -15,8 +15,9 @@ import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
+from .forms import FormText, years_of
 from .memory import SENSITIVITIES, Memory
-from .scan import KIND_PHRASES, find_secrets, find_values, fold, words
+from .scan import KIND_PHRASES, digit_runs, find_secrets, find_values, fold, signatures, words
 
 NEBIUS = "nebius_token_factory"
 TAVILY = "tavily"
@@ -31,9 +32,11 @@ DEFAULT_POLICY: dict[str, dict[str, list[str]]] = {
 }
 
 REDACTED = "[withheld]"
+WITHHELD_HEADING = "Withheld memories (no value and no date given; listed by id, not by date):"
 PLACEHOLDER_RE = re.compile(r"⟦\s*m(\d+)(?:v\d+)?\s*⟧")
 _MEANINGFUL = re.compile(r"[^\W\d_]{3,}")
 _MIN_WHOLE_TEXT = 12
+_TITLES = r"dr|doctor|docteur|pr|prof|professor|mr|mrs|ms|miss|me|maitre|mme|mlle|m"
 _log = logging.getLogger(__name__)
 
 
@@ -92,11 +95,15 @@ class Segment:
     text: str
     memory: Memory | None = None
     placeholder: bool = False
+    in_link: bool = False
 
     @property
     def rendered(self) -> str:
-        """The text shown to the user: the memory's value for a known placeholder."""
-        return self.memory.text if self.memory is not None else self.text
+        """The text shown to the user: the memory's value for a known placeholder, except
+        inside a link or image address, where a client could send it on (``[withheld]``)."""
+        if self.memory is None:
+            return self.text
+        return REDACTED if self.in_link else self.memory.text
 
 
 class Guard:
@@ -128,25 +135,27 @@ class Guard:
     def prepare_context(self, memories: Iterable[Memory], provider: str) -> PreparedContext:
         """Split ``memories`` into shared and withheld for ``provider`` and build the context text.
 
-        Order is preserved; duplicates and non-current versions are dropped.
+        Shared memories keep their order. Withheld ones follow in a separate block, by id:
+        listed among dated events, a placeholder would be dated by its neighbours.
+        Duplicates and non-current versions are dropped.
         """
         allowed = self.allowed(provider)
         shared: list[Memory] = []
         withheld: list[Memory] = []
-        lines: list[str] = []
         seen: set[int] = set()
         for memory in memories:
             if memory.id in seen or memory.status != "current":
                 continue
             seen.add(memory.id)
-            if memory.sensitivity in allowed:
-                shared.append(memory)
-                lines.append(f"[{memory.cite()}] {memory.text}")
-            else:
-                withheld.append(memory)
-                lines.append(
-                    f"{placeholder(memory.id)} ({memory.sensitivity}: {memory.label}, value withheld)"
-                )
+            (shared if memory.sensitivity in allowed else withheld).append(memory)
+        withheld.sort(key=lambda memory: memory.id)
+        lines = [f"[{memory.cite()}] {memory.text}" for memory in shared]
+        if withheld:
+            lines.append(WITHHELD_HEADING)
+            lines += [
+                f"{placeholder(memory.id)} ({memory.sensitivity}: {memory.label}, value withheld)"
+                for memory in withheld
+            ]
         placeholders = {placeholder(memory.id): memory for memory in withheld}
         return PreparedContext(shared, withheld, "\n".join(lines), placeholders, provider)
 
@@ -162,7 +171,9 @@ class Guard:
             if match.start() > cursor:
                 parts.append(Segment(text[cursor:match.start()]))
             memory = prepared.placeholders.get(placeholder(int(match.group(1))))
-            parts.append(Segment(match.group(0), memory, placeholder=True))
+            token = text[:match.start()].rsplit(None, 1)[-1] if text[:match.start()].strip() else ""
+            in_link = "://" in token or "](" in token or token.lower().startswith(("www.", "<http"))
+            parts.append(Segment(match.group(0), memory, placeholder=True, in_link=in_link))
             cursor = match.end()
         if cursor < len(text):
             parts.append(Segment(text[cursor:]))
@@ -185,17 +196,24 @@ class Guard:
         return [part.text for part in self.segments(text, prepared) if part.placeholder and part.memory is None]
 
     def check_outbound(
-        self, text: str, provider: str, memories: Iterable[Memory] = (), *, purpose: str = ""
+        self, text: str, provider: str, memories: Iterable[Memory] = (), *, purpose: str = "",
+        strict_ids: Iterable[int] = (), strict: bool = False,
     ) -> GuardDecision:
         """Redact or block ``text`` before it goes to ``provider``.
 
         Removes credential-like values, and values of the given ``memories`` that
-        ``provider`` may not see: their whole text (case-insensitive) or any of
-        their dates, times, numbers, e-mail addresses or names, compared in
-        normalised form ("1 180" matches "1,180", "3 Nov" matches "November 3rd").
-        A value the user also stated in a memory this provider may see is not
-        treated as secret. The text is blocked (``allowed=False``) when nothing
-        meaningful would be left after redaction.
+        ``provider`` may not see, in any of their versions (a corrected private
+        memory keeps its old value private): their whole text (case-insensitive) or
+        any of their dates, times, numbers, e-mail addresses or names, compared in
+        normalised form ("1 180,00 €" matches "1,180", "3/11" and "3 novembre" match
+        "November 3rd"). A value the user also stated in a current memory this
+        provider may see is not treated as secret, except for the memories in
+        ``strict_ids``, or for all of them when ``strict`` (used for what the user
+        typed: next to the private item, a shared value still tells which item it
+        belongs to). Values written as bare digits or digit words ("1030",
+        "20261103", "one one eight zero") are caught by their digit signatures.
+        The text is blocked (``allowed=False``) when nothing meaningful would be
+        left after redaction.
         """
         allowed = self.allowed(provider)
         spans: list[tuple[int, int]] = []
@@ -204,19 +222,26 @@ class Guard:
         for secret in find_secrets(text):
             spans.append((secret.start, secret.end))
             reasons.append(f"removed {secret.reason}")
+        memories = list(memories)
         current = [memory for memory in memories if memory.status == "current"]
-        protected = [memory for memory in current if memory.sensitivity not in allowed]
+        protected = [memory for memory in memories if memory.sensitivity not in allowed]
         if protected:
             outbound = _Outbound(text)
             declared = [m for m in current if m.sensitivity in allowed and m.source_type != "web"]
             exempt_keys = {value.key for memory in declared for value in find_values(memory.text)}
             exempt_words = {word for memory in declared for word in words(memory.text)}
+            exempt_digits = {digits for memory in declared for digits in signatures(memory.text)}
+            strict_set = set(strict_ids)
             for memory in protected:
-                hits = outbound.leaks(memory, exempt_keys, exempt_words)
+                if strict or memory.id in strict_set:
+                    hits = outbound.leaks(memory, set(), set(), set())
+                else:
+                    hits = outbound.leaks(memory, exempt_keys, exempt_words, exempt_digits)
                 if hits:
                     spans.extend(span for span, _ in hits)
                     kinds = " and ".join(sorted({kind for _, kind in hits}))
-                    withheld.append(memory.id)
+                    if memory.id not in withheld:
+                        withheld.append(memory.id)
                     reasons.append(
                         f"removed {kinds} from {memory.cite()} ({memory.sensitivity}: {memory.label})"
                     )
@@ -237,22 +262,39 @@ class _Outbound:
         self._by_key: dict[str, list[tuple[int, int]]] = {}
         for value in find_values(text):
             self._by_key.setdefault(value.key, []).append((value.start, value.end))
+        self._by_digits: dict[str, list[tuple[int, int]]] = {}
+        for start, end, digits in digit_runs(text):
+            self._by_digits.setdefault(digits, []).append((start, end))
+        self._forms = FormText(text)
 
     def leaks(
-        self, memory: Memory, exempt_keys: set[str], exempt_words: set[str]
+        self, memory: Memory, exempt_keys: set[str], exempt_words: set[str], exempt_digits: set[str] = frozenset()
     ) -> list[tuple[tuple[int, int], str]]:
         """Spans of this text that reveal ``memory``, each with what kind of value it is."""
         hits: list[tuple[tuple[int, int], str]] = []
         whole = fold(memory.text)[0].strip(" .")
         if len(whole) >= _MIN_WHOLE_TEXT:
             hits += [(span, "the full text") for span in self._find(re.escape(whole))]
+        folded_text = fold(memory.text)[0]
+        years = years_of(memory.text)
         for value in find_values(memory.text):
             if value.kind == "name":
                 if value.folded not in exempt_words:
                     pattern = rf"(?<![\w-]){re.escape(value.folded)}(?![\w-])"
                     hits += [(span, KIND_PHRASES["name"]) for span in self._find(pattern)]
+                title = re.search(rf"\b({_TITLES})\.?\s+{re.escape(value.folded)}(?![\w-])", folded_text)
+                if title:  # "Dr Bellecour" stays private even when "Bellecour" is also a shared place
+                    pattern = rf"(?<![\w-]){re.escape(title.group(1))}\.?\s+{re.escape(value.folded)}(?![\w-])"
+                    hits += [(span, KIND_PHRASES["name"]) for span in self._find(pattern)]
             elif value.key not in exempt_keys:
                 hits += [(span, KIND_PHRASES[value.kind]) for span in self._by_key.get(value.key, [])]
+                for start, end in self._forms.spans(value.key, years):  # "3 de novembro", "half ten", "six grand"
+                    if not any(start < hit_end and hit_start < end for (hit_start, hit_end), _ in hits):
+                        hits.append(((start, end), f"{KIND_PHRASES[value.kind]} written another way"))
+        for digits in signatures(memory.text) - exempt_digits:  # "1030", "20261103", "one one eight zero"
+            for start, end in self._by_digits.get(digits, []):
+                if not any(start < hit_end and hit_start < end for (hit_start, hit_end), _ in hits):
+                    hits.append(((start, end), "a value written as digits"))
         return hits
 
     def _find(self, pattern: str) -> list[tuple[int, int]]:

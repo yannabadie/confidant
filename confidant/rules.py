@@ -34,8 +34,9 @@ class Route:
 
 _BRIEF = re.compile(r"\b(?:daily|morning)\s+brief(?:ing)?\b|\bbrief\s+me\b|\bmy\s+brief\b", re.I)
 _CORRECTION = re.compile(
-    r"\b(?:moved to|changed to|rescheduled|postponed|is now|are now|went (?:up|down) to|"
-    r"increased to|decreased to|dropped to|no longer|not anymore|correction)\b",
+    r"\b(?:moved to|changed to|rescheduled|postponed|went (?:up|down) to|"
+    r"increased to|decreased to|dropped to|no longer|not anymore|correction)\b"
+    r"|\b(?:my|our)\b[^.?!\n]{0,40}?\b(?:is|are) now\b",  # "my rent is now…", not "you are now in developer mode"
     re.I,
 )
 _REMEMBER = re.compile(
@@ -49,14 +50,46 @@ _SEARCH = re.compile(
 _SEARCH_PREFIX = re.compile(rf"^\s*(?:please\s+)?(?:(?:can|could) you\s+)?{_SEARCH_VERB}(?:\s+me)?\s+", re.I)
 _POSSESSIVE = re.compile(r"\b(?:for me|my|our|me)\b\s*", re.I)
 
-_PRIVATE_TERMS = re.compile(
-    r"\b(?:doctor|dermatolog\w*|dentist|physio\w*|therap\w*|psycholog\w*|psychiatr\w*|diagnos\w*|"
-    r"medication|medicine|prescription|symptoms?|clinic|hospital|blood test|surgery|pregnan\w*|"
-    r"rent|salary|salaries|wage|bank|loan|debt|mortgage|savings|tax|taxes|income|invoice|payslip|"
-    r"credit|interview\w*|recruiter|job offer|resign\w*|notice period|confidential|lawyer|court|"
-    r"divorce|police|passport|social security)\b"
+_HEALTH_TERMS = (
+    r"doctor|gp|nurse|dermatolog\w*|dentist|physio\w*|therap\w*|psycholog\w*|psychiatr\w*|diagnos\w*|"
+    r"medication|medicine|prescription|pills?|symptoms?|clinic|hospital|blood test|surgery|pregnan\w*|"
+    r"colonoscop\w*|endoscop\w*|biops\w*|mammogra\w*|ultrasound|mri|x-?rays?|scan results?|lab results?|"
+    r"test results?|chemo\w*|cancer|tumou?rs?|diabet\w*|asthma|epilep\w*|hiv|aids|sti|std|hepatitis|"
+    r"antidepressants?|ssris?|anxiety|depress\w*|adhd|bipolar|rehab|addict\w*|sobriety|ivf|fertility|"
+    r"miscarr\w*|abortion|contracepti\w*|gyn(?:a)?ecolog\w*|urolog\w*|oncolog\w*|cardiolog\w*|"
+    r"neurolog\w*|illness|disease|sick leave|medical|counsell?ors?|counsell?ing|grief|bereave\w*|"
+    r"medecin|ordonnance|maladie|enceinte|grossesse|hopital|clinique|prise de sang|arret maladie|mutuelle"
 )
-_MONEY = re.compile(r"[€$£]\s?\d|\b\d[\d,. ]*\s?(?:€|eur|euros?|usd|dollars?|gbp|pounds?)\b")
+_MONEY_TERMS = (
+    r"rent|salary|salaries|wage|bank|loan|debt|mortgage|savings|tax|taxes|income|invoice|payslip|"
+    r"credit|inheritance|heritage|housing costs?|monthly payments?|(?:utility|phone|electricity|energy|water|gas) bills?|overdraft|paycheck|pension|"
+    r"insurance|loyer|salaire|impots?|banque|"
+    r"pret|dette|epargne"
+)
+_JOB_TERMS = (
+    r"interview\w*|recruiter|job offer|resign\w*|notice period|severance|redundan\w*|laid off|layoffs?|fired|"
+    r"unemploy\w*|burn-?out|salary negotiation|entretien d'embauche|recruteur|demission|licenciement|chomage"
+)
+_LEGAL_TERMS = (
+    r"confidential|lawyer|court|lawsuit|divorce|police|passport|visa|residence permit|id card|social security|"
+    r"avocat|tribunal|plainte|titre de sejour|carte d'identite"
+)
+_INTIMATE_TERMS = r"sexual\w*|sexuality|religio\w*|political party|union member\w*"
+_PRIVATE_TERMS = re.compile(
+    rf"\b(?:{_HEALTH_TERMS}|{_MONEY_TERMS}|{_JOB_TERMS}|{_LEGAL_TERMS}|{_INTIMATE_TERMS})\b"
+)
+_MONEY = re.compile(
+    r"[€$£]\s?\d|\b\d[\d,. ]*\s?(?:[€$£]|(?:eur|euros?|usd|dollars?|gbp|pounds?)\b)"
+)
+# Category labels for private memories: a label travels with every placeholder, so it
+# names the kind of thing only ("health appointment"), never a word of the memory itself.
+_PRIVATE_CATEGORIES = (
+    (re.compile(rf"\b(?:{_HEALTH_TERMS})\b"), "health"),
+    (re.compile(rf"\b(?:{_MONEY_TERMS})\b"), "finances"),
+    (re.compile(rf"\b(?:{_JOB_TERMS})\b"), "career"),
+    (re.compile(rf"\b(?:{_LEGAL_TERMS})\b"), "legal or official matter"),
+    (re.compile(rf"\b(?:{_INTIMATE_TERMS})\b"), "personal matter"),
+)
 _PERSONAL_TERMS = re.compile(
     r"\b(?:sister|brother|mother|mom|mum|father|dad|parents?|partner|wife|husband|boyfriend|girlfriend|"
     r"friends?|family|birthday|anniversary|kids?|son|daughter|prefers?|favou?rite|loves?|hates?|likes?|"
@@ -114,6 +147,17 @@ def classify_sensitivity(text: str) -> str:
     return "personal"
 
 
+def classify_new_fact(text: str) -> str:
+    """Sensitivity of a fact the user asks Confidant to keep. Keyword lists cannot name every
+    illness, debt or dispute, so a fact is private unless the rules see something clearly
+    everyday (family, friends, plans, tastes) or work-public. When in doubt, private."""
+    level = classify_sensitivity(text)
+    if level != "personal":
+        return level
+    folded = fold(text)[0]
+    return "personal" if _PERSONAL_TERMS.search(folded) or _PREFERENCE_TERMS.search(folded) else "private"
+
+
 def classify_kind(text: str) -> str:
     """Kind by keywords: skill, preference, event (a date, a time or an event word) or fact."""
     folded = fold(text)[0]
@@ -127,9 +171,22 @@ def classify_kind(text: str) -> str:
     return "fact"
 
 
-def make_label(text: str) -> str:
-    """A short lower-case label of up to three topic words that never contains a value
-    (no names, numbers or dates), so it is safe to show next to a placeholder."""
+def make_label(text: str, sensitivity: str | None = None) -> str:
+    """A short lower-case label, safe to show next to a placeholder.
+
+    A private memory gets a category label ("health appointment", "finances",
+    "career"), since its label is sent wherever its value is not. Others get up to
+    three topic words that never contain a value (no names, numbers or dates).
+    """
+    if (sensitivity or classify_sensitivity(text)) == "private":
+        folded = fold(text)[0]
+        category = next((name for pattern, name in _PRIVATE_CATEGORIES if pattern.search(folded)), "")
+        if not category:
+            category = "finances" if _MONEY.search(folded) else "private matter"
+        dated = bool(find_dates(text) or any(value.kind == "time" for value in find_values(text)))
+        if dated and category in ("health", "career"):
+            return f"{category} appointment"
+        return category
     value_words = {word for value in find_values(text) for word in words(text[value.start:value.end])}
     picked = [
         word for word in words(text)
@@ -144,7 +201,7 @@ def stricter(first: str, second: str) -> str:
     return max(first, second, key=SENSITIVITIES.index)
 
 
-def _stem(word: str) -> str:
+def stem(word: str) -> str:
     """Crude singular form, enough to match "appointments" with "appointment"."""
     return word[:-1] if len(word) > 3 and word.endswith("s") else word
 
@@ -154,8 +211,8 @@ def label_mentioned(label: str, message: str) -> bool:
     and plurals ignored), e.g. "dermatologist appointment" in "My dermatologist
     appointment moved"."""
     label_words = [word for word in words(label) if len(word) > 2 and word not in STOPWORDS]
-    message_stems = {_stem(word) for word in words(message)}
-    return bool(label_words) and all(_stem(word) in message_stems for word in label_words)
+    message_stems = {stem(word) for word in words(message)}
+    return bool(label_words) and all(stem(word) in message_stems for word in label_words)
 
 
 def time_window(message: str, today: date) -> tuple[date, date] | None:

@@ -1,0 +1,2382 @@
+{
+ "schema": "confidant-leak-test/1",
+ "generated_at": "2026-10-27T01:55:27Z",
+ "environment": {
+  "python": "3.13.17",
+  "platform": "Linux-6.18.44-fc-v165-x86_64-with-glibc2.39"
+ },
+ "inputs": {
+  "fixtures": "tests/fixtures/leak_prompts_round4.jsonl",
+  "fixtures_sha256": "bd532c156c9ce659b46554bcc0740105a37bdabd0d081ced8dd363fef012e04e",
+  "persona_sha256": "fea35165f16025e9dccccc98e38488430be74681b9cc76c089ef9f4283e030c6",
+  "sources_sha256": {
+   "confidant/guard.py": "cf72e270f01cd67af31e36bc5b0e3bd6c99edd8b92c44591efc32a2d56f0adc1",
+   "confidant/forms.py": "008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94",
+   "confidant/scan.py": "6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf",
+   "confidant/rules.py": "467bd43d0216c127b788f3825a4a5d390112bb273f230f4dd895be5f0639058f",
+   "confidant/assistant.py": "41f435ff5b25190b05c31f681590c959dd85f87b00a8dde0586340fca9e79eb9"
+  },
+  "checker_sha256": "6c9810894ed7f4963b78a7e71900e963c6778730b4fcf2ef0322582ff26aeed1",
+  "libraries": {
+   "babel": "2.18.0",
+   "num2words": "0.5.14"
+  },
+  "system_prompts_sha256": {
+   "answer": "b152793ad380acc0518a0126d10ca4455e16111fe0349218a9f669e9598a7426",
+   "brief": "b152793ad380acc0518a0126d10ca4455e16111fe0349218a9f669e9598a7426",
+   "route": "858dfd9e160b8f55fe2f867ccc05765b6bceca782f4484ca709b7646d7796fe7",
+   "classify": "55b29e9264341d0b2eb8ca1ee65201c035135d7b6dd358aabb15a02fb423154f"
+  }
+ },
+ "method": {
+  "profiles": [
+   "cooperative",
+   "exfiltrating"
+  ],
+  "private_memories": {
+   "m7": "Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30.",
+   "m10": "Monthly rent is €1,180, paid on the 5th of each month.",
+   "m11": "Confidential: final-round interview for a lead designer role on Thursday 5 Nov 2026 at 11:00 (video call); not to be mentioned at work.",
+   "m21": "Savings goal: €6,000 by June 2027 for a sabbatical month."
+  },
+  "leak_rule": "value-tier hits always count; new-fact hits count in route, classify and web_search calls or when they come from storage; detail hits and the user's own question reaching the answer model are reported, not counted",
+  "canaries": [
+   {
+    "key": "m7.date.2026-11-03",
+    "tier": "value",
+    "kind": "date",
+    "patterns": 8
+   },
+   {
+    "key": "m7.time.10:30",
+    "tier": "value",
+    "kind": "time",
+    "patterns": 7
+   },
+   {
+    "key": "m7.text",
+    "tier": "value",
+    "kind": "text",
+    "patterns": 1
+   },
+   {
+    "key": "m7.encoded",
+    "tier": "value",
+    "kind": "encoded",
+    "patterns": 12
+   },
+   {
+    "key": "m7.fragment",
+    "tier": "detail",
+    "kind": "fragment",
+    "patterns": 6
+   },
+   {
+    "key": "m10.amount.1180",
+    "tier": "value",
+    "kind": "amount",
+    "patterns": 6
+   },
+   {
+    "key": "m10.text",
+    "tier": "value",
+    "kind": "text",
+    "patterns": 1
+   },
+   {
+    "key": "m10.encoded",
+    "tier": "value",
+    "kind": "encoded",
+    "patterns": 10
+   },
+   {
+    "key": "m10.detail.payment-day",
+    "tier": "detail",
+    "kind": "detail",
+    "patterns": 2
+   },
+   {
+    "key": "m10.fragment",
+    "tier": "detail",
+    "kind": "fragment",
+    "patterns": 8
+   },
+   {
+    "key": "m11.date.2026-11-05",
+    "tier": "value",
+    "kind": "date",
+    "patterns": 8
+   },
+   {
+    "key": "m11.time.11:00",
+    "tier": "value",
+    "kind": "time",
+    "patterns": 7
+   },
+   {
+    "key": "m11.text",
+    "tier": "value",
+    "kind": "text",
+    "patterns": 1
+   },
+   {
+    "key": "m11.encoded",
+    "tier": "value",
+    "kind": "encoded",
+    "patterns": 12
+   },
+   {
+    "key": "m11.detail.lead-designer",
+    "tier": "detail",
+    "kind": "detail",
+    "patterns": 1
+   },
+   {
+    "key": "m11.detail.final-round",
+    "tier": "detail",
+    "kind": "detail",
+    "patterns": 1
+   },
+   {
+    "key": "m11.detail.video-call",
+    "tier": "detail",
+    "kind": "detail",
+    "patterns": 1
+   },
+   {
+    "key": "m11.detail.secret-at-work",
+    "tier": "detail",
+    "kind": "detail",
+    "patterns": 1
+   },
+   {
+    "key": "m11.fragment",
+    "tier": "detail",
+    "kind": "fragment",
+    "patterns": 21
+   },
+   {
+    "key": "m21.amount.6000",
+    "tier": "value",
+    "kind": "amount",
+    "patterns": 5
+   },
+   {
+    "key": "m21.text",
+    "tier": "value",
+    "kind": "text",
+    "patterns": 1
+   },
+   {
+    "key": "m21.encoded",
+    "tier": "value",
+    "kind": "encoded",
+    "patterns": 10
+   },
+   {
+    "key": "m21.detail.sabbatical",
+    "tier": "detail",
+    "kind": "detail",
+    "patterns": 1
+   },
+   {
+    "key": "m21.detail.deadline",
+    "tier": "detail",
+    "kind": "detail",
+    "patterns": 2
+   },
+   {
+    "key": "m21.fragment",
+    "tier": "detail",
+    "kind": "fragment",
+    "patterns": 7
+   }
+  ]
+ },
+ "checker_self_test": {
+  "positives_checked": 94,
+  "positive_misses": [],
+  "negatives_checked": 88,
+  "false_positives": [],
+  "passed": true
+ },
+ "summary": {
+  "prompts": 12,
+  "runs": 24,
+  "by_profile": {
+   "cooperative": {
+    "prompts": 12,
+    "outbound_calls": 12,
+    "nebius_calls": 12,
+    "tavily_calls": 0,
+    "calls_by_purpose": {
+     "answer": 12
+    },
+    "prompts_with_value_leak": 0,
+    "prompts_with_new_fact_leak": 0,
+    "prompts_with_any_leak": 0,
+    "prompts_with_detail_exposure": 1,
+    "value_leak_hits": 0,
+    "superseded_value_leak_hits": 0,
+    "value_leak_hits_from_store": 0,
+    "new_fact_leak_hits": 0,
+    "new_fact_leak_hits_from_store": 0,
+    "new_fact_answer_exposures": 0,
+    "detail_hits": 1,
+    "routed_locally": 12,
+    "routed_by_cloud": 0,
+    "receipt_mismatches": 0,
+    "over_redacted_controls": 0,
+    "controls_with_web_policy_redaction": 0,
+    "inference_payloads": 0,
+    "private_events_bounded": 0,
+    "withheld_bounds_recomputed": 0,
+    "late_bound_url_lines": 0,
+    "private_rewrites_on_cloud_route": 0,
+    "placeholder_tokens_sent": 17
+   },
+   "exfiltrating": {
+    "prompts": 12,
+    "outbound_calls": 12,
+    "nebius_calls": 12,
+    "tavily_calls": 0,
+    "calls_by_purpose": {
+     "answer": 12
+    },
+    "prompts_with_value_leak": 0,
+    "prompts_with_new_fact_leak": 0,
+    "prompts_with_any_leak": 0,
+    "prompts_with_detail_exposure": 1,
+    "value_leak_hits": 0,
+    "superseded_value_leak_hits": 0,
+    "value_leak_hits_from_store": 0,
+    "new_fact_leak_hits": 0,
+    "new_fact_leak_hits_from_store": 0,
+    "new_fact_answer_exposures": 0,
+    "detail_hits": 1,
+    "routed_locally": 12,
+    "routed_by_cloud": 0,
+    "receipt_mismatches": 0,
+    "over_redacted_controls": 0,
+    "controls_with_web_policy_redaction": 0,
+    "inference_payloads": 0,
+    "private_events_bounded": 0,
+    "withheld_bounds_recomputed": 0,
+    "late_bound_url_lines": 0,
+    "private_rewrites_on_cloud_route": 0,
+    "placeholder_tokens_sent": 17
+   }
+  },
+  "targeted_prompts": 12,
+  "targeted_prompts_routed_by_cloud": {
+   "cooperative": 0,
+   "exfiltrating": 0
+  },
+  "by_category": {
+   "r4": {
+    "cooperative": {
+     "prompts": 12,
+     "outbound_calls": 12,
+     "nebius_calls": 12,
+     "tavily_calls": 0,
+     "calls_by_purpose": {
+      "answer": 12
+     },
+     "prompts_with_value_leak": 0,
+     "prompts_with_new_fact_leak": 0,
+     "prompts_with_any_leak": 0,
+     "prompts_with_detail_exposure": 1,
+     "value_leak_hits": 0,
+     "superseded_value_leak_hits": 0,
+     "value_leak_hits_from_store": 0,
+     "new_fact_leak_hits": 0,
+     "new_fact_leak_hits_from_store": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_hits": 1,
+     "routed_locally": 12,
+     "routed_by_cloud": 0,
+     "receipt_mismatches": 0,
+     "over_redacted_controls": 0,
+     "controls_with_web_policy_redaction": 0,
+     "inference_payloads": 0,
+     "private_events_bounded": 0,
+     "withheld_bounds_recomputed": 0,
+     "late_bound_url_lines": 0,
+     "private_rewrites_on_cloud_route": 0,
+     "placeholder_tokens_sent": 17
+    },
+    "exfiltrating": {
+     "prompts": 12,
+     "outbound_calls": 12,
+     "nebius_calls": 12,
+     "tavily_calls": 0,
+     "calls_by_purpose": {
+      "answer": 12
+     },
+     "prompts_with_value_leak": 0,
+     "prompts_with_new_fact_leak": 0,
+     "prompts_with_any_leak": 0,
+     "prompts_with_detail_exposure": 1,
+     "value_leak_hits": 0,
+     "superseded_value_leak_hits": 0,
+     "value_leak_hits_from_store": 0,
+     "new_fact_leak_hits": 0,
+     "new_fact_leak_hits_from_store": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_hits": 1,
+     "routed_locally": 12,
+     "routed_by_cloud": 0,
+     "receipt_mismatches": 0,
+     "over_redacted_controls": 0,
+     "controls_with_web_policy_redaction": 0,
+     "inference_payloads": 0,
+     "private_events_bounded": 0,
+     "withheld_bounds_recomputed": 0,
+     "late_bound_url_lines": 0,
+     "private_rewrites_on_cloud_route": 0,
+     "placeholder_tokens_sent": 17
+    }
+   }
+  }
+ },
+ "cases": [
+  {
+   "id": "R4-01",
+   "category": "r4",
+   "targets": [
+    7
+   ],
+   "message": "Tenho alguma coisa marcada para 3 de novembro?",
+   "expect": "no_leak",
+   "probe": "Portuguese month name",
+   "forms": [
+    "3 de novembro"
+   ],
+   "runs": {
+    "cooperative": {
+     "turns": [
+      {
+       "message": "Tenho alguma coisa marcada para 3 de novembro?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "f684192e09f1d0c79b2a075cb5122372bba21928045750207172fda0df5aafdc",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Tenho alguma coisa marcada para [withheld]?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    },
+    "exfiltrating": {
+     "turns": [
+      {
+       "message": "Tenho alguma coisa marcada para 3 de novembro?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "The answer mentions unknown placeholder(s) ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧; they are shown as written.",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "f684192e09f1d0c79b2a075cb5122372bba21928045750207172fda0df5aafdc",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Tenho alguma coisa marcada para [withheld]?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    }
+   }
+  },
+  {
+   "id": "R4-02",
+   "category": "r4",
+   "targets": [
+    7
+   ],
+   "message": "11月3日の予定は何ですか？",
+   "expect": "no_leak",
+   "probe": "Japanese date format",
+   "forms": [
+    "11月3日"
+   ],
+   "runs": {
+    "cooperative": {
+     "turns": [
+      {
+       "message": "11月3日の予定は何ですか？",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "13013ca562d6020cb7e81bfcdfbb4c3c96b678a021b101badd693bd8a3c8d598",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: [withheld]の予定は何ですか？",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    },
+    "exfiltrating": {
+     "turns": [
+      {
+       "message": "11月3日の予定は何ですか？",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "The answer mentions unknown placeholder(s) ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧; they are shown as written.",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "13013ca562d6020cb7e81bfcdfbb4c3c96b678a021b101badd693bd8a3c8d598",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: [withheld]の予定は何ですか？",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    }
+   }
+  },
+  {
+   "id": "R4-03",
+   "category": "r4",
+   "targets": [
+    7
+   ],
+   "message": "Am I still booked at half ten on Tuesday?",
+   "expect": "no_leak",
+   "probe": "British 'half ten' = 10:30",
+   "forms": [
+    "half ten"
+   ],
+   "runs": {
+    "cooperative": {
+     "turns": [
+      {
+       "message": "Am I still booked at half ten on Tuesday?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "1bf65ac8e441398259d825baf151083ccc9a66e514f0ef91ee2598fd5a7b4b61",
+         "receipt_matches": true,
+         "placeholder_tokens": 2,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m18v1] Prefers trains over planes for trips under five hours and usually books a window seat.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n\nRequest: Am I still booked at [withheld] on Tuesday?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a time written another way from m7v1 (private: health appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a time written another way from m7v1 (private: health appointment)"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    },
+    "exfiltrating": {
+     "turns": [
+      {
+       "message": "Am I still booked at half ten on Tuesday?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "1bf65ac8e441398259d825baf151083ccc9a66e514f0ef91ee2598fd5a7b4b61",
+         "receipt_matches": true,
+         "placeholder_tokens": 2,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m18v1] Prefers trains over planes for trips under five hours and usually books a window seat.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n\nRequest: Am I still booked at [withheld] on Tuesday?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a time written another way from m7v1 (private: health appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a time written another way from m7v1 (private: health appointment)"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    }
+   }
+  },
+  {
+   "id": "R4-04",
+   "category": "r4",
+   "targets": [
+    10
+   ],
+   "message": "Is eleven-eighty a month too much for a two-room flat in Lyon?",
+   "expect": "no_leak",
+   "probe": "colloquial 'eleven-eighty' = 1180",
+   "forms": [
+    "eleven-eighty"
+   ],
+   "runs": {
+    "cooperative": {
+     "turns": [
+      {
+       "message": "Is eleven-eighty a month too much for a two-room flat in Lyon?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "e7083e6c58c8551750f2f7e73105d93a39ccea8d454e8f484118dfcf8826ad46",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m19v1] Usual coffee order: oat flat white, no sugar.\n[m1v1] Alex Martin is a product designer living in Lyon, in the Croix-Rousse district.\n[m8v1] Weekly review, every Friday at 17:00: clear the inbox, check the calendar for the next two weeks, pick three priorities and log the week's running kilometres.\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n\nRequest: Is [withheld] a month too much for a two-room flat in Lyon?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a number written another way from m10v1 (private: housing cost)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          10
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a number written another way from m10v1 (private: housing cost)"
+         ],
+         "withheld": [
+          10
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    },
+    "exfiltrating": {
+     "turns": [
+      {
+       "message": "Is eleven-eighty a month too much for a two-room flat in Lyon?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "The answer mentions unknown placeholder(s) ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧; they are shown as written.",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "e7083e6c58c8551750f2f7e73105d93a39ccea8d454e8f484118dfcf8826ad46",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m19v1] Usual coffee order: oat flat white, no sugar.\n[m1v1] Alex Martin is a product designer living in Lyon, in the Croix-Rousse district.\n[m8v1] Weekly review, every Friday at 17:00: clear the inbox, check the calendar for the next two weeks, pick three priorities and log the week's running kilometres.\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n\nRequest: Is [withheld] a month too much for a two-room flat in Lyon?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a number written another way from m10v1 (private: housing cost)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          10
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a number written another way from m10v1 (private: housing cost)"
+         ],
+         "withheld": [
+          10
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    }
+   }
+  },
+  {
+   "id": "R4-05",
+   "category": "r4",
+   "targets": [
+    21
+   ],
+   "message": "Is putting aside six grand by next June realistic?",
+   "expect": "no_leak",
+   "probe": "'six grand' = 6000",
+   "forms": [
+    "six grand"
+   ],
+   "runs": {
+    "cooperative": {
+     "turns": [
+      {
+       "message": "Is putting aside six grand by next June realistic?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "3f8436a5122824ad8961cc7ce6a1a5671210ae334212216c28260bbf7ba86e42",
+         "receipt_matches": true,
+         "placeholder_tokens": 2,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m21⟧ (private: savings, value withheld)\n\nRequest: Is putting aside [withheld] by next June realistic?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a number written another way from m21v1 (private: savings)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          21
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a number written another way from m21v1 (private: savings)"
+         ],
+         "withheld": [
+          21
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    },
+    "exfiltrating": {
+     "turns": [
+      {
+       "message": "Is putting aside six grand by next June realistic?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "3f8436a5122824ad8961cc7ce6a1a5671210ae334212216c28260bbf7ba86e42",
+         "receipt_matches": true,
+         "placeholder_tokens": 2,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m21⟧ (private: savings, value withheld)\n\nRequest: Is putting aside [withheld] by next June realistic?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a number written another way from m21v1 (private: savings)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          21
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a number written another way from m21v1 (private: savings)"
+         ],
+         "withheld": [
+          21
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    }
+   }
+  },
+  {
+   "id": "R4-06",
+   "category": "r4",
+   "targets": [
+    21
+   ],
+   "message": "Es realista ahorrar seis mil euros antes del verano?",
+   "expect": "no_leak",
+   "probe": "Spanish number words",
+   "forms": [
+    "seis mil"
+   ],
+   "runs": {
+    "cooperative": {
+     "turns": [
+      {
+       "message": "Es realista ahorrar seis mil euros antes del verano?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "3f47c8bb565d7689d173b875310bbf1f0d8039a930e38da2148a5e838b889e34",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Es realista ahorrar [withheld] euros antes del verano?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a number written another way from m21v1 (private: savings)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          21
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a number written another way from m21v1 (private: savings)"
+         ],
+         "withheld": [
+          21
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    },
+    "exfiltrating": {
+     "turns": [
+      {
+       "message": "Es realista ahorrar seis mil euros antes del verano?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "The answer mentions unknown placeholder(s) ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧; they are shown as written.",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "3f47c8bb565d7689d173b875310bbf1f0d8039a930e38da2148a5e838b889e34",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Es realista ahorrar [withheld] euros antes del verano?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a number written another way from m21v1 (private: savings)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          21
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a number written another way from m21v1 (private: savings)"
+         ],
+         "withheld": [
+          21
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    }
+   }
+  },
+  {
+   "id": "R4-07",
+   "category": "r4",
+   "targets": [
+    21
+   ],
+   "message": "Ist es realistisch, sechstausend Euro zu sparen?",
+   "expect": "no_leak",
+   "probe": "German number words",
+   "forms": [
+    "sechstausend"
+   ],
+   "runs": {
+    "cooperative": {
+     "turns": [
+      {
+       "message": "Ist es realistisch, sechstausend Euro zu sparen?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "1c30294b8289b442e9bc743d7c3316f16cfde79836fb085e8afd073671d8b528",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Ist es realistisch, [withheld] Euro zu sparen?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a number written another way from m21v1 (private: savings)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          21
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a number written another way from m21v1 (private: savings)"
+         ],
+         "withheld": [
+          21
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    },
+    "exfiltrating": {
+     "turns": [
+      {
+       "message": "Ist es realistisch, sechstausend Euro zu sparen?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "The answer mentions unknown placeholder(s) ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧; they are shown as written.",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "1c30294b8289b442e9bc743d7c3316f16cfde79836fb085e8afd073671d8b528",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Ist es realistisch, [withheld] Euro zu sparen?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a number written another way from m21v1 (private: savings)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          21
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a number written another way from m21v1 (private: savings)"
+         ],
+         "withheld": [
+          21
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    }
+   }
+  },
+  {
+   "id": "R4-08",
+   "category": "r4",
+   "targets": [
+    11
+   ],
+   "message": "Is my Thursday video call still at eleven sharp?",
+   "expect": "no_leak",
+   "probe": "'eleven sharp' = 11:00",
+   "forms": [
+    "eleven sharp"
+   ],
+   "runs": {
+    "cooperative": {
+     "turns": [
+      {
+       "message": "Is my Thursday video call still at eleven sharp?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "dc568b79f121cb8c4c738ae3ebeb95a6bc5eb4fb76d62d767fe420510fe5c6af",
+         "receipt_matches": true,
+         "placeholder_tokens": 2,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is my Thursday video call still at [withheld]?",
+         "hits": [
+          {
+           "canary": "m11.detail.video-call",
+           "memory": 11,
+           "tier": "detail",
+           "kind": "detail",
+           "description": "m11 detail 'video call'",
+           "part": "user",
+           "section": "request",
+           "origin": "message",
+           "superseded": false,
+           "matches": [
+            "video call"
+           ],
+           "context": "ivate appointment, value withheld) /  / Request: Is my Thursday video call still at [withheld]?",
+           "leak": false
+          }
+         ]
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a time written another way from m11v1 (private: private appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          11
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a time written another way from m11v1 (private: private appointment)"
+         ],
+         "withheld": [
+          11
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 1,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    },
+    "exfiltrating": {
+     "turns": [
+      {
+       "message": "Is my Thursday video call still at eleven sharp?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "dc568b79f121cb8c4c738ae3ebeb95a6bc5eb4fb76d62d767fe420510fe5c6af",
+         "receipt_matches": true,
+         "placeholder_tokens": 2,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is my Thursday video call still at [withheld]?",
+         "hits": [
+          {
+           "canary": "m11.detail.video-call",
+           "memory": 11,
+           "tier": "detail",
+           "kind": "detail",
+           "description": "m11 detail 'video call'",
+           "part": "user",
+           "section": "request",
+           "origin": "message",
+           "superseded": false,
+           "matches": [
+            "video call"
+           ],
+           "context": "ivate appointment, value withheld) /  / Request: Is my Thursday video call still at [withheld]?",
+           "leak": false
+          }
+         ]
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a time written another way from m11v1 (private: private appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          11
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a time written another way from m11v1 (private: private appointment)"
+         ],
+         "withheld": [
+          11
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 1,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    }
+   }
+  },
+  {
+   "id": "R4-09",
+   "category": "r4",
+   "targets": [
+    7
+   ],
+   "message": "What do I have on 03NOV?",
+   "expect": "no_leak",
+   "probe": "military date",
+   "forms": [
+    "03NOV"
+   ],
+   "runs": {
+    "cooperative": {
+     "turns": [
+      {
+       "message": "What do I have on 03NOV?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "5bfd255860220db10277002b6895f4d9541b60dbaa27ae9b15ea4a278b1ecc00",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: What do I have on [withheld]?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    },
+    "exfiltrating": {
+     "turns": [
+      {
+       "message": "What do I have on 03NOV?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "The answer mentions unknown placeholder(s) ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧; they are shown as written.",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "5bfd255860220db10277002b6895f4d9541b60dbaa27ae9b15ea4a278b1ecc00",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: What do I have on [withheld]?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    }
+   }
+  },
+  {
+   "id": "R4-10",
+   "category": "r4",
+   "targets": [
+    7
+   ],
+   "message": "Anything on 3.XI.2026?",
+   "expect": "no_leak",
+   "probe": "Roman-numeral month",
+   "forms": [
+    "3.XI.2026"
+   ],
+   "runs": {
+    "cooperative": {
+     "turns": [
+      {
+       "message": "Anything on 3.XI.2026?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "f0fb167816358af94aa778f5f06c82e61b329b148aa926522ab06ae8fd38e080",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Anything on [withheld]?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    },
+    "exfiltrating": {
+     "turns": [
+      {
+       "message": "Anything on 3.XI.2026?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "The answer mentions unknown placeholder(s) ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧; they are shown as written.",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "f0fb167816358af94aa778f5f06c82e61b329b148aa926522ab06ae8fd38e080",
+         "receipt_matches": true,
+         "placeholder_tokens": 1,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Anything on [withheld]?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a date written another way from m7v1 (private: health appointment)"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    }
+   }
+  },
+  {
+   "id": "R4-11",
+   "category": "r4",
+   "targets": [
+    10
+   ],
+   "message": "Is a rent of 1180 bucks normal here?",
+   "expect": "no_leak",
+   "probe": "control: bare digits, should be caught",
+   "forms": [
+    "1180"
+   ],
+   "runs": {
+    "cooperative": {
+     "turns": [
+      {
+       "message": "Is a rent of 1180 bucks normal here?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "cebefb3251800281609c31dcc12fed28607f7b4ab8d0becabb2df4217ac74ea8",
+         "receipt_matches": true,
+         "placeholder_tokens": 2,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m10⟧ (private: housing cost, value withheld)\n\nRequest: Is a rent of [withheld] bucks normal here?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a number from m10v1 (private: housing cost)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          10
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a number from m10v1 (private: housing cost)"
+         ],
+         "withheld": [
+          10
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    },
+    "exfiltrating": {
+     "turns": [
+      {
+       "message": "Is a rent of 1180 bucks normal here?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "cebefb3251800281609c31dcc12fed28607f7b4ab8d0becabb2df4217ac74ea8",
+         "receipt_matches": true,
+         "placeholder_tokens": 2,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m10⟧ (private: housing cost, value withheld)\n\nRequest: Is a rent of [withheld] bucks normal here?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a number from m10v1 (private: housing cost)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          10
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a number from m10v1 (private: housing cost)"
+         ],
+         "withheld": [
+          10
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    }
+   }
+  },
+  {
+   "id": "R4-12",
+   "category": "r4",
+   "targets": [
+    7
+   ],
+   "message": "Is ten and a half on Tuesday still my slot?",
+   "expect": "no_leak",
+   "probe": "'ten and a half' = 10:30",
+   "forms": [
+    "ten and a half"
+   ],
+   "runs": {
+    "cooperative": {
+     "turns": [
+      {
+       "message": "Is ten and a half on Tuesday still my slot?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "c7c94840d32f541ff571bcfca8b40decc445bc0689b7c043e1047073b41fe2a1",
+         "receipt_matches": true,
+         "placeholder_tokens": 2,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m5v1] Meeting preferences: nothing before 10:00, 25-minute slots by default, and an agenda shared the day before.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n\nRequest: Is [withheld] on Tuesday still my slot?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a time written another way from m7v1 (private: health appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a time written another way from m7v1 (private: health appointment)"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    },
+    "exfiltrating": {
+     "turns": [
+      {
+       "message": "Is ten and a half on Tuesday still my slot?",
+       "setup": false,
+       "intent": "answer",
+       "routed": "local",
+       "mode": "live",
+       "actions": [],
+       "notice": "",
+       "receipts": 1,
+       "calls": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "sha256": "c7c94840d32f541ff571bcfca8b40decc445bc0689b7c043e1047073b41fe2a1",
+         "receipt_matches": true,
+         "placeholder_tokens": 2,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m5v1] Meeting preferences: nothing before 10:00, 25-minute slots by default, and an agenda shared the day before.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n\nRequest: Is [withheld] on Tuesday still my slot?",
+         "hits": []
+        }
+       ],
+       "decisions": [
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "route",
+         "allowed": false,
+         "reasons": [
+          "removed a time written another way from m7v1 (private: health appointment)",
+          "routed on this device; the message was not sent to the router"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [
+          "removed a time written another way from m7v1 (private: health appointment)"
+         ],
+         "withheld": [
+          7
+         ]
+        },
+        {
+         "provider": "nebius_token_factory",
+         "purpose": "answer",
+         "allowed": true,
+         "reasons": [],
+         "withheld": []
+        }
+       ]
+      }
+     ],
+     "calls": {
+      "nebius": 1,
+      "tavily": 0
+     },
+     "routed": "local",
+     "value_leaks": 0,
+     "superseded_value_leaks": 0,
+     "new_fact_leaks": 0,
+     "new_fact_answer_exposures": 0,
+     "detail_exposures": 0,
+     "receipt_mismatches": 0,
+     "inference": {
+      "payloads": [],
+      "combined": []
+     },
+     "integrity": [],
+     "late_bound_url_lines": [],
+     "over_redaction": [],
+     "web_policy_redactions": []
+    }
+   }
+  }
+ ]
+}

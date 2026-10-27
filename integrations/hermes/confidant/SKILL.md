@@ -6,9 +6,9 @@ description: Answer from the user's personal memory through Confidant's privacy 
 # Confidant: guarded personal memory
 
 Confidant is an MCP server (tools `memory_search`, `memory_record`, `memory_correct`, `memory_history`,
-`guarded_answer`). It holds the user's memories, each marked public, personal or private. Private
+`guarded_answer`, `daily_brief`). It holds the user's memories, each marked public, personal or private. Private
 memories never reach you in clear: they appear as a placeholder with a label, such as
-`⟦m7⟧ (private: dermatologist appointment)`. The value is filled in only on the user's device.
+`⟦m7⟧ (private: health appointment)`. The value is filled in only on the user's device.
 
 ## When the user asks something about their own life
 Call `guarded_answer` with the user's question, word for word. Return its answer as it is, citations
@@ -26,8 +26,8 @@ are kept on your device; open Confidant to see them." Never ask the user to type
 ## Daily brief
 The scheduled brief needs no model on your side: a Hermes cron job in no-agent mode runs
 `python -m confidant brief --delivery` and delivers its output, where each private item is only its label.
-If the user asks for the brief in a conversation, call `guarded_answer` with "Run my daily brief." and
-return the answer unchanged: placeholders stay placeholders.
+If the user asks for the brief in a conversation, call `daily_brief` and return its `brief` unchanged:
+private items are already shown as their label only, such as `[private: health appointment]`.
 
 ## Never
 Store or repeat a secret, guess a withheld value, or start Confidant with `--reveal-private`.

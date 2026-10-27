@@ -1,3 +1,5 @@
 # Hugging Face Space runtime: the Space clones this repository and runs its app.py.
 gradio==5.49.1
 httpx==0.28.1
+babel==2.18.0
+num2words==0.5.14
