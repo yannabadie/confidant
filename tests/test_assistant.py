@@ -107,12 +107,14 @@ def test_web_search_is_guarded_recorded_and_cited(make_rig: Callable[..., Rig]) 
     assert turn.receipts[0].provider == "tavily" and turn.receipts[0].cost_usd_estimate == 0.008
 
 
-def test_live_without_tavily_reports_no_search_and_no_guard_check(make_rig: Callable[..., Rig]) -> None:
+def test_live_without_tavily_guards_the_query_but_sends_nothing(make_rig: Callable[..., Rig]) -> None:
     rig = make_rig(web=False)
     turn = rig.ask(TAPER)
-    assert "Web search is off" in turn.notice
-    assert all(d.purpose != "web search" for d in turn.guard.decisions)
+    assert "Web search is off" in turn.notice and "10-day taper plan" in turn.notice
+    web_check = next(d for d in turn.guard.decisions if d.purpose == "web search")
+    assert web_check.allowed and web_check.provider == "tavily"
     assert all(r.provider != "tavily" for r in turn.receipts)
+    assert all(o.provider != "tavily" for o in turn.outbound)
 
 
 def test_personal_details_in_a_web_query_are_redacted(make_rig: Callable[..., Rig]) -> None:
@@ -360,3 +362,78 @@ def test_a_message_carrying_a_private_value_never_reaches_the_router(make_rig: C
     rig.ask("Is the 1030 slot on 2026/11/03 still free?")
     assert "route" not in rig.llm.purposes()
     assert "1030" not in rig.llm.sent_text() and "2026/11/03" not in rig.llm.sent_text()
+
+
+# --- availability: checked on the device ---------------------------------------------
+
+def test_availability_is_checked_on_the_device_with_the_private_dates(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    turn = rig.ask("Am I free Tuesday morning?")
+    assert turn.intent == "availability" and rig.llm.calls == [] and rig.tavily.queries == []
+    assert turn.receipts == [] and turn.outbound == [] and turn.notice == ""
+    assert turn.answer.startswith("Tuesday 3 November 2026, morning: not free.")
+    assert "Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30." in turn.answer
+    assert "Running club track session every Tuesday at 19:00" in turn.answer.split("Also that day:")[1]
+    assert [m.cite() for m in turn.citations] == ["m7v1", "m16v1"]
+    assert turn.guard.summary() == "2 private memories never left Confidant"
+    assert turn.actions == ["checked availability on this device: nothing sent"]
+
+
+def test_the_availability_draft_says_the_same_whatever_private_items_the_period_holds(
+    make_rig: Callable[..., Rig],
+) -> None:
+    rig = make_rig()
+    busy, free = rig.ask("Am I free Tuesday morning?"), rig.ask("Am I free Monday morning?")
+    assert free.answer.startswith("Monday 2 November 2026, morning: free, nothing in memory.")
+    assert busy.draft.replace("Tuesday 3", "Monday 2") == free.draft
+    asked = "Tuesday 3 Nov"  # the period asked about is in the draft: the user named it
+    assert not any(value in busy.draft for value in [*PRIVATE_VALUES, "⟦m7⟧", "not free"] if value != asked)
+    assert busy.guard.prepared.withheld_ids == free.guard.prepared.withheld_ids == [7, 11]
+    assert [m.id for m in busy.guard.kept_local] == [m.id for m in free.guard.kept_local] == [7, 11]
+
+
+def test_availability_over_several_days_lists_each_day(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    turn = rig.ask("When am I free next week?")
+    assert turn.answer.splitlines()[0] == (
+        "The 7 days from Monday 2 November 2026: free on 2 of 7 days (Mon 2 Nov, Sat 7 Nov).")
+    assert "- Thu 5 Nov: Confidential: final-round interview" in turn.answer
+    assert "- Wed 4 Nov: Quarterly product review" in turn.draft and "Thu 5 Nov" not in turn.draft
+    assert rig.llm.calls == []
+
+
+def test_an_availability_question_carrying_a_private_value_still_sends_nothing(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    turn = rig.ask("Is the 1030 slot on 2026/11/03 still free?")
+    assert turn.intent == "availability" and rig.llm.calls == []
+    assert "not free" in turn.answer and "Dermatologist appointment" in turn.answer
+
+
+def test_availability_in_replay_needs_no_recording(make_rig: Callable[..., Rig]) -> None:
+    turn = make_rig(live=False).ask("Is Wednesday afternoon free?")
+    assert turn.mode == "replay" and turn.receipts == [] and turn.notice == ""
+    assert turn.answer.startswith("Wednesday 4 November 2026, afternoon: not free.")
+    assert "Design critique happens every Wednesday at 14:00" in turn.answer
+
+
+def test_availability_chosen_by_the_router_does_not_claim_that_nothing_left(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig(replies(route='{"intent": "availability"}'))
+    turn = rig.ask("Do I have anything on?")
+    assert turn.intent == "availability" and rig.llm.purposes() == ["route"] and len(turn.receipts) == 1
+    assert "Nothing was sent" not in turn.answer and "Only the routing request left" in turn.answer
+    assert turn.actions == ["checked availability on this device"]
+
+
+def test_a_day_it_cannot_read_is_asked_for_not_replaced_by_today(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    turn = rig.ask("Am I free next month?")
+    assert turn.answer.startswith("Which day should I check?") and rig.llm.calls == []
+
+
+def test_a_question_naming_a_day_never_selects_private_items_by_their_words(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    for question in ("What do I have on Tuesday?", "What do I have on Monday?", "What's on Thursday?"):
+        rig.ask(question)
+    answers = [call["messages"][1]["content"] for call in rig.llm.calls if call["purpose"] == "answer"]
+    blocks = [prompt.split(WITHHELD_HEADING, 1)[1].split("\n\nRequest:")[0] for prompt in answers]
+    assert len(answers) == 3 and len(set(blocks)) == 1 and "⟦m7⟧" in blocks[0] and "⟦m11⟧" in blocks[0]

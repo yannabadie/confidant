@@ -52,3 +52,29 @@ def test_the_guard_tab_hash_also_matches_for_a_web_search_body() -> None:
     for call in web:
         assert hashlib.sha256(call.canonical_json.encode("utf-8")).hexdigest() == call.payload_sha256
     assert [c.payload_sha256 for c in view.outbound] == [r.payload_sha256 for r in view.receipts]
+
+
+def test_an_availability_answer_shows_its_private_item_and_no_replay_tag() -> None:
+    app = _app()
+    engine = app.Engine(app.RUNTIME)
+    try:
+        view = engine.ask("Am I free Tuesday morning?")
+    finally:
+        engine.close()
+    assert view.receipts == () and view.outbound == ()
+    assert "⟦m7⟧" in view.draft and 7 in view.values, "the device-only text, filled in on the page"
+    reply = app.render_reply(view)
+    assert "Dermatologist appointment" in reply and ">replay<" not in reply
+    assert "Checked availability on this device" in reply
+
+
+def test_the_guard_tab_says_an_availability_check_was_made_on_the_device() -> None:
+    app = _app()
+    engine = app.Engine(app.RUNTIME)
+    try:
+        view = engine.ask("Is Wednesday afternoon free?")
+    finally:
+        engine.close()
+    panel = app.render_guard_panel(view)
+    assert "Answered on this device: no request was made" in panel and "Replayed turn" not in panel
+    assert "Read on this device" in panel and "may go to" not in panel

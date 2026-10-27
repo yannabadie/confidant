@@ -26,11 +26,15 @@ assistant and one that knows too much. Confidant removes that trade-off with thr
    withheld, and a SHA-256 of the exact messages sent. The Guard tab shows those messages for the last turn,
    so anyone can hash them and compare. "What left my device today" is a table, not a guess.
 
+Some questions cannot be answered by a model that never learns when private items happen: "Am I free on
+Wednesday morning?" depends on exactly that. Confidant checks those **on the device**, against the real dates,
+private ones included, and makes no call at all.
+
 ## How Nemotron and Token Factory are used
 
 | Step | Model (Nebius Token Factory) | Why this model |
 |---|---|---|
-| Route a question the local rules cannot route (answer or search) | Nemotron 3 Nano | fast and cheap; the reply is parsed as JSON, with keyword rules as fallback. Messages that touch a private memory, and anything the rules recognise (remember, correct, search, brief), are routed on the device |
+| Route a question the local rules cannot route (answer or search) | Nemotron 3 Nano | fast and cheap; the reply is parsed as JSON, with keyword rules as fallback. Messages that touch a private memory, and anything the rules recognise (remember, correct, search, brief, availability), are routed on the device |
 | Compose the answer or the daily brief from guarded context | Nemotron 3 Ultra | long-context reasoning over many memories |
 
 The sensitivity of a new memory is decided on the device: asking a model whether a fact is private would show
@@ -76,7 +80,9 @@ holds them, otherwise from hand-written sample answers, which the interface labe
 
 Confidant ships an MCP server (`python -m confidant serve-mcp`, standard library only) exposing
 `memory_search`, `memory_record`, `memory_correct`, `memory_history`, `guarded_answer` and `daily_brief`.
-MCP clients see private memories only as placeholders with their label.
+MCP clients see private memories only as placeholders with their label. An availability question sent to
+`guarded_answer` is checked on the device, and the client gets the shared items of that period only: saying
+that a private item falls in it would date that item.
 
 `integrations/hermes/` holds a reusable Hermes skill and the morning-brief job: a Hermes cron job in no-agent
 mode runs [`confidant-brief.sh`](integrations/hermes/confidant-brief.sh), that is
@@ -101,6 +107,14 @@ draft, so each private item appears only as its label, and no Hermes model reads
   fact's words, an old version, event order, sensitive facts stored as personal). The current version leaks 0
   of the 170, a regression result, not an estimate: no round has been written against it yet. Every failure
   and every fix is listed there.
+- **Differential test** ([`tests/test_differential.py`](tests/test_differential.py)): values are not the only
+  way to leak. A reviewer found that asking about Tuesday and about Monday put a private appointment's
+  placeholder in the model's context only on its own day, which dated it (18 of 30 question pairs). Fixed:
+  the test now moves the private appointments to other days and checks that nothing that leaves the device
+  changes, through the chat and over MCP.
+- Withheld items carry no date, so a cloud model cannot tell whether one falls in a given slot. Availability
+  questions are therefore answered on the device, with no model call; the version that may be passed on (MCP,
+  Telegram) lists shared items only.
 - Late binding protects the value, not the existence of a withheld memory: the model sees "private: health
   appointment, value withheld", which is itself information. Labels name a category only ("health
   appointment", "private appointment", "housing cost", "finances"), never a word of the memory. Withheld items

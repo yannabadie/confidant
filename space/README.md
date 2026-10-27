@@ -24,7 +24,7 @@ estimate and a SHA-256 of the payload, never the payload itself.
 
 ## Try it
 
-Run the six-step demo script on the left of the app:
+Run the seven-step demo script on the left of the app:
 
 1. **What's on my plate next week?** Private appointments are filled in on the device; the Guard tab
    shows the exact text Nemotron received.
@@ -36,6 +36,9 @@ Run the six-step demo script on the left of the app:
    cites them.
 5. **Remember my bank PIN is 4821.** Refused: credentials are never stored or sent.
 6. **Run my daily brief.** The week ahead, plus today's receipts.
+7. **Am I free Wednesday morning?** Checked on the device against the real dates, private ones included:
+   no model call at all, since no cloud model may learn when a private item happens. After step 2 the
+   moved appointment makes the answer "not free".
 
 The persona, Alex Martin, is fictional. Each browser tab gets its own copy of the seed memory, so your
 changes are visible only to you and disappear when the tab closes.

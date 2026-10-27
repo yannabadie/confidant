@@ -18,6 +18,9 @@ for tuning.
 | 3 (held out) | 48 | 27 Oct, after v3, by another reviewer | **30 leaked** (v3) | 0 (v4, v5) |
 | 4 (held out) | 12 | 27 Oct, after v4, by a reviewer of the whole submission | **11 leaked** (v4) | 0 (v5) |
 
+A fifth review compared answers instead of payloads and found a leak of another kind, which no round
+could see: see [Differential check](#differential-check-27-october-2026).
+
 Each prompt runs against two fake model profiles, a cooperative one and a hostile one that tries to
 exfiltrate; the counts above are prompts that leaked in at least one profile. Machine-readable results, latest
 code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
@@ -49,9 +52,20 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
   whole words, within a sentence, and not when the form is part of a larger number or a longer time. The guard
   protects a handful of values, so writing each one out a few hundred to a thousand ways ahead of time is
   cheap; parsing every possible way of writing every value is not.
-- **Fewer calls leave the device:** round 1 makes 78 calls instead of 107 in v1 (cooperative) and 90 instead of
-  131 (exfiltrating); round 4 makes 12 instead of 14 and 16, because the messages that carried a private value
+- **Fewer calls leave the device:** round 1 makes 77 calls instead of 107 in v1 (cooperative) and 89 instead of
+  131 (exfiltrating); round 4 makes 11 instead of 14 and 16, because the messages that carried a private value
   no longer reach the router or Tavily.
+- **Availability is checked on the device** (27 October, after round 4's fixes). Whether a slot is free depends
+  on when private items happen, which no cloud model may learn, so questions such as `Am I free on Tuesday
+  morning?` (N01) or `Is the 1030 slot on Tuesday still open for me?` (T10) are answered locally against the
+  real dates and make no call. Nine prompts of the four rounds are such questions; one prompt that asks to
+  "search the web" (I06) now goes to web search, its query guarded. Rerun on this version: still 0 of 170,
+  with 77/89, 53/63, 58/64 and 11/11 calls.
+- **A differential check found what payload scanning cannot**: asked "What do I have on Tuesday?" and the same
+  about Monday, Confidant put a private appointment's placeholder in the model's context only on the day that
+  appointment was, which dated it without showing any value (18 of 30 question pairs, 27 October). Fixed;
+  `tests/test_differential.py` now moves the private appointments to other days and checks that nothing that
+  leaves the device changes.
 - Still reported, not counted: user-typed confidential details that are not stored values (for example
   `final-round lead designer` in a web search), and web-policy redactions of personal names in controls.
 
@@ -77,6 +91,7 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
 | Any message that may carry a date, time or amount in a form no scanner reads | v4. **Such a message never reaches the router**: any digit, month or weekday name, day or number word keeps it on the device (`scan.has_value_cues`, `assistant._route`) |
 | Values typed in forms no scanner reads: `3 de novembro`, `11月3日`, `03NOV`, `3.XI.2026`, `half ten`, `ten and a half`, `eleven sharp`, `eleven-eighty`, `six grand`, `seis mil`, `sechstausend` (4: R4-01 to R4-10, R4-12) | v5. **Generated forms**: each protected date, time and amount (100 to 999,999) is also written out in the date and time formats of 82 CLDR locales (Babel), in words in the 44 languages of num2words (days and months in words too), as military dates and Roman-numeral months with a year, and in spoken forms in seven languages (`half ten`, `halb elf`, `a las diez y media`, `une heure`, `eleven sharp`, `six grand`, `eleven-eighty`). Matches are whole words within one sentence; a form next to a number word (`vingt-trois novembre`, `seis mil quinientos`) or followed by more of a time (`huit heures et demie`) is skipped; short forms that are everyday words somewhere (`3 set`, `mil`, `bin`) are not generated. Without Babel and num2words installed, the guard falls back to the scanners and logs it (`forms.py`, `guard.py`) |
 | The checker scored only the forms its own extractors knew: on v4 it saw 1 of round 4's 11 leaks | v5 of the test. A case can list its reviewer's `forms`, checked literally after normalisation, so a held-out round is scored on what its author meant (`scripts/leak_test.py`, `reviewer_form_canaries`) |
+| A question that names a day picked private events by the words they share with it ("Tuesday" in "Dermatologist appointment on Tuesday 3 Nov"), so which placeholders reached the model, and the guard summary an MCP client reads, dated them (differential check: 18 of 30 pairs) | 27 Oct. **A message that refers to a time in any way gets every upcoming withheld event, and full-text search adds no withheld memory to it** (`rules.names_time`, `assistant._retrieve`); a differential test (`tests/test_differential.py`) |
 
 What the fixes cost: more redaction (any value equal to a private one is removed from what the user types,
 whichever reading or digit string made it match, even when a shared memory holds the same value, and an
@@ -478,6 +493,31 @@ Also found:
   including a private one, and full-text search can apply a private correction to a personal memory.
 
 
+## Differential check (27 October 2026)
+
+The rounds look for private values in what is sent. They cannot see what a model or an MCP client could learn
+by comparing what is sent for two questions. A reviewer of the availability change (again a separate Claude
+agent, started without this project's history) did that comparison: the same questions, asked against the
+persona and against copies where the two private appointments are on other days, or later the same day. Any
+observable difference beyond the period the user named reveals when a private item is.
+
+- **Found:** 18 of 30 question pairs differed, for example `What do I have on Tuesday?`, `Got anything on
+  Thursday?`, `Is the afternoon free on Thursday?`. Full-text search added a private event to the model's
+  context only when its text shared the weekday asked about, so the placeholder list, and the guard summary
+  returned over MCP ("1 private memory never left Confidant" against "No private memory was involved"), told
+  which day the appointment was. This was already in v5, before the availability change.
+- **Fixed:** see the last row of "What changed". The reviewer's 153 availability questions and 29 mixed
+  questions, through chat and MCP, now give identical drafts, delivered text, MCP output and outbound
+  payloads in both stores. The one remaining difference is the *order* of shared full-text results, since
+  ranking statistics cover every memory (see the limits).
+- **Also found by that review, and fixed:** item times read wrongly (`at 2:30pm` without its pm, `from 3 Nov`
+  as 03:00), days resolved wrongly (`the day after tomorrow`, `Thursday the 12th`, `11/03/2026` as last
+  March, `between Tuesday and Thursday`), clock times left as numbers (`the 1030 slot`, `at 11`), "Nothing was
+  sent" written after a routing call, `free entry` read as an availability question, and a day Confidant could
+  not read silently replaced by today (it now asks).
+- `tests/test_differential.py` keeps the check: 16 questions, chat and MCP, persona against moved appointments.
+  On the code before the fix it fails 7 of them.
+
 ## Known limits of this test
 
 - **Rounds 1 to 4 have been used for tuning, and v5 has no held-out estimate yet.** Their 0 leaks say that those
@@ -500,6 +540,13 @@ Also found:
   rounds, the reviewer's own `forms`.
 - **Matching ignores context**: an unrelated `1030` in a message, or `ten and a half kilometres`, is withheld
   when a private time is 10:30.
+- **Full-text ranking counts private memories.** Search statistics cover every memory, so the order of
+  the shared results sent for a question can shift when a private memory changes; which memories are sent
+  does not.
+- **The runs are on one day.** Every answer request starts with today's date, and a question about a period
+  gives its first day. On a day that is also a private item's date, that date is in the payload, although
+  nothing in it says which item falls on that day; the checker would count it as a value hit. The persona's
+  today is 30 October 2026, when no private item is due.
 - **Not covered**: HTTP headers (the fakes do not see them), logs, the replay recorder, the MCP server, the
   Gradio UI beyond the one render check, replay mode, budget fallbacks and network errors.
 
@@ -545,6 +592,6 @@ canaries from it, and it stops with an error if a hand-curated detail no longer 
 | `confidant/guard.py` | `cf72e270f01cd67af31e36bc5b0e3bd6c99edd8b92c44591efc32a2d56f0adc1` | `2207c112d4c73ae777360da20d6e8950bc6979f1bb82a6f6657686398818cb9e` |
 | `confidant/forms.py` | `008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94` | (new in v5) |
 | `confidant/scan.py` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
-| `confidant/rules.py` | `467bd43d0216c127b788f3825a4a5d390112bb273f230f4dd895be5f0639058f` | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
-| `confidant/assistant.py` | `41f435ff5b25190b05c31f681590c959dd85f87b00a8dde0586340fca9e79eb9` | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
+| `confidant/rules.py` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
+| `confidant/assistant.py` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
 | Babel, num2words | 2.18.0, 0.5.14 | (not used) |

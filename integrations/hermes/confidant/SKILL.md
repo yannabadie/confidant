@@ -15,6 +15,12 @@ Call `guarded_answer` with the user's question, word for word. Return its answer
 such as `[m6v1]` included. If it contains placeholders, keep them exactly and add one line: "Private items
 are kept on your device; open Confidant to see them." Never ask the user to type a private value.
 
+## When the user asks whether they are free
+For "Am I free on Tuesday morning?" and the like, call `guarded_answer` the same way. Confidant checks it on
+the user's device and returns the shared items of that period only: saying that a private item falls in it
+would date that item. Return the answer as it is; its last line already tells the user to open Confidant to
+see the private ones. Never conclude that the user is free from that answer alone.
+
 ## When the user states a fact to remember, or corrects one
 - New fact: `memory_record` with the text, a kind and a 2–4 word label that names only the category
   ("medical appointment", "job search"), never a diagnosis, a name, a number or a date: the label is

@@ -135,7 +135,7 @@ class TurnView:
     """Everything the UI shows about one answered message (or the daily brief)."""
 
     question: str
-    draft: str = ""  # the answer as the cloud model wrote it, placeholders included
+    draft: str = ""  # the answer as written (by the cloud model, or here), placeholders included
     values: Mapping[int, str] = field(default_factory=dict)  # placeholder id -> value filled in here
     citations: tuple[MemoryView, ...] = ()
     shared: tuple[MemoryView, ...] = ()  # sent verbatim with the answer request
@@ -147,6 +147,7 @@ class TurnView:
     outbound: tuple[OutboundView, ...] = ()
     mode: str = "replay"
     is_brief: bool = False
+    on_device: bool = False  # answered on this device with no model call (an availability check)
     notice: str = ""
     error: str = ""
 
@@ -292,7 +293,7 @@ class Engine:
         """Convert a core ``Turn`` into a view."""
         report = turn.guard
         prepared = report.prepared
-        draft = turn.draft or turn.answer
+        draft = getattr(turn, "local", "") or turn.draft or turn.answer  # this page is on the device
         values = {}
         if prepared is not None:
             values = {s.memory.id: s.rendered for s in self.guard.segments(draft, prepared) if s.memory is not None}
@@ -314,6 +315,7 @@ class Engine:
             outbound=tuple(_outbound(o) for o in getattr(turn, "outbound", ())),
             mode=turn.mode,
             is_brief=is_brief,
+            on_device=turn.intent == "availability",
             notice=turn.notice.replace(REPLAY_NOTICE, "").strip(),
         )
 
@@ -332,6 +334,7 @@ DEMO_SCRIPT: tuple[tuple[str, str], ...] = (
     ("Draft a birthday message for Léa.", "Personal memories may go to the cloud model"),
     ("Remember my bank PIN is 4821.", "Refused: credentials are never stored or sent"),
     ("Run my daily brief.", "The week ahead, plus today's receipts"),
+    ("Am I free Wednesday morning?", "Answered on this device: no model sees private dates"),
 )
 
 PROVIDER_NAMES = {NEBIUS: "Nebius Token Factory", "tavily": "Tavily web search", "local": "this device"}
@@ -600,7 +603,7 @@ def render_header(runtime: Runtime, *, fell_back: bool = False) -> str:
 
 
 def render_script(done: set[int], busy: bool) -> str:
-    """The six-step demo script; each step sends its prompt."""
+    """The demo script; each step sends its prompt."""
     steps = []
     for number, (prompt, note) in enumerate(DEMO_SCRIPT, start=1):
         state = " is-done" if number in done else ""
@@ -614,7 +617,7 @@ def render_script(done: set[int], busy: bool) -> str:
     return (
         '<nav class="cf cf-script" aria-label="Demo script">'
         '<div><h2 class="cf-script__title">Demo script</h2>'
-        '<p class="cf-script__intro">Six steps, about two minutes. Select a step to send it.</p></div>'
+        '<p class="cf-script__intro">Seven steps, about two minutes. Select a step to send it.</p></div>'
         f'<ol class="cf-steps">{"".join(steps)}</ol></nav>'
     )
 
@@ -667,7 +670,7 @@ def render_actions(turn: TurnView) -> str:
         refused = action.lower().startswith("refused")
         text = re.sub(r"\b(m\d+(?:v\d+)?)\b", r"<code>\1</code>", esc(capitalised(action)))
         tags.append(f'<li class="cf-action{" cf-action--refused" if refused else ""}">{text}</li>')
-    if turn.mode == "replay":
+    if turn.mode == "replay" and turn.receipts:  # a turn answered on the device replayed nothing
         tags.append('<li><span class="cf-tag" title="Model outputs replayed from data/replay">replay</span></li>')
     return f'<ul class="cf-actions">{"".join(tags)}</ul>' if tags else ""
 
@@ -932,6 +935,9 @@ def render_guard_panel(turn: TurnView | None) -> str:
     sent = render_memlinks(
         turn.shared, lambda m: f"{m.sensitivity.capitalize()} memories may go to {cloud}", "No memory was shared."
     )
+    if turn.on_device:
+        shared_title = "Read on this device"
+        sent = render_memlinks(turn.shared, lambda m: "Checked here; no model saw it this turn", "No shared item.")
     went_out = answered(turn)
     kept = render_memlinks(
         turn.kept_local,
@@ -948,7 +954,9 @@ def render_guard_panel(turn: TurnView | None) -> str:
     replay_note = (
         '<p class="cf-panel__lead">Replayed turn: these are the exact requests a live run makes. '
         "In replay nothing leaves at all.</p>"
-        if turn.mode == "replay" else ""
+        if turn.mode == "replay" and turn.receipts else
+        '<p class="cf-panel__lead">Answered on this device: no request was made, live or replayed.</p>'
+        if turn.on_device else ""
     )
     compare = ""
     if turn.values:

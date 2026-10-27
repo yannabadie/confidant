@@ -35,13 +35,18 @@ from .rules import (
     classify_sensitivity,
     event_date,
     is_open_item,
+    item_span,
     label_mentioned,
     make_label,
     memory_text_from,
+    names_time,
+    part_of_day,
+    period_asked,
     recurs_on,
     rule_route,
     stem,
     time_window,
+    unread_period,
     web_query_from,
 )
 from .scan import STOPWORDS, detect_secret, digit_runs, find_secrets, find_values, has_value_cues, words
@@ -54,6 +59,7 @@ FAST_TEMPERATURE = 0.0
 MAX_CONTEXT_MEMORIES = 10
 BRIEF_HORIZON_DAYS = 7
 WITHHELD_HORIZON_DAYS = 60  # private events this far ahead are listed for any period asked, so none is dated
+AVAILABILITY_MAX_DAYS = 14  # an availability check covers at most this many days
 BRIEF_QUESTION = "Run my daily brief."
 WEB_RESULT_COUNT = 5
 TAVILY_MODEL = "tavily-search-basic"
@@ -73,12 +79,14 @@ general knowledge, labelled as such.
 
 ROUTER_SYSTEM_PROMPT = """\
 You route messages for Confidant, a personal memory assistant. Reply with exactly one JSON object and no other text:
-{"intent": "answer" | "remember" | "correct" | "search" | "brief", "text": "...", "target": "...", "query": "..."}
+{"intent": "answer" | "remember" | "correct" | "search" | "brief" | "availability", \
+"text": "...", "target": "...", "query": "..."}
 - remember: the user tells you something new to keep. "text": that fact as one short standalone sentence.
 - correct: the user changes or fixes something already known. "target": a few words naming that memory; \
 "text": the full corrected fact as one sentence.
 - search: the user wants information from the web. "query": a short web query with no names, dates or personal details.
 - brief: the user asks for their daily brief.
+- availability: the user asks whether they are free or busy at some time.
 - answer: anything else (questions about their life, drafting, advice).
 Leave out fields that do not apply. /no_think"""
 
@@ -172,7 +180,9 @@ class Turn:
     the answer cites or fills in, in order of appearance; ``actions`` what
     changed (e.g. "recorded m26v1", "corrected m7 → v2"); ``receipts`` the rows
     logged during the turn; ``mode`` is "live" or "replay"; ``notice`` tells the
-    user about replay, budget limits or failed calls.
+    user about replay, budget limits or failed calls. ``local``, when set, is the
+    text ``answer`` was bound from instead of the draft: it places private items
+    in time (an availability check), so it is for this device only.
     """
 
     answer: str
@@ -185,6 +195,7 @@ class Turn:
     draft: str = ""
     notice: str = ""
     outbound: list[Outbound] = field(default_factory=list)
+    local: str = ""
 
 
 def delivery_text(turn: Turn, store: MemoryStore) -> str:
@@ -207,10 +218,12 @@ def delivery_text(turn: Turn, store: MemoryStore) -> str:
 
 @dataclass(frozen=True)
 class _Outcome:
-    """What an intent handler produced: the draft answer and the context it was written from."""
+    """What an intent handler produced: the draft answer, the context it was written from and, when the
+    answer shown on this device must differ from the draft that may be passed on, that device-only text."""
 
     draft: str
     prepared: PreparedContext
+    local: str = ""
 
 
 def extract_json(text: str) -> dict[str, Any] | None:
@@ -313,6 +326,93 @@ def _period(window: tuple[date, date], today: date) -> str:
     return start if days == 1 else f"the {days} days from {start}"
 
 
+def _capitalised(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
+def _short_date(day: date) -> str:
+    """A date in a list, e.g. "Tue 3 Nov"."""
+    return f"{day:%a} {day.day} {day:%b}"
+
+
+def _split_by_part(items: Sequence[Memory], part: tuple[str, int, int] | None) -> tuple[list[Memory], ...]:
+    """A day's items in the part of the day asked about (all of them for a whole day), those with no time
+    noted, and the others."""
+    if part is None:
+        return list(items), [], []
+    _, start, end = part
+    inside: list[Memory] = []
+    untimed: list[Memory] = []
+    other: list[Memory] = []
+    for memory in items:
+        span = item_span(memory)
+        if span is None:
+            untimed.append(memory)
+        elif span[0] < end and start < span[1]:
+            inside.append(memory)
+        else:
+            other.append(memory)
+    return inside, untimed, other
+
+
+def _availability_texts(
+    heading: str, schedule: Mapping[date, list[Memory]], part: tuple[str, int, int] | None,
+    prepared: PreparedContext, *, single: bool, routed_by_cloud: bool = False,
+) -> tuple[str, str]:
+    """The answer to an availability question, for this device only (private items appear as placeholders,
+    filled in here, next to their day), and the draft that may be passed on (shared items only)."""
+    withheld = set(prepared.withheld_ids)
+
+    def shown(memory: Memory) -> str:
+        return placeholder(memory.id) if memory.id in withheld else f"{memory.text} [{memory.cite()}]"
+
+    local: list[str] = []
+    passed_on: list[str] = []
+    if single:
+        items = next(iter(schedule.values()))
+        inside, untimed, other = _split_by_part(items, part)
+        if inside:
+            local.append(f"{heading}: not free.")
+        elif untimed:
+            local.append(f"{heading}: maybe. Nothing is noted at that time, but {len(untimed)} item(s) that day "
+                         "have no time noted.")
+        else:
+            local.append(f"{heading}: free, nothing in memory.")
+        local += [f"- {shown(memory)}" for memory in inside]
+        if untimed and part:
+            local += ["No time noted:", *(f"- {shown(memory)}" for memory in untimed)]
+        if other:
+            local += ["Also that day:", *(f"- {shown(memory)}" for memory in other)]
+        passed_on = [f"- {shown(memory)}" for memory in inside + untimed if memory.id not in withheld]
+    else:
+        free: list[date] = []
+        for day, items in schedule.items():
+            inside, untimed, _ = _split_by_part(items, part)
+            if not inside and not untimed:
+                free.append(day)
+                local.append(f"- {_short_date(day)}: free")
+            for memory in inside + untimed:
+                note = " (no time noted)" if memory in untimed and part else ""
+                local.append(f"- {_short_date(day)}: {shown(memory)}{note}")
+                if memory.id not in withheld:
+                    passed_on.append(f"- {_short_date(day)}: {shown(memory)}{note}")
+        if len(free) == len(schedule):
+            verdict = f"{heading}: free every day, nothing in memory."
+        elif not free:
+            verdict = f"{heading}: no free day."
+        else:
+            verdict = f"{heading}: free on {len(free)} of {len(schedule)} days ({', '.join(map(_short_date, free))})."
+        local.insert(0, verdict)
+    local.append(
+        "Checked on this device against the real dates, private items included. "
+        + ("Only the routing request left, with its values masked." if routed_by_cloud else "Nothing was sent.")
+    )
+    lead = f"{heading}, shared items in memory:" if passed_on else f"{heading}: no shared item in memory."
+    draft = [lead, *passed_on,
+             "Private items are left out of this message: whether one falls in this period shows on your device only."]
+    return "\n".join(local), "\n".join(draft)
+
+
 class _Exchange:
     """Every outbound call of one turn, live or replayed, and what the turn will report."""
 
@@ -334,6 +434,7 @@ class _Exchange:
         self.outputs: dict[str, str] = {}
         self.web_results: list[WebResult] = []
         self.outbound: list[Outbound] = []
+        self.opening_notices = len(notices)  # about the mode (replay, budget, models), set before any call
 
     def complete(
         self,
@@ -395,11 +496,9 @@ class _Exchange:
         return result.text
 
     def web(self, query: str) -> list[WebResult]:
-        """Run a guarded web search (live) or return the recorded results (replay)."""
+        """Run a guarded web search (live) or return the recorded results (replay). Without a Tavily key
+        the query is still guarded, so the Guard tab shows what a search would send; nothing leaves."""
         assistant = self.assistant
-        if self.mode != "replay" and assistant.search is None:
-            self.notices.append("Web search is off (no TAVILY_API_KEY), so the answer uses memory only.")
-            return []
         decision = assistant.guard.check_outbound(
             query, TAVILY, assistant.store.all_versions(), purpose="web search", strict=True
         )
@@ -407,6 +506,12 @@ class _Exchange:
         self.withheld_ids.update(decision.withheld_ids)
         if not decision.allowed:
             self.notices.append("The guard blocked the web query: it would have revealed private details.")
+            return []
+        if self.mode != "replay" and assistant.search is None:
+            self.notices.append(
+                f"Web search is off (no TAVILY_API_KEY), so nothing was searched; the guarded query would have been "
+                f"\u201c{decision.redacted_text}\u201d. The answer uses memory only."
+            )
             return []
         payload = search_payload(decision.redacted_text, WEB_RESULT_COUNT)
         if self.mode == "replay":
@@ -531,7 +636,7 @@ class Assistant:
             route, private = Route(intent, source="caller"), False
         handlers = {
             "answer": self._answer, "remember": self._remember, "correct": self._correct,
-            "search": self._search, "brief": self._brief,
+            "search": self._search, "brief": self._brief, "availability": self._availability,
         }
         outcome = handlers[route.intent](exchange, message, route, private)
         return self._close(exchange, message, route, outcome)
@@ -566,9 +671,10 @@ class Assistant:
         return _Exchange(self, session_id, mode, recorded, notices)
 
     def _close(self, exchange: _Exchange, message: str, route: Route, outcome: _Outcome) -> Turn:
-        """Late-bind the draft, settle the budget and recorder, and build the Turn."""
+        """Late-bind the draft (or the device-only text), settle the budget and recorder, and build the Turn."""
         prepared = outcome.prepared
-        segments = self.guard.segments(outcome.draft, prepared)
+        shown = outcome.local or outcome.draft
+        segments = self.guard.segments(shown, prepared)
         unresolved = [segment.text for segment in segments if segment.placeholder and segment.memory is None]
         if unresolved:
             exchange.notices.append(
@@ -589,10 +695,10 @@ class Assistant:
             late_bound_ids=late_bound, unresolved=unresolved, sent_to_cloud=live,
         )
         return Turn(
-            answer=self.guard.late_bind(outcome.draft, prepared), citations=cited_memories(outcome.draft, prepared),
+            answer=self.guard.late_bind(shown, prepared), citations=cited_memories(shown, prepared),
             guard=report, actions=exchange.actions, receipts=exchange.receipts, mode=exchange.mode,
             intent=route.intent, draft=outcome.draft, notice=" ".join(exchange.notices),
-            outbound=list(exchange.outbound),
+            outbound=list(exchange.outbound), local=outcome.local,
         )
 
     def _refuse(self, message: str, reason: str, session_id: str) -> Turn:
@@ -747,6 +853,38 @@ class Assistant:
         summary = self.receipts.today_summary(exchange.session_id).line()
         return _Outcome(f"{outcome.draft}\n\n{summary}", outcome.prepared)
 
+    def _availability(self, exchange: _Exchange, message: str, route: Route, private: bool) -> _Outcome:
+        """Whether a period is free, checked on this device against the real dates, private items included.
+        No cloud model may learn when a private item happens, so this intent makes no outbound call. The
+        answer shown here places every item in time; the draft, which may be passed on, lists the shared
+        items only and says the same about private ones whatever the period holds."""
+        today = self.today()
+        routed_by_cloud = bool(exchange.receipts)  # a cloud router chose this intent (it saw the masked message)
+        del exchange.notices[:exchange.opening_notices]  # replay and budget notices: no answer call is made
+        exchange.actions.append(
+            "checked availability on this device" + ("" if routed_by_cloud else ": nothing sent")
+        )
+        pool = self._private_schedule()  # every private item, whatever the period: the context dates none
+        exchange.withheld_ids.update(memory.id for memory in pool)
+        period = period_asked(message, today)
+        if period is None and unread_period(message):
+            return _Outcome(
+                "Which day should I check? For example: Am I free on Tuesday 3 November? I check up to "
+                f"{AVAILABILITY_MAX_DAYS} days at a time.", self.guard.prepare_context(pool, NEBIUS),
+            )
+        first, last = period or (today, today)
+        last = min(last, first + timedelta(days=AVAILABILITY_MAX_DAYS - 1))
+        part = part_of_day(message)
+        days = [first + timedelta(days=offset) for offset in range((last - first).days + 1)]
+        schedule = {day: self._items_on(day) for day in days}
+        shared = [memory for items in schedule.values() for memory in items if self.guard.may_send(memory, NEBIUS)]
+        prepared = self.guard.prepare_context([*shared, *pool], NEBIUS)
+        heading = _capitalised(_period((first, last), today)) + (f", {part[0]}" if part else "")
+        local, draft = _availability_texts(
+            heading, schedule, part, prepared, single=len(days) == 1, routed_by_cloud=routed_by_cloud,
+        )
+        return _Outcome(draft, prepared, local=local)
+
     # --- helpers ---------------------------------------------------------------
 
     def _classify(self, exchange: _Exchange, text: str, private: bool) -> tuple[str, str, str]:
@@ -792,17 +930,43 @@ class Assistant:
 
     def _retrieve(self, message: str, window: tuple[date, date] | None) -> list[Memory]:
         """For a period: its shared events, then every upcoming withheld event whatever the
-        period (so the list dates none of them); then the best full-text matches."""
+        period (so the list dates none of them); then the best full-text matches.
+
+        A message that refers to a time in any way, even one the period note leaves out (a
+        weekday, a masked date), gets the same full withheld list, and full-text search may not
+        add withheld memories to it: which ones share its words ("Tuesday") would date them."""
         found: dict[int, Memory] = {}
+        timed = window is not None or names_time(message)
         if window:
             for memory in self._events_between(*window):
                 if self.guard.may_send(memory, NEBIUS):
                     found[memory.id] = memory
+        if timed:
             for memory in self._upcoming_withheld():
                 found.setdefault(memory.id, memory)
         for memory in self.store.search(message, limit=8):
+            if timed and not self.guard.may_send(memory, NEBIUS):
+                continue
             found.setdefault(memory.id, memory)
         return list(found.values())[:MAX_CONTEXT_MEMORIES]
+
+    def _items_on(self, day: date) -> list[Memory]:
+        """Current events dated ``day`` and routines held on its weekday ("every Tuesday"), by start time."""
+        today = self.today()
+        items = [
+            memory for memory in self.store.all_current() if memory.source_type != "web"
+            and ((memory.kind == "event" and event_date(memory, today) == day) or recurs_on(memory, day))
+        ]
+        return sorted(items, key=lambda memory: ((item_span(memory) or (24 * 60, 0))[0], memory.id))
+
+    def _private_schedule(self) -> list[Memory]:
+        """Every current event or weekly routine the reasoning model may not see, whatever its date, by id."""
+        today = self.today()
+        return [
+            memory for memory in self.store.all_current()
+            if memory.source_type != "web" and not self.guard.may_send(memory, NEBIUS)
+            and (memory.kind == "event" or any(recurs_on(memory, today + timedelta(days=n)) for n in range(7)))
+        ]
 
     def _upcoming_withheld(self) -> list[Memory]:
         """Current events the reasoning model may not see, from today to WITHHELD_HORIZON_DAYS

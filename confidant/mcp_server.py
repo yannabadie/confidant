@@ -30,11 +30,11 @@ import sys
 from collections.abc import Callable, Mapping
 from typing import Any, TextIO
 
-from .assistant import Assistant, delivery_text
+from .assistant import Assistant, cited_memories, delivery_text
 from .config import VERSION
-from .guard import placeholder
+from .guard import PLACEHOLDER_RE, placeholder
 from .memory import KINDS, SENSITIVITIES, Memory
-from .rules import classify_kind, classify_new_fact, make_label
+from .rules import classify_kind, classify_new_fact, is_availability_question, make_label
 
 PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
 PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND, INVALID_PARAMS, INTERNAL_ERROR = (
@@ -87,7 +87,9 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "guarded_answer",
         "description": "Answer a question from the user's memories through Confidant's privacy guard: "
-                       "the cloud model sees placeholders, never private values. Read-only.",
+                       "the cloud model sees placeholders, never private values. Availability questions "
+                       "(\"Am I free on Tuesday morning?\") are checked on the device and list shared items "
+                       "only, since placing a private item in time would date it. Read-only.",
         "inputSchema": _schema({"question": {"type": "string"}}, ["question"]),
     },
     {
@@ -282,15 +284,23 @@ class MCPServer:
         }
 
     def _guarded_answer(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
-        """Tool: a guarded, read-only answer from memory."""
-        turn = self.assistant.handle(_string(arguments, "question"), session_id=f"mcp:{self.client}", intent="answer")
-        withheld = turn.guard.prepared.withheld if turn.guard.prepared else []
+        """Tool: a guarded, read-only answer from memory (an availability check, checked on the device,
+        or an answer). Without --reveal-private the client gets the draft, and only the placeholders and
+        citations that appear in it."""
+        question = _string(arguments, "question")
+        intent = "availability" if is_availability_question(question) else "answer"
+        turn = self.assistant.handle(question, session_id=f"mcp:{self.client}", intent=intent)
+        prepared = turn.guard.prepared
+        withheld = prepared.withheld if prepared else []
+        cited = turn.citations if self.reveal_private or prepared is None else cited_memories(turn.draft, prepared)
+        in_draft = {int(match.group(1)) for match in PLACEHOLDER_RE.finditer(turn.draft)}
         return {
             "answer": turn.answer if self.reveal_private else turn.draft,
             "placeholders": {} if self.reveal_private else {
                 placeholder(memory.id): f"{memory.sensitivity}: {memory.label}" for memory in withheld
+                if memory.id in in_draft
             },
-            "citations": [memory.cite() for memory in turn.citations],
+            "citations": [memory.cite() for memory in cited],
             "guard": turn.guard.summary(),
             "mode": turn.mode,
             "notice": turn.notice,

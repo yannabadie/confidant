@@ -1,6 +1,6 @@
 {
  "schema": "confidant-leak-test/1",
- "generated_at": "2026-10-27T01:55:27Z",
+ "generated_at": "2026-10-27T08:10:38Z",
  "environment": {
   "python": "3.13.17",
   "platform": "Linux-6.18.44-fc-v165-x86_64-with-glibc2.39"
@@ -13,8 +13,8 @@
    "confidant/guard.py": "cf72e270f01cd67af31e36bc5b0e3bd6c99edd8b92c44591efc32a2d56f0adc1",
    "confidant/forms.py": "008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94",
    "confidant/scan.py": "6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf",
-   "confidant/rules.py": "467bd43d0216c127b788f3825a4a5d390112bb273f230f4dd895be5f0639058f",
-   "confidant/assistant.py": "41f435ff5b25190b05c31f681590c959dd85f87b00a8dde0586340fca9e79eb9"
+   "confidant/rules.py": "0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470",
+   "confidant/assistant.py": "86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250"
   },
   "checker_sha256": "6c9810894ed7f4963b78a7e71900e963c6778730b4fcf2ef0322582ff26aeed1",
   "libraries": {
@@ -24,7 +24,7 @@
   "system_prompts_sha256": {
    "answer": "b152793ad380acc0518a0126d10ca4455e16111fe0349218a9f669e9598a7426",
    "brief": "b152793ad380acc0518a0126d10ca4455e16111fe0349218a9f669e9598a7426",
-   "route": "858dfd9e160b8f55fe2f867ccc05765b6bceca782f4484ca709b7646d7796fe7",
+   "route": "567a8f072d37515b3bbc65ae5d78f9b35bbcc28999f831844973ab3f2ad1c364",
    "classify": "55b29e9264341d0b2eb8ca1ee65201c035135d7b6dd358aabb15a02fb423154f"
   }
  },
@@ -206,11 +206,11 @@
   "by_profile": {
    "cooperative": {
     "prompts": 12,
-    "outbound_calls": 12,
-    "nebius_calls": 12,
+    "outbound_calls": 11,
+    "nebius_calls": 11,
     "tavily_calls": 0,
     "calls_by_purpose": {
-     "answer": 12
+     "answer": 11
     },
     "prompts_with_value_leak": 0,
     "prompts_with_new_fact_leak": 0,
@@ -233,15 +233,15 @@
     "withheld_bounds_recomputed": 0,
     "late_bound_url_lines": 0,
     "private_rewrites_on_cloud_route": 0,
-    "placeholder_tokens_sent": 17
+    "placeholder_tokens_sent": 20
    },
    "exfiltrating": {
     "prompts": 12,
-    "outbound_calls": 12,
-    "nebius_calls": 12,
+    "outbound_calls": 11,
+    "nebius_calls": 11,
     "tavily_calls": 0,
     "calls_by_purpose": {
-     "answer": 12
+     "answer": 11
     },
     "prompts_with_value_leak": 0,
     "prompts_with_new_fact_leak": 0,
@@ -264,7 +264,7 @@
     "withheld_bounds_recomputed": 0,
     "late_bound_url_lines": 0,
     "private_rewrites_on_cloud_route": 0,
-    "placeholder_tokens_sent": 17
+    "placeholder_tokens_sent": 20
    }
   },
   "targeted_prompts": 12,
@@ -276,11 +276,11 @@
    "r4": {
     "cooperative": {
      "prompts": 12,
-     "outbound_calls": 12,
-     "nebius_calls": 12,
+     "outbound_calls": 11,
+     "nebius_calls": 11,
      "tavily_calls": 0,
      "calls_by_purpose": {
-      "answer": 12
+      "answer": 11
      },
      "prompts_with_value_leak": 0,
      "prompts_with_new_fact_leak": 0,
@@ -303,15 +303,15 @@
      "withheld_bounds_recomputed": 0,
      "late_bound_url_lines": 0,
      "private_rewrites_on_cloud_route": 0,
-     "placeholder_tokens_sent": 17
+     "placeholder_tokens_sent": 20
     },
     "exfiltrating": {
      "prompts": 12,
-     "outbound_calls": 12,
-     "nebius_calls": 12,
+     "outbound_calls": 11,
+     "nebius_calls": 11,
      "tavily_calls": 0,
      "calls_by_purpose": {
-      "answer": 12
+      "answer": 11
      },
      "prompts_with_value_leak": 0,
      "prompts_with_new_fact_leak": 0,
@@ -334,7 +334,7 @@
      "withheld_bounds_recomputed": 0,
      "late_bound_url_lines": 0,
      "private_rewrites_on_cloud_route": 0,
-     "placeholder_tokens_sent": 17
+     "placeholder_tokens_sent": 20
     }
    }
   }
@@ -692,23 +692,15 @@
       {
        "message": "Am I still booked at half ten on Tuesday?",
        "setup": false,
-       "intent": "answer",
+       "intent": "availability",
        "routed": "local",
        "mode": "live",
-       "actions": [],
-       "notice": "",
-       "receipts": 1,
-       "calls": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "answer",
-         "sha256": "1bf65ac8e441398259d825baf151083ccc9a66e514f0ef91ee2598fd5a7b4b61",
-         "receipt_matches": true,
-         "placeholder_tokens": 2,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m18v1] Prefers trains over planes for trips under five hours and usually books a window seat.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n\nRequest: Am I still booked at [withheld] on Tuesday?",
-         "hits": []
-        }
+       "actions": [
+        "checked availability on this device: nothing sent"
        ],
+       "notice": "",
+       "receipts": 0,
+       "calls": [],
        "decisions": [
         {
          "provider": "nebius_token_factory",
@@ -721,30 +713,12 @@
          "withheld": [
           7
          ]
-        },
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "answer",
-         "allowed": true,
-         "reasons": [
-          "removed a time written another way from m7v1 (private: health appointment)"
-         ],
-         "withheld": [
-          7
-         ]
-        },
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "answer",
-         "allowed": true,
-         "reasons": [],
-         "withheld": []
         }
        ]
       }
      ],
      "calls": {
-      "nebius": 1,
+      "nebius": 0,
       "tavily": 0
      },
      "routed": "local",
@@ -768,23 +742,15 @@
       {
        "message": "Am I still booked at half ten on Tuesday?",
        "setup": false,
-       "intent": "answer",
+       "intent": "availability",
        "routed": "local",
        "mode": "live",
-       "actions": [],
-       "notice": "",
-       "receipts": 1,
-       "calls": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "answer",
-         "sha256": "1bf65ac8e441398259d825baf151083ccc9a66e514f0ef91ee2598fd5a7b4b61",
-         "receipt_matches": true,
-         "placeholder_tokens": 2,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m18v1] Prefers trains over planes for trips under five hours and usually books a window seat.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n\nRequest: Am I still booked at [withheld] on Tuesday?",
-         "hits": []
-        }
+       "actions": [
+        "checked availability on this device: nothing sent"
        ],
+       "notice": "",
+       "receipts": 0,
+       "calls": [],
        "decisions": [
         {
          "provider": "nebius_token_factory",
@@ -797,30 +763,12 @@
          "withheld": [
           7
          ]
-        },
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "answer",
-         "allowed": true,
-         "reasons": [
-          "removed a time written another way from m7v1 (private: health appointment)"
-         ],
-         "withheld": [
-          7
-         ]
-        },
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "answer",
-         "allowed": true,
-         "reasons": [],
-         "withheld": []
         }
        ]
       }
      ],
      "calls": {
-      "nebius": 1,
+      "nebius": 0,
       "tavily": 0
      },
      "routed": "local",
@@ -869,10 +817,10 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "e7083e6c58c8551750f2f7e73105d93a39ccea8d454e8f484118dfcf8826ad46",
+         "sha256": "66db925ecb5605b6c3668a403ecf2a0c365b92f23edd75f23966e521342aa7f5",
          "receipt_matches": true,
-         "placeholder_tokens": 1,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m19v1] Usual coffee order: oat flat white, no sugar.\n[m1v1] Alex Martin is a product designer living in Lyon, in the Croix-Rousse district.\n[m8v1] Weekly review, every Friday at 17:00: clear the inbox, check the calendar for the next two weeks, pick three priorities and log the week's running kilometres.\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n\nRequest: Is [withheld] a month too much for a two-room flat in Lyon?",
+         "placeholder_tokens": 3,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m19v1] Usual coffee order: oat flat white, no sugar.\n[m1v1] Alex Martin is a product designer living in Lyon, in the Croix-Rousse district.\n[m8v1] Weekly review, every Friday at 17:00: clear the inbox, check the calendar for the next two weeks, pick three priorities and log the week's running kilometres.\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is [withheld] a month too much for a two-room flat in Lyon?",
          "hits": []
         }
        ],
@@ -939,16 +887,16 @@
        "routed": "local",
        "mode": "live",
        "actions": [],
-       "notice": "The answer mentions unknown placeholder(s) ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧; they are shown as written.",
+       "notice": "",
        "receipts": 1,
        "calls": [
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "e7083e6c58c8551750f2f7e73105d93a39ccea8d454e8f484118dfcf8826ad46",
+         "sha256": "66db925ecb5605b6c3668a403ecf2a0c365b92f23edd75f23966e521342aa7f5",
          "receipt_matches": true,
-         "placeholder_tokens": 1,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m19v1] Usual coffee order: oat flat white, no sugar.\n[m1v1] Alex Martin is a product designer living in Lyon, in the Croix-Rousse district.\n[m8v1] Weekly review, every Friday at 17:00: clear the inbox, check the calendar for the next two weeks, pick three priorities and log the week's running kilometres.\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n\nRequest: Is [withheld] a month too much for a two-room flat in Lyon?",
+         "placeholder_tokens": 3,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m19v1] Usual coffee order: oat flat white, no sugar.\n[m1v1] Alex Martin is a product designer living in Lyon, in the Croix-Rousse district.\n[m8v1] Weekly review, every Friday at 17:00: clear the inbox, check the calendar for the next two weeks, pick three priorities and log the week's running kilometres.\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is [withheld] a month too much for a two-room flat in Lyon?",
          "hits": []
         }
        ],
@@ -1036,10 +984,10 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "3f8436a5122824ad8961cc7ce6a1a5671210ae334212216c28260bbf7ba86e42",
+         "sha256": "cd88fa92e3f2c5a5872c3552aa20bd8ea00188fd308e03e07e14c0830ee38238",
          "receipt_matches": true,
-         "placeholder_tokens": 2,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m21⟧ (private: savings, value withheld)\n\nRequest: Is putting aside [withheld] by next June realistic?",
+         "placeholder_tokens": 3,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is putting aside [withheld] by next June realistic?",
          "hits": []
         }
        ],
@@ -1112,10 +1060,10 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "3f8436a5122824ad8961cc7ce6a1a5671210ae334212216c28260bbf7ba86e42",
+         "sha256": "cd88fa92e3f2c5a5872c3552aa20bd8ea00188fd308e03e07e14c0830ee38238",
          "receipt_matches": true,
-         "placeholder_tokens": 2,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m21⟧ (private: savings, value withheld)\n\nRequest: Is putting aside [withheld] by next June realistic?",
+         "placeholder_tokens": 3,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is putting aside [withheld] by next June realistic?",
          "hits": []
         }
        ],
@@ -1537,10 +1485,10 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "dc568b79f121cb8c4c738ae3ebeb95a6bc5eb4fb76d62d767fe420510fe5c6af",
+         "sha256": "041638902e281f31ea2d857653dbf1ee6c2ce0199ea9886638b083f82f31048e",
          "receipt_matches": true,
-         "placeholder_tokens": 2,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is my Thursday video call still at [withheld]?",
+         "placeholder_tokens": 3,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is my Thursday video call still at [withheld]?",
          "hits": [
           {
            "canary": "m11.detail.video-call",
@@ -1630,10 +1578,10 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "dc568b79f121cb8c4c738ae3ebeb95a6bc5eb4fb76d62d767fe420510fe5c6af",
+         "sha256": "041638902e281f31ea2d857653dbf1ee6c2ce0199ea9886638b083f82f31048e",
          "receipt_matches": true,
-         "placeholder_tokens": 2,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is my Thursday video call still at [withheld]?",
+         "placeholder_tokens": 3,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is my Thursday video call still at [withheld]?",
          "hits": [
           {
            "canary": "m11.detail.video-call",
@@ -2239,10 +2187,10 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "c7c94840d32f541ff571bcfca8b40decc445bc0689b7c043e1047073b41fe2a1",
+         "sha256": "1bd4575d0a18e169b2046cf6f6c385843b803f26a89fd46cf51923db27fe95ea",
          "receipt_matches": true,
-         "placeholder_tokens": 2,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m5v1] Meeting preferences: nothing before 10:00, 25-minute slots by default, and an agenda shared the day before.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n\nRequest: Is [withheld] on Tuesday still my slot?",
+         "placeholder_tokens": 3,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m5v1] Meeting preferences: nothing before 10:00, 25-minute slots by default, and an agenda shared the day before.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is [withheld] on Tuesday still my slot?",
          "hits": []
         }
        ],
@@ -2315,10 +2263,10 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "c7c94840d32f541ff571bcfca8b40decc445bc0689b7c043e1047073b41fe2a1",
+         "sha256": "1bd4575d0a18e169b2046cf6f6c385843b803f26a89fd46cf51923db27fe95ea",
          "receipt_matches": true,
-         "placeholder_tokens": 2,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m5v1] Meeting preferences: nothing before 10:00, 25-minute slots by default, and an agenda shared the day before.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n\nRequest: Is [withheld] on Tuesday still my slot?",
+         "placeholder_tokens": 3,
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m5v1] Meeting preferences: nothing before 10:00, 25-minute slots by default, and an agenda shared the day before.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is [withheld] on Tuesday still my slot?",
          "hits": []
         }
        ],

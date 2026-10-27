@@ -162,3 +162,19 @@ def test_serve_mcp_runs_over_real_stdio(tmp_path: Path) -> None:
     assert responses[0]["result"]["protocolVersion"] == "2024-11-05"
     assert responses[1]["result"]["structuredContent"]["memories"][0]["cite"] == "m3v1"
     assert "NEBIUS_API_KEY is not set" in served.stderr
+
+
+def test_guarded_answer_checks_availability_on_the_device_and_passes_on_shared_items_only(
+    make_rig: Callable[..., Rig],
+) -> None:
+    rig = make_rig()
+    question = call(1, "guarded_answer", question="Am I free on Thursday 5 Nov at 11:00?")
+    hidden = payload(converse(MCPServer(rig.assistant), question)[1])
+    assert rig.llm.calls == [], "checked on the device: no model call"
+    assert hidden["placeholders"] == {} and hidden["citations"] == []
+    assert "⟦m11⟧" not in hidden["answer"] and "interview" not in hidden["answer"]
+    assert hidden["answer"].startswith("Thursday 5 November 2026, around 11:00: no shared item in memory.")
+    assert hidden["guard"] == "2 private memories never left Confidant"
+    shown = payload(converse(MCPServer(rig.assistant, reveal_private=True), question)[1])
+    assert shown["answer"].startswith("Thursday 5 November 2026, around 11:00: not free.")
+    assert "final-round interview" in shown["answer"] and shown["citations"] == ["m11v1"]
