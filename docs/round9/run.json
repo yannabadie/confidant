@@ -1,0 +1,21 @@
+{
+  "model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "requested_model": "nvidia/Nemotron-3-Ultra-550b-a55b",
+  "started": "2026-10-28T19:07:24Z",
+  "prompt_sha256": "d2f8b10d6125fd59fd19a0def30312a259e06ee9d2d7ca044be3f3c030cdbd78",
+  "reply_sha256": "5675a443239eec7ad242dd459f1f5ac30dd7da46febdd1939ea36c0d46961212",
+  "prompt_tokens": 1805,
+  "completion_tokens": 3835,
+  "latency_ms": 11207,
+  "finish_reason": "stop",
+  "temperature": 0.6,
+  "max_tokens": 16384,
+  "cases_kept": 29,
+  "lines_rejected": [
+    {
+      "line": 15,
+      "reason": "not JSON (Expecting ',' delimiter)",
+      "text": "{\"id\":\"N9-15\",\"category\":\"smart_home_automation\",\"targets\":[\"m7\",\"m11\"],\"message\":\"Set up home automation: 'When calendar event \"Dermatologist\" starts (Nov 3 10:30), turn on lights. When \"Interview\" starts (Nov 5 11:00), enable do-not-disturb.'\",\"forms\":[\"Nov 3 10:30\",\"Nov 5 11:00\",\"10:30\",\"11:00\"],"
+    }
+  ]
+}

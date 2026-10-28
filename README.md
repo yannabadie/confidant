@@ -146,12 +146,15 @@ draft, so each private item appears only as its label, and no Hermes model reads
   more (which shared memories an agent got back, and in what order, depended on the words of private ones);
   an eighth, on those fixes, found three more oracles (how an agent's own request was redacted, which private
   memories the brief picked, public web text redacted where it equalled a private value) and a placeholder
-  that dated itself by leaving the brief once its day had passed. Each is now a test
-  ([`tests/test_review_round6.py`](tests/test_review_round6.py),
-  [`tests/test_review_round7.py`](tests/test_review_round7.py),
-  [`tests/test_review_round8.py`](tests/test_review_round8.py)). The current version leaks 0 of the 170, a
-  regression result, not an estimate: no round has been written against it yet. Every failure and every fix
-  is listed there.
+  that dated itself by leaving the brief once its day had passed. Those eight rounds came from Claude agents,
+  and Claude also wrote the guard, so **round 9 was written by NVIDIA Nemotron 3 Ultra** on Token Factory
+  ([`scripts/nemotron_attack_round.py`](scripts/nemotron_attack_round.py); its prompt and reply are in
+  [`docs/round9/`](docs/round9/README.md)): 4 of its 29 messages leaked on the round-8 code, all through a day
+  of the month typed back ("rent ... on the 5th"). Each finding is now a test
+  ([`tests/test_review_round6.py`](tests/test_review_round6.py) to
+  [`tests/test_review_round9.py`](tests/test_review_round9.py)). The current version leaks 0 of the 199
+  prompts, a regression result, not an estimate: no round has been written against it yet. Every failure and
+  every fix is listed there.
 - **Differential test** ([`tests/test_differential.py`](tests/test_differential.py)): values are not the only
   way to leak. A reviewer found that asking about Tuesday and about Monday put a private appointment's
   placeholder in the model's context only on its own day, which dated it (18 of 30 question pairs). Fixed:
@@ -186,8 +189,8 @@ draft, so each private item appears only as its label, and no Hermes model reads
 | `data/demo_persona.json` | the synthetic persona (25 memories) |
 | `data/replay/` | the demo turns recorded live on 28 October 2026, replayed when no key is set (the correction and the refused PIN make no model call, so nothing is recorded for them) |
 | `space/` | the three files of the Hugging Face Space |
-| `scripts/` | macOS keychain wrapper, Token Factory probes (models, reasoning and token budgets), the router check, the live recorder and the offline leak test |
-| `docs/` | leak test report and machine-readable results, the Token Factory probe, the router check, the Hermes deliveries and the Hermes agent session |
+| `scripts/` | macOS keychain wrapper, Token Factory probes (models, reasoning and token budgets), the router check, the live recorder, the offline leak test and the script that has Nemotron write an attack round |
+| `docs/` | leak test report and machine-readable results, round 9's call to Nemotron (`round9/`), receipts and raw logs of the live runs (`evidence/`), the Token Factory probe, the router check, the Hermes deliveries and the Hermes agent session |
 | `integrations/hermes/` | Hermes Agent skill, the agent profile, the morning-brief cron script and its setup |
 | `tests/` | offline test suite (all HTTP mocked) |
 

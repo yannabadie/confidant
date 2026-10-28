@@ -327,6 +327,7 @@ _SENTENCE_BREAK = ".!?:;\n•*-"
 
 KIND_PHRASES = {
     "date": "a date",
+    "day": "a day of the month",
     "time": "a time",
     "email": "an e-mail address",
     "number": "a number",
@@ -350,9 +351,23 @@ class Value:
         return self.key.split(":", 1)[1]
 
 
+# A day of the month without its month ("paid on the 5th of each month", "on the fifth"): a value of its own,
+# so a private payment day typed back ("rent on the 5th") is withheld like a date. Found by Nemotron's round 9.
+_ORDINAL_DAY_WORDS = sorted(
+    (word for word in DAY_WORDS if re.fullmatch(r"[a-z]+(?:-[a-z]+)?", word) and word.endswith(("st", "nd", "rd", "th"))),
+    key=len, reverse=True,
+)
+_MONTH_DAY = re.compile(
+    r"(?<![\w/.:-])(?P<num>[1-9]|[12]\d|3[01])(?:st|nd|rd|th)(?![\w-])"
+    rf"|\bthe\s+(?P<word>{'|'.join(map(re.escape, _ORDINAL_DAY_WORDS))})(?![\w-])"
+    r"|\b(?:le|el)\s+(?:d[ií]a\s+)?(?P<lat>[1-9]|[12]\d|3[01])\s+(?:du|de\s+chaque|de\s+cada)\s+(?:mois|mes)\b",
+    re.I,
+)
+
+
 def find_values(text: str) -> list[Value]:
-    """Dates, times, e-mail addresses, amounts and other numbers (three digits or more,
-    years excluded) and capitalised names that do not start a sentence, in text order.
+    """Dates, days of the month written alone ("the 5th"), times, e-mail addresses, amounts and other numbers
+    (three digits or more, years excluded) and capitalised names that do not start a sentence, in text order.
 
     A span that can be read several ways ("3/11", "10.30", "half past ten") carries one
     value per reading, so the guard catches a private value whichever was meant.
@@ -405,6 +420,9 @@ def find_values(text: str) -> list[Value]:
             minutes = minute if minute is not None else _EN_MINUTES.get(spoken, _FR_MINUTES.get(spoken, 0))
             keys = [_clock(hour, minutes)] + ([_clock(hour + 12, minutes)] if hour < 12 else [])
             add("time", keys, *match.span())
+    for match in _MONTH_DAY.finditer(norm):  # after dates and times: "5th November" is a date
+        raw = match["num"] or match["lat"]
+        add("day", [f"day:{int(raw) if raw else DAY_WORDS[match['word'].lower()]}"], *match.span())
     for match in _EMAIL.finditer(norm):
         add("email", [f"email:{match.group().lower()}"], *match.span())
     for match in _THOUSANDS.finditer(norm):  # "1.18k", "6k"
