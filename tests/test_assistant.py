@@ -320,7 +320,8 @@ def test_invented_placeholders_and_citations_are_reported_not_trusted(make_rig: 
 def test_private_values_typed_by_the_user_are_redacted_from_the_prompt(make_rig: Callable[..., Rig]) -> None:
     rig = make_rig()
     turn = rig.ask("Should I pay the €1,180 before the review?")
-    assert "1,180" not in rig.llm.sent_text() and "[withheld]" in rig.llm.sent_text()
+    # the message names a private value, so it is private: it leaves with every value masked (round 7)
+    assert "1,180" not in rig.llm.sent_text() and "Should I pay the [number] before the review?" in rig.llm.sent_text()
     assert rig.llm.purposes() == ["answer"]
     assert any(10 in d.withheld_ids for d in turn.guard.decisions)
 

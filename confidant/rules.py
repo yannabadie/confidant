@@ -159,11 +159,12 @@ _PERSONAL_TERMS = re.compile(
 )
 # What makes a new fact clearly everyday: a taste, or a plan or pastime. A family word alone does not, since
 # facts about family are often the sensitive ones ("My brother lost his job").
+# What makes a new fact clearly everyday: the taste and plan words the rules used before 28 Oct, without the family
+# words (a family word alone is not everyday: "my brother was arrested"). Wider lists made sensitive facts
+# shareable again ("Brunch with my sponsor after Sunday's meeting", "I enjoy a bottle of wine every night").
 _EVERYDAY_TERMS = re.compile(
-    r"\b(?:prefers?|favou?rite|loves?|hates?|likes?|enjoys?|rather|usually|always|"
-    r"birthday|anniversary|party|wedding|dinner|lunch|breakfast|brunch|restaurant|holiday|vacation|trip|"
-    r"race|marathon|run|runs|running|gym|climbing|bouldering|football|tennis|swim\w*|hike|hiking|concert|"
-    r"film|movie|book club|crosswords?|recipe|cooking|band|playlist|weekend plans?)\b"
+    r"\b(?:prefers?|favou?rite|loves?|hates?|likes?|rather|usually|always|never|birthday|anniversary|friends?|"
+    r"dinner|holiday|vacation|trip|race|marathon|run|running|gym|home|weekend)\b"
 )
 _PUBLIC_TERMS = re.compile(
     r"\b(?:team|tools?|workflow|process|guidelines?|checklist|documentation|docs|standup|sprint|"

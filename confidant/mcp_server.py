@@ -30,7 +30,7 @@ import sys
 from collections.abc import Callable, Mapping
 from typing import Any, TextIO
 
-from .assistant import Assistant, cited_memories, delivery_text
+from .assistant import Assistant, cited_memories, correction_level, delivery_text
 from .config import VERSION
 from .guard import PLACEHOLDER_RE, placeholder
 from .memory import KINDS, SENSITIVITIES, Memory
@@ -275,10 +275,13 @@ class MCPServer:
         return {"memory": self._view(memory)}
 
     def _memory_correct(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
-        """Tool: correct a memory, guarded by its expected version."""
+        """Tool: correct a memory, guarded by its expected version. The sensitivity follows the same rule as a
+        correction typed in the chat: never lower, and private when the new words look private."""
+        memory_id, text = _integer(arguments, "memory_id"), _string(arguments, "new_text")
+        sensitivity, label = correction_level(self.assistant.store.get(memory_id), text)
         memory = self.assistant.store.correct(
-            _integer(arguments, "memory_id"), _string(arguments, "new_text"), author=self.client,
-            source_ref=f"mcp:{self.client}", expected_version=_integer(arguments, "expected_version"),
+            memory_id, text, author=self.client, source_ref=f"mcp:{self.client}",
+            expected_version=_integer(arguments, "expected_version"), sensitivity=sensitivity, label=label,
         )
         return {"memory": self._view(memory)}
 

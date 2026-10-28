@@ -113,3 +113,55 @@ def test_the_top_hit_does_not_say_which_weekday_a_private_memory_names(tmp_path:
     a = tool(server(seeded(tmp_path)), "memory_search", query="tuesday friday", limit=1)["memories"]
     b = tool(server(seeded(tmp_path, MOVED)), "memory_search", query="tuesday friday", limit=1)["memories"]
     assert [m["cite"] for m in a] == [m["cite"] for m in b]
+
+
+# --- Important 3: a private search said its words stayed on the device, then sent them to Nebius -----------
+
+PRIVATE_SEARCHES = ["Search for tips for my final-round lead designer interview on Thursday.",
+                    "Look up what to ask the dermatologist on Tuesday about a mole that changed."]
+
+
+@pytest.mark.parametrize("message", PRIVATE_SEARCHES)
+def test_a_private_search_says_what_left_and_masks_its_values(make_rig: Callable[..., Rig], message: str) -> None:
+    rig = make_rig()
+    turn = rig.ask(message)
+    assert rig.tavily.queries == []
+    said = " ".join([*turn.actions, turn.notice])
+    assert "stay on this device" not in said and "Nemotron" in turn.notice
+    request = nebius_requests(rig.llm)[-1].splitlines()[-1]
+    assert not any(day in request for day in ("Tuesday", "Thursday")), request
+
+
+# --- Important 4: a correction made over MCP never applied the "never less private" rule -------------------
+
+DIABETES = "Partner Sam is vegetarian and was just diagnosed with diabetes; he starts insulin next week."
+
+
+def test_a_correction_over_mcp_that_looks_private_makes_the_memory_private(tmp_path: Path) -> None:
+    llm = FakeLLM()
+    mcp = server(seeded(tmp_path), llm)
+    view = tool(mcp, "memory_correct", memory_id=12, new_text=DIABETES, expected_version=1)["memory"]
+    memory = mcp.assistant.store.get(12)
+    assert memory.sensitivity == "private" and memory.label == "health"
+    assert "diabetes" not in view["text"] and view["withheld"] is True
+    mcp.assistant.handle("What should I cook for Sam this weekend?", session_id="s2")
+    assert all("diabetes" not in text for text in nebius_requests(llm))
+
+
+def test_a_harmless_correction_over_mcp_keeps_the_level_and_label(tmp_path: Path) -> None:
+    mcp = server(seeded(tmp_path))
+    tool(mcp, "memory_correct", memory_id=12, new_text="Partner Sam is vegan now, so dinner plans need a vegan option.",
+         expected_version=1)
+    memory = mcp.assistant.store.get(12)
+    assert (memory.sensitivity, memory.label) == ("personal", "partner's diet")
+
+
+# --- Important 5: new everyday words made sensitive facts shareable again -----------------------------------
+
+@pytest.mark.parametrize("fact", [
+    "Brunch with my sponsor after Sunday's meeting.", "Cooking class at the women's shelter on Monday.",
+    "I enjoy a bottle of wine every night.", "Wedding is off; Sam moved out.",
+])
+def test_a_fact_that_was_private_before_round_6_is_private_again(fact: str) -> None:
+    from confidant.rules import classify_new_fact
+    assert classify_new_fact(fact) == "private"

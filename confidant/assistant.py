@@ -306,6 +306,32 @@ def masked(message: str, *, keep_kind: bool = True) -> str:
     return "".join(out)
 
 
+# Day and month names, which masked() leaves alone: in a private message they can say when a private item is.
+_CALENDAR_NAMES = re.compile(
+    r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|lundi|mardi|mercredi|jeudi|vendredi|samedi|"
+    r"dimanche|january|february|march|april|june|july|august|september|october|november|december|janvier|"
+    r"fevrier|février|avril|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b",
+    re.I,
+)
+
+
+def masked_private(message: str) -> str:
+    """:func:`masked`, and day and month names too: what Nebius gets of a message the rules find private."""
+    return _CALENDAR_NAMES.sub(lambda match: "[day]" if match.group().lower().endswith(("day", "di", "che"))
+                               else "[month]", masked(message))
+
+
+def correction_level(target: Memory, text: str, *, private: bool = False) -> tuple[str, str]:
+    """``(sensitivity, label)`` of a correction of ``target`` with ``text``, chat or MCP alike. A correction never
+    makes a memory less private; one whose words the local rules find private (a health, money, legal,
+    job-search or intimate topic, a secrecy cue) makes it private, with a category label: its label travels
+    wherever its value does not. The memory's own level and label stand otherwise ("the review moved to
+    Thursday" keeps a public meeting public)."""
+    sensitivity = stricter(target.sensitivity, "private" if private else classify_sensitivity(text))
+    label = target.label if sensitivity == target.sensitivity else make_label(text, sensitivity)
+    return sensitivity, label
+
+
 def _stated_text(route: Route, message: str) -> str:
     """The text to store for a remember or correct route: the route's text when the device
     chose the route, the user's own words when a cloud router did (it decides the intent,
@@ -930,7 +956,8 @@ class Assistant:
         ):
             window = None
         notes = [f"Period asked about: {_period(window, today)}; every shared event of it is listed below."] if window else []
-        return self._compose(exchange, "answer", message, self._retrieve(message, window, agent=exchange.agent), notes)
+        return self._compose(exchange, "answer", message, self._retrieve(message, window, agent=exchange.agent), notes,
+                             mask=private)
 
     def _remember(self, exchange: _Exchange, message: str, route: Route, private: bool) -> _Outcome:
         """Store what the user stated, in the user's words when a cloud router chose this intent,
@@ -961,12 +988,7 @@ class Assistant:
             exchange.actions.append("no existing memory matched the correction; recorded it as new")
             return self._remember(exchange, message, route, private)
         text = _stated_text(route, message)
-        # a correction never makes a memory less private; one whose words the local rules find private (a health,
-        # money, legal, job-search or intimate topic, a secrecy cue) makes it private, with a category label: its
-        # label travels wherever its value does not. The memory's own level stands otherwise ("the review moved
-        # to Thursday" keeps a public meeting public).
-        sensitivity = stricter(target.sensitivity, "private" if private else classify_sensitivity(text))
-        label = target.label if sensitivity == target.sensitivity else make_label(text, sensitivity)
+        sensitivity, label = correction_level(target, text, private=private)
         try:
             updated = self.store.correct(
                 target.id, text, author="user", source_ref=exchange.session_id, expected_version=target.version,
@@ -993,9 +1015,10 @@ class Assistant:
         rules find private is not searched at all: the guard removes stored values from a query, not the
         private topic the user typed ("tips for my final-round interview on Thursday")."""
         if private:
-            exchange.actions.append("web search skipped: the message looks private, so its words stay on this device")
+            exchange.actions.append("web search skipped: the message looks private")
             exchange.notices.append(
-                "This message looks private, so nothing was searched on the web; the answer draws on memory only."
+                "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and "
+                "gets the message with its dates, times, amounts, names, days and months masked."
             )
             return self._answer(exchange, message, route, private)
         if route.source == "model":  # the user did not ask for the web: send only words, none of the values typed
@@ -1167,11 +1190,15 @@ class Assistant:
         ]
 
     def _compose(
-        self, exchange: _Exchange, purpose: str, request: str, memories: list[Memory], notes: Sequence[str] = ()
+        self, exchange: _Exchange, purpose: str, request: str, memories: list[Memory], notes: Sequence[str] = (),
+        *, mask: bool = False,
     ) -> _Outcome:
-        """Prepare the guarded context, ask the reasoning model, fall back to a local list."""
+        """Prepare the guarded context, ask the reasoning model, fall back to a local list. ``mask``: the request
+        is a message the rules find private, sent with its values, names, days and months masked."""
         prepared = self.guard.prepare_context(memories, NEBIUS)
-        if exchange.agent:  # every value and name masked alike: redacting only those a private memory holds
+        if mask:
+            request = masked_private(request)
+        elif exchange.agent:  # every value and name masked alike: redacting only those a private memory holds
             request = masked(request)  # would tell the agent which of its values are private
         typed = self.guard.check_outbound(request, NEBIUS, self.store.all_versions(), purpose=purpose, strict=True)
         if typed.withheld_ids or typed.reasons:  # what the user typed: no shared-value exemption
