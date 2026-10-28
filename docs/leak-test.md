@@ -590,7 +590,7 @@ finding below was reproduced as a failing test in `tests/test_review_round7.py` 
   queries returned shared results in another order; `tuesday friday` put the dinner first or the Tuesday
   track session first depending on which weekday the private appointments named. **Fixed:** a restricted
   search is ranked with statistics of the allowed memories only; FTS5 now only says which memory holds which
-  word. 240 two-word queries give the same results in both stores.
+  word. 120 two-word queries, at limits 1 and 8, give the same results in both stores.
 - **Found, elsewhere:** a private search said its words stayed on the device and then sent them to Nebius (now
   said truthfully, and such a message leaves with its dates, times, amounts, names, days and months masked); a
   correction over MCP skipped the "never less private" rule; round 6's new everyday words made sensitive facts
