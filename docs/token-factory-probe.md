@@ -14,7 +14,8 @@ What the runs showed, and what Confidant does about it:
   With a closed trace, the same model returns it apart in `reasoning_content`. Now a reply that stops at the
   token limit is never used: the turn falls back to a local answer and says why, and it is never recorded for
   replay. The answer budget is now 8,192 tokens: with its trace, the brief took 1,236 to 1,874 tokens in the
-  runs below and 2,146 in the final recording of the demo turns (07:30 UTC).
+  runs below, 2,146 in the final recording of the demo turns (07:30 UTC) and 1,214 in the session filmed for the
+  video (07:37 UTC).
 - **The router reasoned away its budget.** Nemotron 3 Nano spent its 256 tokens thinking in both routed turns and
   returned an empty answer, or an unfinished JSON object; `/no_think` at the end of the system prompt did not
   stop it. With `chat_template_kwargs: {"enable_thinking": false}` it answered in 13 to 43 tokens. The router now

@@ -42,11 +42,12 @@ What we measured on Token Factory on 28 October 2026 ([`docs/token-factory-probe
 - A reply that reaches `max_tokens` before its reasoning trace closes can arrive with the unfinished trace as its
   text, untagged; the first live daily brief was such a trace. Confidant never uses a reply that stopped at the
   token limit: the turn falls back to a local answer, says so, and is never recorded for replay. Answers get
-  8,192 tokens; with its trace, the brief took 1,236 to 2,146.
+  8,192 tokens; with its trace, the brief took 1,214 to 2,146 in the live runs.
 - `chat_template_kwargs: {"enable_thinking": false}` switches Nemotron 3's reasoning off; `/no_think` in the
   prompt did not stop Nano. With reasoning on, Nano spent its 256 tokens thinking and returned no route.
-- The six demo turns, recorded live: 5 calls, 5,640 tokens, about $0.013 at list prices; the route took 1 second,
-  the answers 1.3 to 1.9 and the brief 5.4.
+- The six demo turns make 5 calls. In the live run the hosted demo replays: 5,640 tokens, about $0.013 at list
+  prices; the route took 1 second, the answers 1.3 to 1.9 and the brief 5.4. In the live run filmed for the video:
+  4,597 tokens, $0.0094.
 
 The sensitivity of a new memory is decided on the device: asking a model whether a fact is private would show
 it the fact. Keyword lists cannot name every illness or dispute, so a new fact is private unless the rules see
