@@ -33,10 +33,12 @@ CREATE TABLE IF NOT EXISTS receipts (
     withheld_memory_ids TEXT    NOT NULL,
     payload_sha256      TEXT    NOT NULL,
     cost_usd_estimate   REAL    NOT NULL,
-    mode                TEXT    NOT NULL
+    mode                TEXT    NOT NULL,
+    status              TEXT    NOT NULL DEFAULT 'answered'
 );
 CREATE INDEX IF NOT EXISTS receipts_by_time ON receipts (at);
 """
+ANSWERED = "answered"  # a request that got an answer; one that left and got none says why: "no answer (HTTP 503)"
 
 
 def payload_sha256(payload: Any) -> str:
@@ -68,6 +70,7 @@ class Receipt:
     cost_usd_estimate: float
     mode: str
     session_id: str = ""
+    status: str = ANSWERED
 
 
 @dataclass(frozen=True)
@@ -121,6 +124,10 @@ class ReceiptLog:
         self._now = now
         with self._lock:
             self._db.executescript(_SCHEMA)
+            columns = {row["name"] for row in self._db.execute("PRAGMA table_info(receipts)")}
+            if "status" not in columns:  # a log written before receipts had a status: every row was answered
+                self._db.execute(f"ALTER TABLE receipts ADD COLUMN status TEXT NOT NULL DEFAULT '{ANSWERED}'")
+                self._db.commit()
 
     def record(
         self,
@@ -137,8 +144,10 @@ class ReceiptLog:
         withheld_memory_ids: Iterable[int] = (),
         cost_usd_estimate: float = 0.0,
         session_id: str = "",
+        status: str = ANSWERED,
     ) -> Receipt:
-        """Log one call. ``payload`` (what was or would have been sent) is hashed and discarded."""
+        """Log one call. ``payload`` (what was or would have been sent) is hashed and discarded. ``status`` is
+        "answered", or why a request that left got no answer ("no answer (HTTP 503)")."""
         if mode not in MODES:
             raise ValueError(f"mode must be one of {', '.join(MODES)}; got {mode!r}")
         receipt = Receipt(
@@ -150,17 +159,18 @@ class ReceiptLog:
             withheld_memory_ids=sorted(set(withheld_memory_ids)),
             payload_sha256=payload_sha256(payload),
             cost_usd_estimate=round(float(cost_usd_estimate), 6), mode=mode, session_id=session_id,
+            status=status,
         )
         with self._lock, self._db:
             self._db.execute(
                 "INSERT INTO receipts (at, session_id, provider, model, purpose, prompt_tokens, "
                 "completion_tokens, latency_ms, sent_memory_ids, withheld_memory_ids, payload_sha256, "
-                "cost_usd_estimate, mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "cost_usd_estimate, mode, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     receipt.at, receipt.session_id, receipt.provider, receipt.model, receipt.purpose,
                     receipt.prompt_tokens, receipt.completion_tokens, receipt.latency_ms,
                     json.dumps(receipt.sent_memory_ids), json.dumps(receipt.withheld_memory_ids),
-                    receipt.payload_sha256, receipt.cost_usd_estimate, receipt.mode,
+                    receipt.payload_sha256, receipt.cost_usd_estimate, receipt.mode, receipt.status,
                 ),
             )
         return receipt
@@ -204,5 +214,5 @@ def _to_receipt(row: sqlite3.Row) -> Receipt:
         latency_ms=row["latency_ms"], sent_memory_ids=json.loads(row["sent_memory_ids"]),
         withheld_memory_ids=json.loads(row["withheld_memory_ids"]),
         payload_sha256=row["payload_sha256"], cost_usd_estimate=row["cost_usd_estimate"],
-        mode=row["mode"], session_id=row["session_id"],
+        mode=row["mode"], session_id=row["session_id"], status=row["status"],
     )

@@ -284,7 +284,7 @@ def test_without_a_key_replay_and_local_fallback_still_work(make_rig: Callable[.
     assert turn.mode == "replay" and "No NEBIUS_API_KEY" in turn.notice
     assert turn.answer == "Replayed: Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30."
     unknown = rig.ask("When is my dermatologist appointment?")
-    assert unknown.answer.startswith("Replay has no recorded answer for this request, so here are")
+    assert unknown.answer.startswith("No recorded turn matches this question, so no model answered it. The memories")
     assert "- Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30." in unknown.answer
     assert "⟦m7⟧" in unknown.draft and unknown.receipts == []
     assert rig.ask(MOVED).actions == ["corrected m7 → v2"]

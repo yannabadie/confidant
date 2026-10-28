@@ -579,18 +579,53 @@ class Secret:
     reason: str
 
 
+# Words that introduce a PIN or a numeric code, in English, French, German and Spanish. The code itself may be
+# written with gaps ("4 8 2 1", "12-34-56") or digit by digit in words ("four eight two one").
+_CODE_WORDS = (
+    r"pin(?:\s*(?:code|number))?|pass\s*code|(?:door|gate|alarm|garage|access|security|unlock|phone)\s*code"
+    r"|lock\s*(?:screen\s*)?code|cvv2?|cvc|cryptogramme(?:\s+visuel)?|digicode"
+    r"|code\s+(?:pin|secret|confidentiel|d['’]acc[eè]s|de\s+(?:la\s+)?(?:porte|carte)|de\s+s[ée]curit[ée])"
+    r"|geheimzahl|pin-?nummer|zugangscode|t[üu]rcode|c[óo]digo\s+(?:pin|de\s+acceso|de\s+seguridad|secreto)"
+    r"|(?:safe|lock|locker|padlock|suitcase|bike\s*lock)\s+(?:combination|combo|code)"
+    r"|combination\s+(?:to|for|of)\s+(?:the|my)\s+(?:safe|lock|locker|padlock|suitcase|bike\s*lock)"
+)
+_CODE_VALUE = (
+    r"(?<!\d)\d(?:[ .-]?\d){2,7}(?!\d)"
+    rf"|\b(?:{_DIGIT_WORD})(?:[ ,-]+(?:{_DIGIT_WORD})){{2,7}}\b"
+)
 _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("a password", re.compile(
-        r"\b(?:password|passwd|passphrase|pwd)s?\b"
+        r"\b(?:password|passwd|passphrase|pwd|pw|mots?\s+de\s+passe|mdp|passwort|kennwort|contrase[ñn]a"
+        r"|wi-?fi\s+(?:key|code)|cl[ée]\s+(?:wi-?fi|wpa)|code\s+wi-?fi)s?\b"
         r"(?!\s+(?:manager|policy|policies|reset|rules?|hint|strength|field|prompt|change|expiry|generator"
         r"|requirements?|protected)\b)"
-        r"(?:[^.\n]{0,30}?\b(?:is|was)\b|\s*[:=])\s*"
+        r"[^.\n]{0,30}?(?:\b(?:is|was|est|ist|lautet|es|era)\b|[:=])\s*"
         r"(?!(?:strong|weak|wrong|correct|incorrect|expired|required|missing|invalid|too|the|a|an|not|still"
-        r"|saved|stored|changed|reset)\b)\S{3,}",
+        r"|saved|stored|changed|reset|new|trop|tr[eè]s|faible|fort|oubli[ée]e?|perdu|chang[ée]|expir[ée]|le|la"
+        r"|les|un|une|zu|sehr|falsch|vergessen|ge[äa]ndert|abgelaufen|neu|der|die|das|ein|eine|muy|demasiado"
+        r"|olvidada|incorrecta|nueva|el|una)\b)\S{3,}",
         re.I)),
-    ("a PIN or access code", re.compile(
-        r"\b(?:pin(?:\s*(?:code|number))?|passcode|door\s*code|access\s*code|security\s*code|cvv2?|cvc)\b"
-        r"\D{0,20}?(?<!\d)\d{3,8}(?!\d)",
+    ("a PIN or access code", re.compile(rf"\b(?:{_CODE_WORDS})\b\D{{0,20}}?(?:{_CODE_VALUE})", re.I)),
+    ("a login and its password", re.compile(
+        r"\b(?:login|log-in|logon|sign-?in|credentials|creds|identifiants?|zugangsdaten|anmeldedaten)\b"
+        r"[^.\n]{0,30}?(?:\b(?:is|are|est|sont|ist|sind)\b|[:=])\s*\S+\s*/\s*\S{3,}",
+        re.I)),
+    ("a payment card number", re.compile(
+        r"\b(?:card|carte|tarjeta|karte)\s*(?:number|no\.?|num[ée]ro|n°|#|nummer|n[úu]mero)"
+        r"\D{0,20}?(?<!\d)\d(?:[ -]?\d){11,18}(?!\d)",
+        re.I)),
+    ("a card security code", re.compile(
+        r"\b(?:digits|numbers|chiffres)\s+(?:on|at|au)\s+(?:the\s+)?(?:back|dos)\b[^.\n]{0,40}?"
+        r"(?<!\d)\d{3,4}(?!\d)",
+        re.I)),
+    ("a wallet recovery phrase", re.compile(
+        r"\b(?:recovery|seed|mnemonic|secret|backup|wallet)\s+(?:phrase|words|seed)\b[^\n]{0,20}?"
+        r"(?:\b[a-z]{3,8}\b[ ,]+){11,23}\b[a-z]{3,8}\b",
+        re.I)),
+    ("an identity number", re.compile(
+        r"\b(?:ssn|social\s+security(?:\s+(?:number|no\.?))?|national\s+insurance(?:\s+number)?"
+        r"|passport\s+(?:number|no\.?)|num[ée]ro\s+de\s+(?:s[ée]curit[ée]\s+sociale|s[ée]cu|passeport)|tax\s+id)\b"
+        r"\D{0,20}?(?<![\w-])(?=(?:[A-Za-z -]*\d){6})[A-Za-z0-9](?:[ -]?[A-Za-z0-9]){5,19}(?![\w-])",
         re.I)),
     ("an API key or access token", re.compile(
         r"\b(?:sk|pk|rk)-[\w-]{16,}|\btvly-[\w-]{16,}|\bgh[pousr]_[A-Za-z0-9]{20,}|\bgithub_pat_\w{20,}"

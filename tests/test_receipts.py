@@ -68,3 +68,26 @@ def test_today_filters_by_utc_day_and_session() -> None:
 def test_unknown_mode_is_rejected() -> None:
     with pytest.raises(ValueError, match="mode"):
         ReceiptLog().record(provider="p", model="m", purpose="x", payload="", mode="maybe")
+
+
+def test_a_log_written_before_receipts_had_a_status_still_opens(tmp_path) -> None:
+    """Receipts gained a status on 28 Oct 2026; a log written before then reads as all answered."""
+    import sqlite3
+    path = tmp_path / "receipts.db"
+    old = sqlite3.connect(path)
+    old.executescript(
+        "CREATE TABLE receipts (seq INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, session_id TEXT NOT NULL,"
+        " provider TEXT NOT NULL, model TEXT NOT NULL, purpose TEXT NOT NULL, prompt_tokens INTEGER NOT NULL,"
+        " completion_tokens INTEGER NOT NULL, latency_ms INTEGER NOT NULL, sent_memory_ids TEXT NOT NULL,"
+        " withheld_memory_ids TEXT NOT NULL, payload_sha256 TEXT NOT NULL, cost_usd_estimate REAL NOT NULL,"
+        " mode TEXT NOT NULL);"
+        "INSERT INTO receipts (at, session_id, provider, model, purpose, prompt_tokens, completion_tokens,"
+        " latency_ms, sent_memory_ids, withheld_memory_ids, payload_sha256, cost_usd_estimate, mode) VALUES"
+        " ('2026-10-27T10:00:00Z', 's', 'nebius_token_factory', 'm', 'answer', 1, 1, 1, '[]', '[]', 'x', 0, 'live');"
+    )
+    old.commit()
+    old.close()
+    log = ReceiptLog(path, now=lambda: datetime(2026, 10, 27, 12, tzinfo=timezone.utc))
+    assert [r.status for r in log.today()] == ["answered"]
+    log.record(provider="tavily", model="t", purpose="web_search", payload="q", status="no answer (HTTP 503)")
+    assert [r.status for r in log.today()] == ["answered", "no answer (HTTP 503)"]

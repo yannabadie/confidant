@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 import uuid
 from collections import Counter
@@ -104,6 +105,7 @@ class ReceiptView:
     payload_sha256: str
     cost_usd: float
     mode: str
+    status: str = "answered"  # or why a request that left got no answer: "no answer (HTTP 503)"
 
 
 @dataclass(frozen=True)
@@ -117,6 +119,7 @@ class OutboundView:
     canonical_json: str  # compact, sorted keys: hash this to get payload_sha256
     payload_sha256: str
     mode: str
+    status: str = "answered"
 
 
 @dataclass(frozen=True)
@@ -160,7 +163,7 @@ class Runtime:
 
     mode: str  # "live" or "replay"
     models: dict[str, str]  # "reason" / "fast" -> model id
-    web_search: str  # "Tavily", "recorded results" or "off"
+    web_search: str  # live: "Tavily" or "off"; replay: what the recording holds (replay_web_label)
     reason: str  # why the app runs in replay, for the header badge
     llm: Any
     search: Any
@@ -175,6 +178,15 @@ def replay_is_recorded(book: ReplayBook) -> bool:
     turns = [book.lookup(question) for question in book.questions()]
     replayed = [turn for turn in turns if turn is not None and (turn.outputs or turn.web_results)]
     return bool(replayed) and all(turn.recorded_at for turn in replayed)
+
+
+def replay_web_label(book: ReplayBook) -> str:
+    """What replay does for web search, as the header shows it: results only if the recording holds some."""
+    turns = [turn for turn in (book.lookup(question) for question in book.questions()) if turn is not None]
+    recorded = replay_is_recorded(book)
+    if any(turn.web_results for turn in turns):
+        return "recorded results" if recorded else "sample results"
+    return "off when recorded" if recorded else "none in the samples"
 
 
 def recorded_models(book: ReplayBook) -> dict[str, str]:
@@ -192,10 +204,11 @@ def build_runtime() -> Runtime:
     budget = Budget()
 
     def replay_runtime(reason: str) -> Runtime:
+        web = replay_web_label(replay)
         if replay_is_recorded(replay):
-            return Runtime("replay", recorded_models(replay), "recorded results", reason, None, None, replay, budget)
+            return Runtime("replay", recorded_models(replay), web, reason, None, None, replay, budget)
         samples = {"reason": "sample answers, no model call", "fast": "sample answers, no model call"}
-        return Runtime("replay", samples, "sample results", reason, None, None, replay, budget)
+        return Runtime("replay", samples, web, reason, None, None, replay, budget)
 
     api_key = env("NEBIUS_API_KEY")
     if not api_key:
@@ -227,7 +240,7 @@ def _receipt(r: Any) -> ReceiptView:
         at=r.at, provider=r.provider, model=r.model, purpose=r.purpose, prompt_tokens=r.prompt_tokens,
         completion_tokens=r.completion_tokens, latency_ms=r.latency_ms, sent_ids=tuple(r.sent_memory_ids),
         withheld_ids=tuple(r.withheld_memory_ids), payload_sha256=r.payload_sha256,
-        cost_usd=r.cost_usd_estimate, mode=r.mode,
+        cost_usd=r.cost_usd_estimate, mode=r.mode, status=getattr(r, "status", "answered"),
     )
 
 
@@ -240,7 +253,8 @@ def _outbound(o: Any) -> OutboundView:
     else:
         pretty = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
         canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return OutboundView(o.provider, o.model, o.purpose, pretty, canonical, o.sha256, o.mode)
+    return OutboundView(o.provider, o.model, o.purpose, pretty, canonical, o.sha256, o.mode,
+                        getattr(o, "status", "answered"))
 
 
 class Engine:
@@ -357,6 +371,16 @@ FILTERS = ("all", *SENSITIVITIES)
 
 
 SCRIPT_INDEX = {normalize_question(prompt): number for number, (prompt, _) in enumerate(DEMO_SCRIPT, start=1)}
+
+# First screen. Hugging Face sets SPACE_ID on a Space, where Confidant runs on the Space's server.
+HOSTED = bool(os.environ.get("SPACE_ID"))
+HOSTED_NOTE = " On this hosted demo, Confidant runs on the Space's server, in place of your device."
+LIVE_CTA = "Start with <strong>step 1</strong> of the demo script, or ask your own question."
+REPLAY_CTA = (
+    "Start with <strong>step 1</strong> of the demo script: its steps replay a live recording. A question of "
+    "your own gets no model answer here, only the memories that match it; remembering, corrections, "
+    "availability and refusals work as they do live, since they run without a model."
+)
 
 
 @dataclass
@@ -732,8 +756,8 @@ def render_pending(text: str) -> str:
     )
 
 
-def render_empty(memories: Sequence[MemoryView], today: date) -> str:
-    """First screen: who you are, and late binding shown on a real private memory."""
+def render_empty(memories: Sequence[MemoryView], today: date, *, replay: bool, hosted: bool = HOSTED) -> str:
+    """First screen: who you are, late binding shown on a real private memory, and what this mode can do."""
     private = [m for m in memories if m.sensitivity == "private"]
     example = next((m for m in private if m.kind == "event"), private[0] if private else None)
     binding = ""
@@ -744,7 +768,7 @@ def render_empty(memories: Sequence[MemoryView], today: date) -> str:
             '<p class="cf-binding__who">Nemotron writes<small>on Nebius Token Factory</small></p>'
             f'<p class="cf-binding__text">Also on your calendar: {token_html(example.id)}</p></div>'
             '<div class="cf-binding__row">'
-            '<p class="cf-binding__who">You read<small>filled in on this device</small></p>'
+            '<p class="cf-binding__who">You read<small>filled in by Confidant</small></p>'
             f'<p class="cf-binding__text">Also on your calendar: {filled_html(example.text, example.id)}</p></div>'
             "</figure>"
         )
@@ -753,10 +777,11 @@ def render_empty(memories: Sequence[MemoryView], today: date) -> str:
         f'<h2 class="cf-empty__title">You are {esc(PERSONA_NAME)} today.</h2>'
         f'<p class="cf-empty__lead">Confidant keeps {len(memories)} memories about {esc(PERSONA_NAME)}, '
         f"{esc(PERSONA_LINE)}, and the demo is set on {today:%A} {today.day} {today:%B %Y}. "
-        "Private memories never leave this device: Nemotron sees a placeholder and writes around it, "
-        "and the value is filled in here.</p>"
+        "Private memories never leave Confidant: Nemotron sees a placeholder and writes around it, "
+        "and Confidant fills in the value before you read it."
+        f"{HOSTED_NOTE if hosted else ''}</p>"
         f"{binding}"
-        '<p class="cf-empty__cta">Start with <strong>step 1</strong> of the demo script, or ask your own question.</p>'
+        f'<p class="cf-empty__cta">{REPLAY_CTA if replay else LIVE_CTA}</p>'
         "</section></div>"
     )
 
@@ -764,7 +789,7 @@ def render_empty(memories: Sequence[MemoryView], today: date) -> str:
 def render_transcript(session: Session, memories: Sequence[MemoryView], summary: SummaryView) -> str:
     """The whole conversation, or the empty state before the first message."""
     if not session.turns and not session.pending:
-        return render_empty(memories, session.engine.today())
+        return render_empty(memories, session.engine.today(), replay=RUNTIME.mode != "live")
     turns = [
         f'<article class="cf-turn">{render_user(t.question)}'
         f"{render_reply(t, summary if t is session.turns[-1] else None)}</article>"
@@ -911,6 +936,13 @@ def render_check(check: CheckView, known: Collection[int], *, open_text: bool) -
     )
 
 
+def outbound_verdict(call: OutboundView) -> str:
+    """How a call ended, as the Guard tab labels it."""
+    if call.mode == "replay":
+        return "Replay"
+    return "Sent" if call.status == "answered" else f"Sent, {call.status}"
+
+
 def render_outbound(calls: Sequence[OutboundView], known: Collection[int]) -> str:
     """Every call of the turn exactly as it left the device, with the hash its receipt keeps."""
     if not calls:
@@ -922,7 +954,7 @@ def render_outbound(calls: Sequence[OutboundView], known: Collection[int]) -> st
         body = ("request body" if call.provider == "tavily"
                 else "messages (the request also names the model, max_tokens and temperature)")
         items.append(
-            f'<li class="cf-check"><span class="cf-verdict">{"Replay" if call.mode == "replay" else "Sent"}</span>'
+            f'<li class="cf-check"><span class="cf-verdict">{esc(outbound_verdict(call))}</span>'
             f'<div class="cf-check__body"><span class="cf-check__what">{esc(what)} · {esc(call.model)}</span>'
             f'<span class="cf-check__reasons">SHA-256 <code>{esc(call.payload_sha256)}</code>, the same as its '
             "receipt. Hash the compact JSON below to check it.</span>"
@@ -1008,6 +1040,8 @@ def render_call(r: ReceiptView) -> str:
     if r.mode == "replay":
         source = "a live recording" if recorded else "a hand-written sample"
         numbers = f"Replayed from {source}: nothing was sent and no tokens were used."
+    elif r.status != "answered":
+        numbers = f"{esc(capitalised(r.status))}: the request left this device; no tokens were reported."
     else:
         numbers = (
             f"{r.prompt_tokens:,} tokens in, {r.completion_tokens:,} out · {r.latency_ms:,} ms · ${r.cost_usd:.4f}"

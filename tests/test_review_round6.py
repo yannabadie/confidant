@@ -15,6 +15,7 @@ import pytest
 from confidant import Assistant, Budget, Guard, MemoryStore, ReceiptLog
 from confidant.assistant import delivery_text
 from confidant.mcp_server import MCPServer
+from confidant.replay import RecordedTurn, ReplayBook
 from confidant.rules import classify_new_fact
 
 from conftest import MODELS, PERSONA, FakeLLM, FakeTavily, Rig
@@ -271,3 +272,220 @@ def test_a_list_with_an_undated_item_keeps_the_models_order(make_rig: Callable[.
     turn = make_rig(replies=replies).ask("Any ideas for next week?")
     assert [line[:9] for line in turn.answer.splitlines() if line.startswith("- ")] == ["- Dinner ", "- Coffee:",
                                                                                          "- Dermato"]
+
+
+# --- Replay: a question that was not recorded says so, and says what still runs ---------------------------
+
+BIRTHDAY_RECORDING = ReplayBook([RecordedTurn("Draft a birthday message for Léa.", {
+    "route": '{"intent": "answer"}', "answer": "Happy 30th, Léa! [m4v1]"})])
+
+
+def test_an_unrecorded_question_in_replay_says_no_model_answered_it(make_rig: Callable[..., Rig]) -> None:
+    turn = make_rig(live=False, replay=BIRTHDAY_RECORDING).ask("Draft a birthday message for Sam.")
+    assert "Happy 30th" not in turn.answer and turn.receipts == []
+    assert turn.answer.startswith("No recorded turn matches this question, so no model answered it")
+    assert "remember, correct, availability and refusals run here without a model" in turn.notice
+
+
+def test_the_recorded_question_is_still_replayed(make_rig: Callable[..., Rig]) -> None:
+    turn = make_rig(live=False, replay=BIRTHDAY_RECORDING).ask("draft a birthday message for Lea")
+    assert turn.answer.startswith("Happy 30th, Léa!") and {r.mode for r in turn.receipts} == {"replay"}
+    assert "without a model" not in turn.notice
+
+
+def test_a_question_about_my_family_finds_the_family_memories(make_rig: Callable[..., Rig]) -> None:
+    """The judge's own question on the Space: "What do you know about my family?" found nothing, although a
+    sister and a partner are in memory."""
+    turn = make_rig(live=False, replay=ReplayBook()).ask("What do you know about my family?")
+    assert "Sister Léa turns 30" in turn.answer and "Partner Sam is vegetarian" in turn.answer
+
+
+# --- Credentials: refused in the phrasings people use, not only "PIN is 4821" -----------------------------
+
+CREDENTIALS = [
+    "Remember my bank PIN is 4 8 2 1.",
+    "Remember my bank PIN is four eight two one.",
+    "Remember my PIN: 4-8-2-1",
+    "Remember mon code PIN est 4821",
+    "Remember the door code is 1 9 8 7",
+    "Le digicode de l'immeuble est 4512",
+    "Remember the mot de passe du wifi est Soleil2026!",
+    "Remember my Passwort ist Sonne2026",
+    "Recuerda: la contraseña del wifi es Sol2026",
+    "Remember the phone unlock code is 482193.",
+    "Remember the safe combination is 12-34-56.",
+    "Remember the combination to the padlock is 1-2-3-4",
+    "Remember my bank login is alex.martin / Tr0ub4dor&3",
+    "Remember pw for the router: Tr0ub4dor&3",
+    "Remember my card number is 4111 1111 1111 1112",
+    "Remember the 3 digits on the back of my card are 123",
+    "Remember my recovery phrase: abandon ability able about above absent absorb abstract absurd abuse access "
+    "accident",
+    "Remember my SSN is 123-45-6789.",
+]
+
+ORDINARY = [
+    "Remember that the password manager renewal is due in March.",
+    "Remember my password is too weak, I should change it this week.",
+    "Remember the mot de passe du wifi est trop long à taper.",
+    "Remember the combination of 300 users and 12 teams in the pilot.",
+    "Remember to pin the 3 photos on the board.",
+    "Remember my login is slow on Mondays.",
+    "Remember the recovery phrase is in the top drawer.",
+    "Remember my unlock code changed last week.",
+    "Remember the half marathon is on Sunday 15 Nov at 9:00.",
+    "Remember Léa's flat is at 12 rue des Capucins, door 4.",
+]
+
+
+@pytest.mark.parametrize("message", CREDENTIALS)
+def test_a_credential_in_any_common_phrasing_is_refused(make_rig: Callable[..., Rig], message: str) -> None:
+    rig = make_rig()
+    before = len(rig.store.all_current())
+    turn = rig.ask(message)
+    assert len(rig.store.all_current()) == before, f"stored: {rig.store.all_current()[-1].text}"
+    assert rig.llm.calls == [] and turn.receipts == []
+
+
+@pytest.mark.parametrize("message", ORDINARY)
+def test_an_ordinary_fact_near_a_credential_word_is_kept(message: str) -> None:
+    from confidant.scan import detect_secret
+    assert detect_secret(message) is None
+
+
+# --- Availability: an item lasts until its end time, and a range of dates covers every day in it ------------
+
+def availability(make_rig: Callable[..., Rig], fact: str, question: str) -> str:
+    rig = make_rig(live=False)
+    assert rig.ask(f"Remember that {fact}").actions[0].startswith("recorded")
+    turn = rig.ask(question)
+    assert turn.intent == "availability" and turn.receipts == []
+    return turn.answer.splitlines()[0]
+
+
+@pytest.mark.parametrize("question", ["Am I free on Thursday 12 Nov at 11:30?", "Am I free on Thursday 12 Nov at 12:00?"])
+def test_an_item_with_an_end_time_is_busy_until_it_ends(make_rig: Callable[..., Rig], question: str) -> None:
+    verdict = availability(make_rig, "I have a design workshop on Thursday 12 Nov 2026 from 9:00 to 12:30.", question)
+    assert verdict.endswith(": not free."), verdict
+
+
+def test_after_its_end_time_the_slot_is_free(make_rig: Callable[..., Rig]) -> None:
+    verdict = availability(make_rig, "I have a design workshop on Thursday 12 Nov 2026 from 9:00 to 12:30.",
+                           "Am I free on Thursday 12 Nov at 13:45?")
+    assert ": free" in verdict, verdict
+
+
+def test_until_marks_the_end(make_rig: Callable[..., Rig]) -> None:
+    verdict = availability(make_rig, "the team offsite is on Thursday 12 Nov 2026 at 10:00 until 17:00.",
+                           "Am I free on Thursday 12 Nov in the afternoon?")
+    assert verdict.endswith(": not free."), verdict
+
+
+def test_a_range_of_dates_covers_the_days_in_between(make_rig: Callable[..., Rig]) -> None:
+    verdict = availability(make_rig, "I am at a conference in Paris from Monday 9 Nov to Wednesday 11 Nov 2026.",
+                           "Am I free on Tuesday 10 Nov in the morning?")
+    assert verdict.endswith(": not free."), verdict
+
+
+def test_every_day_of_a_range_is_busy(make_rig: Callable[..., Rig]) -> None:
+    verdict = availability(make_rig, "I am at a conference in Paris from Monday 9 Nov to Wednesday 11 Nov 2026.",
+                           "Am I free from Monday 9 Nov to Wednesday 11 Nov?")
+    assert verdict.endswith(": no free day."), verdict
+
+
+def test_an_item_that_started_earlier_with_no_end_makes_the_slot_a_maybe(make_rig: Callable[..., Rig]) -> None:
+    verdict = availability(make_rig, "a client visits on Thursday 12 Nov 2026 at 10:00.",
+                           "Am I free on Thursday 12 Nov at 12:00?")
+    assert ": maybe." in verdict, verdict
+
+
+def test_a_moved_appointment_is_not_read_as_a_range(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig(live=False)
+    rig.ask("My dermatologist appointment moved from Tuesday 3 Nov to Wednesday 4 Nov at 9:00.")
+    assert rig.ask("Am I free on Tuesday 3 Nov in the morning?").answer.splitlines()[0].endswith(": free, nothing in memory.")
+
+
+def test_moved_from_one_day_to_another_is_a_correction() -> None:
+    from confidant.rules import rule_route
+    route = rule_route("My dermatologist appointment moved from Tuesday 3 Nov to Wednesday 4 Nov at 9:00.")
+    assert route.intent == "correct"
+
+
+def test_a_moved_appointment_is_busy_on_its_new_day(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig(live=False)
+    rig.ask("My dermatologist appointment moved from Tuesday 3 Nov to Wednesday 4 Nov at 9:00.")
+    verdict = rig.ask("Am I free on Wednesday 4 Nov in the morning?").answer.splitlines()[0]
+    assert verdict.endswith(": not free."), verdict
+
+
+# --- Receipts: every request that left gets one, answered or not (outside review, 28 Oct: 503 then 503 gave
+# two requests carrying the shared memories and no receipt; 429 then 200 gave two requests and one receipt) ----
+
+import httpx  # noqa: E402
+
+from confidant.llm import TokenFactory  # noqa: E402
+from confidant.search import Tavily  # noqa: E402
+
+CHAT_OK = {"model": MODELS["reason"], "choices": [{"message": {"content": "Happy 30th, Léa! [m4v1]"},
+                                                    "finish_reason": "stop"}],
+           "usage": {"prompt_tokens": 900, "completion_tokens": 40}}
+
+
+ROUTE_OK = {"model": MODELS["fast"], "choices": [{"message": {"content": '{"intent": "answer"}'},
+                                                    "finish_reason": "stop"}], "usage": {"prompt_tokens": 90,
+                                                                                         "completion_tokens": 9}}
+
+
+def over_http(store: MemoryStore, answers: list[Any]) -> tuple[Assistant, list[httpx.Request]]:
+    """An assistant whose real TokenFactory client meets ``answers`` in turn on its answer calls (an HTTP status,
+    a JSON body or an exception to raise); the router always answers. Returns the answer requests sent."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if json.loads(request.content)["model"] == MODELS["fast"]:
+            return httpx.Response(200, json=ROUTE_OK)
+        seen.append(request)
+        answer = answers[min(len(seen), len(answers)) - 1]
+        if isinstance(answer, Exception):
+            raise answer
+        if isinstance(answer, int):
+            return httpx.Response(answer, json={"error": "busy"})
+        return httpx.Response(200, json=answer)
+
+    llm = TokenFactory("test-key", http=httpx.Client(transport=httpx.MockTransport(handler)), retry_delay=0)
+    return Assistant(store, Guard(), ReceiptLog(), Budget(1_000_000, 100), llm, models=MODELS), seen
+
+
+@pytest.mark.parametrize(("answers", "statuses"), [
+    ([503, 503], ["no answer (HTTP 503)", "no answer (HTTP 503)"]),
+    ([429, CHAT_OK], ["no answer (HTTP 429)", "answered"]),
+    ([httpx.ReadTimeout("slow")], ["no answer (timeout)"]),
+])
+def test_every_request_that_left_has_a_receipt(store: MemoryStore, answers: list[Any], statuses: list[str]) -> None:
+    from confidant.receipts import payload_sha256
+    assistant, seen = over_http(store, answers)
+    turn = assistant.handle("Draft a birthday message for Léa.", session_id="s")
+    answer_receipts = [r for r in turn.receipts if r.purpose == "answer"]
+    assert len(seen) == len(answer_receipts) == len(statuses)
+    assert [r.status for r in answer_receipts] == statuses
+    sent = [payload_sha256(json.loads(request.content)["messages"]) for request in seen]
+    assert sent == [r.payload_sha256 for r in answer_receipts]
+    assert [o.sha256 for o in turn.outbound if o.purpose == "answer"] == sent
+
+
+def test_a_request_that_could_not_connect_left_nothing_and_has_no_receipt(store: MemoryStore) -> None:
+    assistant, seen = over_http(store, [httpx.ConnectError("refused")])
+    turn = assistant.handle("Draft a birthday message for Léa.", session_id="s")
+    assert len(seen) == 2
+    assert [r for r in turn.receipts if r.purpose == "answer"] == []
+    assert [o for o in turn.outbound if o.purpose == "answer"] == []
+
+
+def test_a_web_search_that_failed_still_has_its_receipts(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig()
+    rig.assistant.search = Tavily("test-key", retry_delay=0, http=httpx.Client(
+        transport=httpx.MockTransport(lambda request: httpx.Response(503, json={"error": "busy"}))))
+    turn = rig.ask("Find a 10-day taper plan for my half marathon.")
+    web = [r for r in turn.receipts if r.purpose == "web_search"]
+    assert [r.status for r in web] == ["no answer (HTTP 503)", "no answer (HTTP 503)"]
+    assert rig.receipts.today_summary().live_calls == len(turn.receipts)

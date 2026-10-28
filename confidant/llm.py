@@ -70,6 +70,7 @@ class ChatResult:
     latency_ms: int
     model: str
     finish_reason: str = ""
+    unanswered: tuple[str, ...] = ()  # earlier attempts of this call that left and got no answer (retried)
 
     @property
     def truncated(self) -> bool:
@@ -209,12 +210,14 @@ class TokenFactory:
         }
         if not thinking:
             payload["chat_template_kwargs"] = {"enable_thinking": False}
-        data, latency_ms = self._request("POST", "/chat/completions", purpose, payload)
+        unanswered: list[str] = []
+        data, latency_ms = self._request("POST", "/chat/completions", purpose, payload, unanswered)
         try:
             choice = data["choices"][0]
             content = choice["message"].get("content") or ""
         except (KeyError, IndexError, TypeError, AttributeError):
-            raise ServiceError(f"{SERVICE} ({purpose}) sent an unexpected response shape.") from None
+            raise ServiceError(f"{SERVICE} ({purpose}) sent an unexpected response shape.",
+                               unanswered=[*unanswered, "unexpected response"]) from None
         usage = data.get("usage") or {}
         return ChatResult(
             text=strip_reasoning(str(content)),
@@ -223,6 +226,7 @@ class TokenFactory:
             latency_ms=latency_ms,
             model=str(data.get("model") or model),
             finish_reason=str(choice.get("finish_reason") or ""),
+            unanswered=tuple(unanswered),
         )
 
     def list_models(self) -> list[str]:
@@ -239,11 +243,12 @@ class TokenFactory:
             self._http.close()
 
     def _request(
-        self, method: str, path: str, purpose: str, payload: Mapping[str, object] | None
+        self, method: str, path: str, purpose: str, payload: Mapping[str, object] | None,
+        unanswered: list[str] | None = None,
     ) -> tuple[Any, int]:
         """Send one request to the API with this client's settings."""
         return request_json(
             self._http, method, self.base_url + path, service=f"{SERVICE} ({purpose})",
             api_key=self._api_key, key_env=KEY_ENV, timeout=self.timeout,
-            retry_delay=self.retry_delay, payload=payload,
+            retry_delay=self.retry_delay, payload=payload, unanswered=unanswered,
         )

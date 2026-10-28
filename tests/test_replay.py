@@ -11,7 +11,8 @@ from confidant.search import WebResult
 
 
 def test_questions_are_normalised() -> None:
-    assert normalize_question("What’s on my  PLATE, next week?") == "whats on my plate next week"
+    assert normalize_question("What’s on my  PLATE, next week?") == "what is on my plate next week"
+    assert normalize_question("whats on my plate next week") == "what is on my plate next week"
     assert normalize_question("Draft a birthday message for Léa.") == "draft a birthday message for lea"
 
 
@@ -33,11 +34,28 @@ def test_all_file_shapes_load(tmp_path: Path) -> None:
     assert three.models == {"reason": "nvidia/x"}
 
 
-def test_lookup_tolerates_small_differences_only() -> None:
-    book = ReplayBook([RecordedTurn("What's on my plate next week?", {"answer": "A"})])
-    assert book.lookup("whats on my plate next week") is not None
-    assert book.lookup("What is on my plate next week") is not None
-    assert book.lookup("What's the weather tomorrow?") is None
+RECORDED = ReplayBook([
+    RecordedTurn("What's on my plate next week?", {"answer": "A"}),
+    RecordedTurn("Draft a birthday message for Léa.", {"answer": "B"}),
+    RecordedTurn("Find a 10-day taper plan for my half marathon.", {"answer": "C"}),
+])
+
+
+@pytest.mark.parametrize("asked", [
+    "whats on my plate next week", "What is on my plate next week", "WHAT'S ON MY PLATE NEXT WEEK!!",
+    "Draft a birthday message for Lea", "find a 10 day taper plan for my half-marathon",
+])
+def test_the_recorded_question_matches_in_any_case_punctuation_or_contraction(asked: str) -> None:
+    assert RECORDED.lookup(asked) is not None
+
+
+@pytest.mark.parametrize("asked", [
+    # outside review, 28 Oct: each of these was served the recording of another question (fuzzy match at 0.88)
+    "Draft a birthday message for Sam.", "What's on my plate this week?", "What's on my plate next weekend?",
+    "Find a 3-day taper plan for my half marathon.", "What's the weather tomorrow?",
+])
+def test_a_different_question_never_gets_a_recorded_answer(asked: str) -> None:
+    assert RECORDED.lookup(asked) is None
 
 
 def test_save_then_load_round_trips(tmp_path: Path) -> None:

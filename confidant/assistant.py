@@ -27,7 +27,7 @@ from .memory import (
     KINDS, SENSITIVITIES, Memory, MemoryNotFound, MemoryStore, SecretRefused, VersionConflict, utc_timestamp,
 )
 from .net import ServiceError
-from .receipts import Receipt, ReceiptLog
+from .receipts import ANSWERED, Receipt, ReceiptLog
 from .replay import RecordedTurn, ReplayBook
 from .rules import (
     INTENTS,
@@ -35,9 +35,13 @@ from .rules import (
     classify_kind,
     classify_new_fact,
     classify_sensitivity,
+    ONGOING_MINUTES,
+    end_noted,
     event_date,
+    event_days,
     is_open_item,
     item_span,
+    item_span_on,
     label_mentioned,
     make_label,
     memory_text_from,
@@ -74,6 +78,11 @@ BRIEF_HORIZON_DAYS = 7
 WITHHELD_HORIZON_DAYS = 60  # private events this far ahead are listed for any period asked, so none is dated
 AVAILABILITY_MAX_DAYS = 14  # an availability check covers at most this many days
 BRIEF_QUESTION = "Run my daily brief."
+# Said when replay has no recording for a question: what can be checked without a model.
+REPLAY_SCOPE = (
+    "In replay, only the recorded demo questions have a model answer; remember, correct, availability and "
+    "refusals run here without a model."
+)
 WEB_RESULT_COUNT = 5
 TAVILY_MODEL = "tavily-search-basic"
 
@@ -188,6 +197,7 @@ class Outbound:
     payload: Any
     sha256: str
     mode: str
+    status: str = ANSWERED  # or why this request got no answer: "no answer (HTTP 503)"
 
 
 @dataclass(frozen=True)
@@ -387,29 +397,34 @@ def _short_date(day: date) -> str:
     return f"{day:%a} {day.day} {day:%b}"
 
 
-def _split_by_part(items: Sequence[Memory], part: tuple[str, int, int] | None) -> tuple[list[Memory], ...]:
-    """A day's items in the part of the day asked about (all of them for a whole day), those with no time
-    noted, and the others."""
+def _split_by_part(
+    items: Sequence[Memory], part: tuple[str, int, int] | None, day: date, today: date
+) -> tuple[list[Memory], ...]:
+    """A day's items in the part of the day asked about (all of them for a whole day); those that started
+    earlier with no end noted, so may still be going on; those with no time noted; and the others."""
     if part is None:
-        return list(items), [], []
+        return list(items), [], [], []
     _, start, end = part
     inside: list[Memory] = []
+    ongoing: list[Memory] = []
     untimed: list[Memory] = []
     other: list[Memory] = []
     for memory in items:
-        span = item_span(memory)
+        span = item_span_on(memory, day, today)
         if span is None:
             untimed.append(memory)
         elif span[0] < end and start < span[1]:
             inside.append(memory)
+        elif not end_noted(span) and span[0] < start <= span[0] + ONGOING_MINUTES:
+            ongoing.append(memory)
         else:
             other.append(memory)
-    return inside, untimed, other
+    return inside, ongoing, untimed, other
 
 
 def _availability_texts(
     heading: str, schedule: Mapping[date, list[Memory]], part: tuple[str, int, int] | None,
-    prepared: PreparedContext, *, single: bool, routed_by_cloud: bool = False,
+    prepared: PreparedContext, *, single: bool, today: date, routed_by_cloud: bool = False,
 ) -> tuple[str, str]:
     """The answer to an availability question, for this device only (private items appear as placeholders,
     filled in here, next to their day), and the draft that may be passed on (shared items only)."""
@@ -421,30 +436,34 @@ def _availability_texts(
     local: list[str] = []
     passed_on: list[str] = []
     if single:
-        items = next(iter(schedule.values()))
-        inside, untimed, other = _split_by_part(items, part)
+        day, items = next(iter(schedule.items()))
+        inside, ongoing, untimed, other = _split_by_part(items, part, day, today)
         if inside:
             local.append(f"{heading}: not free.")
-        elif untimed:
-            local.append(f"{heading}: maybe. Nothing is noted at that time, but {len(untimed)} item(s) that day "
-                         "have no time noted.")
+        elif ongoing or untimed:
+            reasons = [f"{len(ongoing)} item(s) started earlier that day with no end time noted"] if ongoing else []
+            reasons += [f"{len(untimed)} item(s) that day have no time noted"] if untimed else []
+            local.append(f"{heading}: maybe. Nothing is noted at that time, but {' and '.join(reasons)}.")
         else:
             local.append(f"{heading}: free, nothing in memory.")
         local += [f"- {shown(memory)}" for memory in inside]
+        if ongoing:
+            local += ["Started earlier, no end time noted:", *(f"- {shown(memory)}" for memory in ongoing)]
         if untimed and part:
             local += ["No time noted:", *(f"- {shown(memory)}" for memory in untimed)]
         if other:
             local += ["Also that day:", *(f"- {shown(memory)}" for memory in other)]
-        passed_on = [f"- {shown(memory)}" for memory in inside + untimed if memory.id not in withheld]
+        passed_on = [f"- {shown(memory)}" for memory in inside + ongoing + untimed if memory.id not in withheld]
     else:
         free: list[date] = []
         for day, items in schedule.items():
-            inside, untimed, _ = _split_by_part(items, part)
-            if not inside and not untimed:
+            inside, ongoing, untimed, _ = _split_by_part(items, part, day, today)
+            if not inside and not ongoing and not untimed:
                 free.append(day)
                 local.append(f"- {_short_date(day)}: free")
-            for memory in inside + untimed:
-                note = " (no time noted)" if memory in untimed and part else ""
+            for memory in inside + ongoing + untimed:
+                note = (" (started earlier, no end time noted)" if memory in ongoing
+                        else " (no time noted)" if memory in untimed and part else "")
                 local.append(f"- {_short_date(day)}: {shown(memory)}{note}")
                 if memory.id not in withheld:
                     passed_on.append(f"- {_short_date(day)}: {shown(memory)}{note}")
@@ -537,9 +556,11 @@ class _Exchange:
                 thinking=THINKING[role],
             )
         except ServiceError as exc:
+            self._log_unanswered(NEBIUS, assistant.models[role], purpose, messages, sent, withheld, exc.unanswered)
             self.notices.append(f"The live {purpose} call failed ({exc}); a local fallback was used.")
             self.failed = self.failed or purpose != "route"
             return None
+        self._log_unanswered(NEBIUS, assistant.models[role], purpose, messages, sent, withheld, result.unanswered)
         self.live_calls += 1
         self.tokens += result.prompt_tokens + result.completion_tokens
         self._log(
@@ -600,9 +621,12 @@ class _Exchange:
         try:
             results = assistant.search.search(decision.redacted_text, max_results=WEB_RESULT_COUNT)
         except ServiceError as exc:  # the query left the device: it is not marked as not sent
+            self._log_unanswered(TAVILY, TAVILY_MODEL, "web_search", payload, [], decision.withheld_ids, exc.unanswered)
             self.notices.append(f"Web search failed ({exc}); the answer uses memory only.")
             self.failed = True
             return []
+        self._log_unanswered(TAVILY, TAVILY_MODEL, "web_search", payload, [], decision.withheld_ids,
+                             getattr(results, "unanswered", ()))
         self.live_calls += 1
         self.web_search = "ran"
         self._log(
@@ -625,16 +649,27 @@ class _Exchange:
         completion_tokens: int = 0,
         latency_ms: int = 0,
         cost: float = 0.0,
+        status: str = ANSWERED,
     ) -> None:
         """Write one receipt for this turn's mode, and keep the payload with it for this turn only."""
         receipt = self.assistant.receipts.record(
             provider=provider, model=model, purpose=purpose, payload=payload, mode=self.mode,
             prompt_tokens=prompt_tokens, completion_tokens=completion_tokens, latency_ms=latency_ms,
             sent_memory_ids=sent, withheld_memory_ids=withheld, cost_usd_estimate=cost,
-            session_id=self.session_id,
+            session_id=self.session_id, status=status,
         )
         self.receipts.append(receipt)
-        self.outbound.append(Outbound(provider, model, purpose, payload, receipt.payload_sha256, self.mode))
+        self.outbound.append(Outbound(provider, model, purpose, payload, receipt.payload_sha256, self.mode, status))
+
+    def _log_unanswered(
+        self, provider: str, model: str, purpose: str, payload: object, sent: Sequence[int], withheld: Sequence[int],
+        reasons: Sequence[str],
+    ) -> None:
+        """One receipt per request that left and got no answer (a failed call, or the attempts before a retry
+        that worked): it carried the same payload, so it is logged like any other call, with no tokens."""
+        for reason in reasons:
+            self._log(provider, model, purpose, payload, sent, withheld, status=f"no answer ({reason})")
+        self.live_calls += len(reasons)
 
 
 class Assistant:
@@ -1005,7 +1040,7 @@ class Assistant:
         prepared = self.guard.prepare_context([*shared, *pool], NEBIUS)
         heading = _capitalised(_period((first, last), today)) + (f", {part[0]}" if part else "")
         local, draft = _availability_texts(
-            heading, schedule, part, prepared, single=len(days) == 1, routed_by_cloud=routed_by_cloud,
+            heading, schedule, part, prepared, single=len(days) == 1, today=today, routed_by_cloud=routed_by_cloud,
         )
         return _Outcome(draft, prepared, local=local)
 
@@ -1048,9 +1083,9 @@ class Assistant:
     def _events_between(self, first: date, last: date) -> list[Memory]:
         """Current event memories dated within [first, last], soonest first."""
         today = self.today()
-        dated = [(event_date(memory, today), memory) for memory in self.store.all_current() if memory.kind == "event"]
-        within = [(day, memory) for day, memory in dated if day is not None and first <= day <= last]
-        return [memory for _, memory in sorted(within, key=lambda pair: (pair[0], pair[1].id))]
+        dated = [(event_days(memory, today), memory) for memory in self.store.all_current() if memory.kind == "event"]
+        within = [(days, memory) for days, memory in dated if days is not None and days[0] <= last and first <= days[1]]
+        return [memory for _, memory in sorted(within, key=lambda pair: (pair[0][0], pair[1].id))]
 
     def _retrieve(self, message: str, window: tuple[date, date] | None, *, agent: bool = False) -> list[Memory]:
         """For a period: its shared events, then every upcoming withheld event whatever the
@@ -1076,13 +1111,16 @@ class Assistant:
         return list(found.values())[:MAX_CONTEXT_MEMORIES]
 
     def _items_on(self, day: date) -> list[Memory]:
-        """Current events dated ``day`` and routines held on its weekday ("every Tuesday"), by start time."""
+        """Current events on ``day`` (one dated that day, or a range of days that holds it) and routines held
+        on its weekday ("every Tuesday"), by start time that day."""
         today = self.today()
-        items = [
-            memory for memory in self.store.all_current() if memory.source_type != "web"
-            and ((memory.kind == "event" and event_date(memory, today) == day) or recurs_on(memory, day))
-        ]
-        return sorted(items, key=lambda memory: ((item_span(memory) or (24 * 60, 0))[0], memory.id))
+
+        def on_day(memory: Memory) -> bool:
+            days = event_days(memory, today) if memory.kind == "event" else None
+            return (days is not None and days[0] <= day <= days[1]) or recurs_on(memory, day)
+
+        items = [memory for memory in self.store.all_current() if memory.source_type != "web" and on_day(memory)]
+        return sorted(items, key=lambda memory: ((item_span_on(memory, day, today) or (24 * 60, 0))[0], memory.id))
 
     def _private_schedule(self) -> list[Memory]:
         """Every current event or weekly routine the reasoning model may not see, whatever its date, by id."""
@@ -1101,7 +1139,7 @@ class Assistant:
         return [
             memory for memory in self.store.all_current()
             if memory.kind == "event" and not self.guard.may_send(memory, NEBIUS)
-            and (day := event_date(memory, today)) is not None and today <= day <= horizon
+            and (days := event_days(memory, today)) is not None and days[0] <= horizon and today <= days[1]
         ]
 
     def _compose(
@@ -1127,10 +1165,11 @@ class Assistant:
     @staticmethod
     def _fallback(exchange: _Exchange, prepared: PreparedContext, memories: list[Memory]) -> str:
         """A local answer listing the relevant memories (private ones as placeholders)."""
-        lead = (
-            "Replay has no recorded answer for this request"
-            if exchange.mode == "replay" else "The cloud model could not answer this time"
-        )
+        if exchange.mode == "replay":
+            lead = "No recorded turn matches this question, so no model answered it"
+            exchange.notices.append(REPLAY_SCOPE)
+        else:
+            lead = "The cloud model could not answer this time"
         included = {memory.id for memory in [*prepared.shared, *prepared.withheld]}
         withheld = set(prepared.withheld_ids)
         lines: list[str] = []
@@ -1140,5 +1179,5 @@ class Assistant:
                 shown = placeholder(memory.id) if memory.id in withheld else f"{memory.text} [{memory.cite()}]"
                 lines.append(f"- {shown}")
         if not lines:
-            return f"{lead}, and nothing in memory matches it."
-        return f"{lead}, so here are the most relevant memories:\n" + "\n".join(lines)
+            return f"{lead}, and nothing in memory matches its words."
+        return f"{lead}. The memories that match it:\n" + "\n".join(lines)

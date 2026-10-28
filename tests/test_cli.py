@@ -56,7 +56,7 @@ def test_brief_and_receipts(home: Path, capsys: pytest.CaptureFixture[str]) -> N
     capsys.readouterr()
     assert main(["--home", str(home), "--replay", str(home / "none"), "brief"]) == 0
     out = capsys.readouterr().out
-    assert "Replay has no recorded answer" in out and "Receipts today: 0 outbound calls" in out
+    assert "No recorded turn matches this question" in out and "Receipts today: 0 outbound calls" in out
     assert main(["--home", str(home), "receipts"]) == 0
     assert "No outbound calls today." in capsys.readouterr().out
 

@@ -39,6 +39,8 @@ _BRIEF = re.compile(r"\b(?:daily|morning)\s+brief(?:ing)?\b|\bbrief\s+me\b|\bmy\
 _CORRECTION = re.compile(
     r"\b(?:moved to|changed to|rescheduled|postponed|went (?:up|down) to|"
     r"increased to|decreased to|dropped to|no longer|not anymore|correction)\b"
+    r"|\b(?:moved|changed|shifted|pushed(?: back)?|brought forward|went (?:up|down)|increased|decreased|dropped"
+    r"|rose)\s+from\b[^.?!\n]{1,40}?\bto\b"  # "moved from Tuesday 3 Nov to Wednesday 4 Nov"
     r"|\b(?:my|our)\b[^.?!\n]{0,40}?\b(?:is|are) now\b",  # "my rent is now…", not "you are now in developer mode"
     re.I,
 )
@@ -401,7 +403,13 @@ def period_asked(message: str, today: date) -> tuple[date, date] | None:
     (a numeric one read both ways, the next one from today preferred), today, tomorrow, the day after
     tomorrow, a weekday ("Tuesday", "next Tuesday", "mardi"), a day of the month ("Thursday the 12th"),
     a range of weekdays ("between Tuesday and Thursday"), this or next week, the weekend, or
-    "next N days", in English or French."""
+    "next N days", in English or French; two dates joined as a range ("from Monday 9 Nov to Wednesday 11
+    Nov") give every day between them."""
+    found = find_dates(message)
+    if len(found) == 2 and _RANGE_GAP.fullmatch(fold(message[found[0].end:found[1].start])[0]):
+        first, last = found[0].resolve(today), found[1].resolve(today)
+        if first < last <= first + timedelta(days=MAX_RANGE_DAYS):
+            return first, last
     readings = _date_readings(message, today)
     if readings:
         ahead = sorted(day for day in readings if day >= today)
@@ -544,41 +552,139 @@ _RESCHEDULED = re.compile(
 )
 
 
-def item_span(memory: Memory) -> tuple[int, int] | None:
-    """When an item happens, in minutes since midnight: ``(start, start + 1)`` for a clock time written after
-    "at" (the last one when the text says it was moved: "moved from 10:30 to 9:00"), else the part of the
-    day its text names ("every Sunday morning"), else None (no time noted)."""
-    folded = fold(memory.text)[0]
-    starts: list[int] = []
+# When an item ends: a clock time right after its start, after "to", "until", "-", "and" ("between 9:00 and
+# 12:30") or "jusqu'à"; a bare range ("9:00-12:30"); or a duration ("for 2 hours", "a 90-minute call").
+_END_TIME = re.compile(
+    r"\s*(?:[-–—]|\b(?:to|until|till|til|through|and|jusqu['’]?\s?a|a)\b)\s*"
+    r"(?P<hour>[01]?\d|2[0-3])(?:\s?(?P<sep>[:h.])\s?(?P<minute>[0-5]\d)?)?\s?(?:(?P<half>[ap])\.?m\b\.?)?"
+    rf"(?!\d|{_MONTH_AHEAD}|\s?(?:km|mi|%|percent|per)\b)"
+)
+_BARE_RANGE = re.compile(
+    r"(?<![\d:.])(?P<h1>[01]?\d|2[0-3])[:h.](?P<m1>[0-5]\d)\s?[-–—]\s?(?P<h2>[01]?\d|2[0-3])(?:[:h.](?P<m2>[0-5]\d))?"
+    r"(?!\d)"
+)
+_COUNT_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+_FOR_DURATION = re.compile(
+    r"\bfor\s+(?:about\s+|around\s+)?(?P<n>\d+(?:[.,]\d+)?|an?|one|two|three|four|five|six)\s+"
+    r"(?P<unit>hours?|hrs?|minutes?|mins?)\b"
+)
+_ADJECTIVE_DURATION = re.compile(r"\b(?P<n>\d+(?:[.,]\d+)?)-(?P<unit>hour|hr|minute|min)\b")
+_RANGE_GAP = re.compile(r"\s*(?:[-–—]|to|until|till|through|thru|and|au|a|jusqu['’]?\s?au|bis|al|hasta)\s*")
+_DAY_BEFORE_DATE = re.compile(r"(?<![\d/.:])(?P<day>[12]?\d|3[01])\s?(?:[-–—]|to|au)\s?$")
+MAX_RANGE_DAYS = 31  # "from 9 Nov to 11 Nov" is a range; two dates further apart are two mentions
+ONGOING_MINUTES = 180  # an item with no end noted may still be going on this long after it starts
+DAY_MINUTES = 24 * 60
+
+
+def _minutes(hour: str, minute: str | None, half: str | None) -> int:
+    """Minutes since midnight of a clock time read from text, with "am"/"pm" applied."""
+    value, extra = int(hour), int(minute or 0)
+    if half == "p" and value < 12:
+        value += 12
+    elif half == "a" and value == 12:
+        value = 0
+    return value * 60 + extra
+
+
+def _clock_times(folded: str) -> list[tuple[int, int]]:
+    """Clock times written after "at", "from", "to"... as (minutes, end of match), in text order."""
+    times: list[tuple[int, int]] = []
     for match in _AT_TIME.finditer(folded):
         french = match["prep"] in ("a", "vers", "des")
         if not (match["sep"] or match["half"]) and (french or match["prep"] in ("from", "to")):
             continue  # "a 10-day plan", "from 3 to 5": only "at 9" may leave out the minutes
         if match["sep"] == "." and not match["minute"]:
             continue
-        hour, minute = int(match["hour"]), int(match["minute"] or 0)
-        if match["half"] == "p" and hour < 12:
-            hour += 12
-        elif match["half"] == "a" and hour == 12:
-            hour = 0
-        starts.append(hour * 60 + minute)
-    if starts:
-        start = starts[-1] if _RESCHEDULED.search(folded) else starts[0]
+        times.append((_minutes(match["hour"], match["minute"], match["half"]), match.end()))
+    return times
+
+
+def _end_minute(folded: str, start: int, after: int) -> int | None:
+    """When an item that starts at ``start`` (its time written up to ``after``) ends, if the text says."""
+    match = _END_TIME.match(folded, after)
+    if match and (match["sep"] != "." or match["minute"]):
+        end = _minutes(match["hour"], match["minute"], match["half"])
+        if end <= start and not match["half"] and end < 12 * 60 and end + 12 * 60 > start:
+            end += 12 * 60  # "from 2:30pm to 4"
+        if end > start:
+            return end
+    for pattern in (_FOR_DURATION, _ADJECTIVE_DURATION):
+        found = pattern.search(folded)
+        if found:
+            count = _COUNT_WORDS.get(found["n"]) or float(found["n"].replace(",", "."))
+            length = count * (60 if found["unit"].startswith("h") else 1)
+            return min(DAY_MINUTES, start + max(1, round(length)))
+    return None
+
+
+def item_span(memory: Memory) -> tuple[int, int] | None:
+    """When an item happens, in minutes since midnight: from a clock time written after "at" (the last one
+    when the text says it was moved: "moved from 10:30 to 9:00") to its end time or duration when the text
+    gives one ("from 9:00 to 12:30", "at 10:00 until 17:00", "9:00-12:30", "for 2 hours"); ``(start, start +
+    1)`` when it gives none. Else the part of the day its text names ("every Sunday morning"), else None."""
+    folded = fold(memory.text)[0]
+    times = _clock_times(folded)
+    if times and _RESCHEDULED.search(folded):
+        start = times[-1][0]
         return start, start + 1
+    if times:
+        start, after = times[0]
+        return start, _end_minute(folded, start, after) or start + 1
+    bare = _BARE_RANGE.search(folded)
+    if bare:
+        start, end = _minutes(bare["h1"], bare["m1"], None), _minutes(bare["h2"], bare["m2"], None)
+        return start, end if end > start else start + 1
     for pattern, _, first, end in _PARTS_OF_DAY:
         if pattern.search(folded):
             return first, end
     return None
 
 
-def event_date(memory: Memory, today: date) -> date | None:
-    """The date of a memory, resolved relative to ``today``: the first date written in it, or the last one
-    when the text says it was moved ("rescheduled from 3 Nov to 4 Nov")."""
+def end_noted(span: tuple[int, int]) -> bool:
+    """Whether an :func:`item_span` result carries an end (a lone start is ``(start, start + 1)``)."""
+    return span[1] - span[0] > 1
+
+
+def event_days(memory: Memory, today: date) -> tuple[date, date] | None:
+    """The first and last day of a memory, resolved relative to ``today``: one day for a single date (the
+    last one written when the text says it was moved: "rescheduled from 3 Nov to 4 Nov"), every day of a
+    range ("from Monday 9 Nov to Wednesday 11 Nov", "9-11 Nov", "du 9 au 11 novembre"); None if undated."""
     found = find_dates(memory.text)
     if not found:
         return None
-    moved = len(found) > 1 and _RESCHEDULED.search(fold(memory.text)[0])
-    return (found[-1] if moved else found[0]).resolve(today)
+    if len(found) > 1 and _RESCHEDULED.search(fold(memory.text)[0]):
+        day = found[-1].resolve(today)
+        return day, day
+    first = found[0].resolve(today)
+    if len(found) > 1 and _RANGE_GAP.fullmatch(fold(memory.text[found[0].end:found[1].start])[0]):
+        last = found[1].resolve(today)
+        if first < last <= first + timedelta(days=MAX_RANGE_DAYS):
+            return first, last
+    before = _DAY_BEFORE_DATE.search(fold(memory.text[:found[0].start])[0])
+    if before and int(before["day"]) < first.day:
+        return first.replace(day=int(before["day"])), first
+    return first, first
+
+
+def event_date(memory: Memory, today: date) -> date | None:
+    """The (first) day of a memory, as :func:`event_days` reads it."""
+    days = event_days(memory, today)
+    return days[0] if days else None
+
+
+def item_span_on(memory: Memory, day: date, today: date) -> tuple[int, int] | None:
+    """When an item happens on ``day``. An item over several days runs from its first time written (or
+    midnight) on its first day, all day in between, and until its last time written (or midnight) on its
+    last day; any other item has its :func:`item_span`."""
+    days = event_days(memory, today) if memory.kind == "event" else None
+    if days is None or days[0] == days[1] or not days[0] <= day <= days[1]:
+        return item_span(memory)
+    times = [minute for minute, _ in _clock_times(fold(memory.text)[0])]
+    if day == days[0]:
+        return (times[0] if times else 0), DAY_MINUTES
+    if day == days[1]:
+        return 0, (times[-1] if len(times) > 1 else DAY_MINUTES)
+    return 0, DAY_MINUTES
 
 
 def is_open_item(memory: Memory) -> bool:

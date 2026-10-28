@@ -22,7 +22,6 @@ and JSON objects are accepted where text is expected.
 """
 from __future__ import annotations
 
-import difflib
 import json
 import os
 import re
@@ -37,10 +36,19 @@ from .search import WebResult
 PURPOSES = ("route", "classify", "answer", "brief")
 
 
+# Contractions written out, so "What's on my plate" and "What is on my plate" are the same question.
+_CONTRACTIONS = {
+    "whats": "what is", "thats": "that is", "whens": "when is", "wheres": "where is", "whos": "who is",
+    "hows": "how is", "theres": "there is", "im": "i am", "ive": "i have", "youre": "you are",
+    "dont": "do not", "doesnt": "does not", "didnt": "did not", "isnt": "is not", "arent": "are not",
+    "wasnt": "was not", "cant": "can not", "cannot": "can not", "wont": "will not",
+}
+
+
 def normalize_question(text: str) -> str:
-    """Lookup key for a question: case, accents, apostrophes and punctuation ignored."""
+    """Lookup key for a question: case, accents, apostrophes, punctuation and contractions ignored."""
     folded = fold(text)[0].replace("'", "").replace("’", "")
-    return " ".join(re.findall(r"[^\W_]+", folded))
+    return " ".join(_CONTRACTIONS.get(word, word) for word in re.findall(r"[^\W_]+", folded))
 
 
 def _as_text(value: Any) -> str:
@@ -95,9 +103,11 @@ class RecordedTurn:
 
 
 class ReplayBook:
-    """Recorded turns, looked up by normalised question: exact match first, then a close one."""
+    """Recorded turns, looked up by normalised question, exactly.
 
-    FUZZY_CUTOFF = 0.88
+    No near match: "Draft a birthday message for Sam." is another question than the recorded "… for Léa.", and
+    replaying Léa's message for it would present a recording as the answer to something never asked live.
+    """
 
     def __init__(self, turns: Iterable[RecordedTurn] = ()) -> None:
         self._turns: dict[str, RecordedTurn] = {}
@@ -124,12 +134,8 @@ class ReplayBook:
         return book
 
     def lookup(self, question: str) -> RecordedTurn | None:
-        """The recorded turn for ``question``, or for a near-identical wording, else None."""
-        key = normalize_question(question)
-        if key in self._turns:
-            return self._turns[key]
-        close = difflib.get_close_matches(key, list(self._turns), n=1, cutoff=self.FUZZY_CUTOFF)
-        return self._turns[close[0]] if close else None
+        """The recorded turn for ``question`` (same words once normalised), else None."""
+        return self._turns.get(normalize_question(question))
 
     def add(self, turn: RecordedTurn) -> None:
         """Add or replace the recording for ``turn.question``."""

@@ -30,6 +30,14 @@ class WebResult:
     score: float
 
 
+class WebResults(list):  # noqa: FURB189 - a list of WebResult that also carries the unanswered attempts
+    """Search hits, plus one reason per earlier attempt of the search that left and got no answer."""
+
+    def __init__(self, results: Iterable[WebResult] = (), *, unanswered: tuple[str, ...] = ()) -> None:
+        super().__init__(results)
+        self.unanswered = unanswered
+
+
 def search_payload(query: str, max_results: int) -> dict[str, object]:
     """The JSON body of a Tavily search (the API key travels in a header, not here): the one sent and the
     one whose SHA-256 the receipt keeps."""
@@ -55,14 +63,17 @@ class Tavily:
         self._http = http if http is not None else httpx.Client()
         self._owns_http = http is None
 
-    def search(self, query: str, *, max_results: int = 5) -> list[WebResult]:
-        """Search the web and return results that have a URL. Raises ServiceError on failure."""
+    def search(self, query: str, *, max_results: int = 5) -> WebResults:
+        """Search the web and return results that have a URL, with the reasons of earlier attempts that left
+        and got no answer (``unanswered``). Raises ServiceError on failure."""
         payload = search_payload(query, max_results)
+        unanswered: list[str] = []
         data, _ = request_json(
             self._http, "POST", TAVILY_SEARCH_URL, service="Tavily search", api_key=self._api_key,
             key_env="TAVILY_API_KEY", timeout=self.timeout, retry_delay=self.retry_delay, payload=payload,
+            unanswered=unanswered,
         )
-        results: list[WebResult] = []
+        results = WebResults(unanswered=tuple(unanswered))
         for item in (data.get("results") if isinstance(data, dict) else None) or []:
             url = str(item.get("url") or "").strip()
             if url:

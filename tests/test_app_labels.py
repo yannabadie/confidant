@@ -146,3 +146,43 @@ def test_a_turn_recorded_with_web_search_off_says_why_its_query_was_not_sent() -
         engine.close()
     web = [item for item in app.render_guard_panel(view).split('<li class="cf-check">')[1:] if "Web search to" in item]
     assert web and "Not sent" in web[0] and "web search was off when this turn was recorded" in web[0]
+
+
+# --- Round 6 (outside review, 28 Oct): the replay copy promised what replay cannot do -----------------------
+
+TAPER = "Find a 10-day taper plan for my half marathon."
+
+
+def test_the_header_names_web_search_as_it_was_recorded() -> None:
+    """The published recording ran without Tavily, yet the header said "Web search: recorded results"."""
+    app = _app()
+    off = ReplayBook([RecordedTurn(TAPER, {"answer": "x"}, recorded_at="2026-10-28T07:30:15Z", web_search="off")])
+    ran = ReplayBook([RecordedTurn(TAPER, {"answer": "x"}, [WebResult("T", "https://example.org/t", "C", 0.9)],
+                                   recorded_at="2026-10-28T07:30:15Z", web_search="ran")])
+    samples = ReplayBook([RecordedTurn(TAPER, {"answer": "x"})])
+    assert app.replay_web_label(off) == "off when recorded"
+    assert app.replay_web_label(ran) == "recorded results"
+    assert app.replay_web_label(samples) == "none in the samples"
+    assert app.RUNTIME.web_search == "off when recorded"  # data/replay: step 3 was recorded with web search off
+
+
+def test_the_first_screen_in_replay_says_what_runs_without_a_model() -> None:
+    from datetime import date
+    app = _app()
+    replay = app.render_empty([], date(2026, 10, 30), replay=True)
+    live = app.render_empty([], date(2026, 10, 30), replay=False)
+    assert "ask your own question" not in replay and "without a model" in replay
+    assert "or ask your own question" in live
+    for page in (replay, live):  # on the Space, "this device" was a Hugging Face server
+        assert "never leave this device" not in page and "never leave Confidant" in page
+
+
+def test_a_receipt_for_a_request_with_no_answer_says_so() -> None:
+    app = _app()
+    view = app.ReceiptView("2026-10-28T17:00:00Z", "nebius_token_factory", "nvidia/x", "answer", 0, 0, 0, (4,), (7,),
+                           "ab" * 32, 0.0, "live", "no answer (HTTP 503)")
+    html_text = app.render_call(view)
+    assert "No answer (HTTP 503)" in html_text and "the request left this device" in html_text
+    call = app.OutboundView("nebius_token_factory", "nvidia/x", "answer", "[]", "[]", "ab" * 32, "live",
+                            "no answer (HTTP 503)")
+    assert "Sent, no answer (HTTP 503)" in app.render_outbound([call], set())

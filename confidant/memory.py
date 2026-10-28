@@ -117,11 +117,21 @@ def utc_timestamp() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+# A word that names a group stands for its members: memories say "Sister Léa", not "family".
+RELATED_WORDS: dict[str, tuple[str, ...]] = {
+    "family": ("sister", "brother", "partner", "mother", "father", "mum", "mom", "dad", "parents", "son",
+               "daughter", "wife", "husband", "aunt", "uncle", "cousin", "niece", "nephew", "grandmother",
+               "grandfather"),
+}
+RELATED_WORDS["relatives"] = RELATED_WORDS["family"]
+
+
 def match_expression(query: str) -> str | None:
     """FTS5 query for free text: distinctive words, each quoted, OR-ed together.
 
     Quoting makes any user input safe for the FTS5 grammar; stop words and bare
-    numbers are dropped because they match too much. Returns None if nothing is left.
+    numbers are dropped because they match too much; a group word ("family") also
+    matches its members (RELATED_WORDS). Returns None if nothing is left.
     """
     tokens = [
         token
@@ -129,6 +139,7 @@ def match_expression(query: str) -> str | None:
         if len(token) > 1 and not token.isdigit() and token not in STOPWORDS
     ]
     unique = list(dict.fromkeys(tokens))[:16]
+    unique += [word for token in unique for word in RELATED_WORDS.get(token, ()) if word not in unique]
     return " OR ".join(f'"{token}"' for token in unique) or None
 
 
