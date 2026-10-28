@@ -1,20 +1,20 @@
 {
  "schema": "confidant-leak-test/1",
- "generated_at": "2026-10-28T21:08:02Z",
+ "generated_at": "2026-10-28T23:06:42Z",
  "environment": {
   "python": "3.13.17",
-  "platform": "Linux-6.18.44-fc-v180-x86_64-with-glibc2.39"
+  "platform": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39"
  },
  "inputs": {
   "fixtures": "tests/fixtures/leak_prompts_round4.jsonl",
   "fixtures_sha256": "bd532c156c9ce659b46554bcc0740105a37bdabd0d081ced8dd363fef012e04e",
   "persona_sha256": "fea35165f16025e9dccccc98e38488430be74681b9cc76c089ef9f4283e030c6",
   "sources_sha256": {
-   "confidant/guard.py": "3fa4c0ce9d87758657a06eafed73af78052a20b7efbf1f381fb98fbb6ac697d8",
-   "confidant/forms.py": "008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94",
+   "confidant/guard.py": "32284b49ac2993dba6958ff172999220dacd9ddac66db641bd33337520093bb0",
+   "confidant/forms.py": "aa1bd3a844e4ecca3b6254ed78cf5d7baa21090cf08e43a808614543493695c7",
    "confidant/scan.py": "0d4ed99e1041ccd10bbedc3c77a55f67d86c290bbae652f6a2c04b80c107b221",
-   "confidant/rules.py": "be6f7a99858f0f2a1f21ef752ba3e6de9cd38ebab560e40a9a241f39912cc8b2",
-   "confidant/assistant.py": "f40469b1e39add0ef0a947e11bc272cee824f23bfbd6f159a9ea51238214548d"
+   "confidant/rules.py": "10a98beb67e7cc68500eac2feb4462cfdf329c61af7dec1fc111f81fd080bd97",
+   "confidant/assistant.py": "a2fe87d0a522dc4b078d5a9d2544826bbe97e0b475301e63f7a5fc705cc67700"
   },
   "checker_sha256": "853fc9f8bab8ae725ac09b5a93156cf0c095ed38858f7540fee92ab33ec2f68e",
   "libraries": {
@@ -368,26 +368,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "ab13cfaf282dcc76b916a12d58f65cd28219d42c0f52fd31aa8aa80dadebca45",
+         "sha256": "23157125180a20edc8eb65323ab2fb9ee05613cbd69803f2a6f182ad9a8156ab",
          "receipt_matches": true,
          "placeholder_tokens": 1,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Tenho alguma coisa marcada para [number] de novembro?",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Tenho alguma coisa marcada para [date]?",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date written another way from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -433,26 +421,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "ab13cfaf282dcc76b916a12d58f65cd28219d42c0f52fd31aa8aa80dadebca45",
+         "sha256": "23157125180a20edc8eb65323ab2fb9ee05613cbd69803f2a6f182ad9a8156ab",
          "receipt_matches": true,
          "placeholder_tokens": 1,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Tenho alguma coisa marcada para [number] de novembro?",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Tenho alguma coisa marcada para [date]?",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date written another way from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -513,37 +489,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "df0c58c1ed42bcb743906e8b2c473fab6e3c9db6d717db8c65774f22f702d313",
+         "sha256": "c18f4bce4a83def2295a206f2212a84f3eca62ff90ad05661e024a293b27fdb5",
          "receipt_matches": true,
          "placeholder_tokens": 1,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: [withheld]の予定は何ですか？",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: [date]の予定は何ですか？",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date written another way from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "answer",
-         "allowed": true,
-         "reasons": [
-          "removed a date written another way from m7v1 (private: health appointment)"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -589,37 +542,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "df0c58c1ed42bcb743906e8b2c473fab6e3c9db6d717db8c65774f22f702d313",
+         "sha256": "c18f4bce4a83def2295a206f2212a84f3eca62ff90ad05661e024a293b27fdb5",
          "receipt_matches": true,
          "placeholder_tokens": 1,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: [withheld]の予定は何ですか？",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: [date]の予定は何ですか？",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date written another way from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "answer",
-         "allowed": true,
-         "reasons": [
-          "removed a date written another way from m7v1 (private: health appointment)"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -679,20 +609,7 @@
        "notice": "",
        "receipts": 0,
        "calls": [],
-       "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a time written another way from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        }
-       ]
+       "decisions": []
       }
      ],
      "calls": {
@@ -729,20 +646,7 @@
        "notice": "",
        "receipts": 0,
        "calls": [],
-       "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a time written another way from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        }
-       ]
+       "decisions": []
       }
      ],
      "calls": {
@@ -1463,10 +1367,10 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "8a6b6b048c6748b1946a0ab1d16fb7c05fc250be578e107283547383dedf4459",
+         "sha256": "1b0e3faa10203ab992e1e8cec3dde8f67885465d3104615ef41a3ae3ad9fee73",
          "receipt_matches": true,
          "placeholder_tokens": 3,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is my [day] video call still at [withheld]?",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is my Thursday video call still at [time]?",
          "hits": [
           {
            "canary": "m11.detail.video-call",
@@ -1481,36 +1385,13 @@
            "matches": [
             "video call"
            ],
-           "context": " private appointment, value withheld) /  / Request: Is my [day] video call still at [withheld]?",
+           "context": "ivate appointment, value withheld) /  / Request: Is my Thursday video call still at [time]?",
            "leak": false
           }
          ]
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a time written another way from m11v1 (private: private appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          11
-         ]
-        },
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "answer",
-         "allowed": true,
-         "reasons": [
-          "removed a time written another way from m11v1 (private: private appointment)"
-         ],
-         "withheld": [
-          11
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -1556,10 +1437,10 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "8a6b6b048c6748b1946a0ab1d16fb7c05fc250be578e107283547383dedf4459",
+         "sha256": "1b0e3faa10203ab992e1e8cec3dde8f67885465d3104615ef41a3ae3ad9fee73",
          "receipt_matches": true,
          "placeholder_tokens": 3,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is my [day] video call still at [withheld]?",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is my Thursday video call still at [time]?",
          "hits": [
           {
            "canary": "m11.detail.video-call",
@@ -1574,36 +1455,13 @@
            "matches": [
             "video call"
            ],
-           "context": " private appointment, value withheld) /  / Request: Is my [day] video call still at [withheld]?",
+           "context": "ivate appointment, value withheld) /  / Request: Is my Thursday video call still at [time]?",
            "leak": false
           }
          ]
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a time written another way from m11v1 (private: private appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          11
-         ]
-        },
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "answer",
-         "allowed": true,
-         "reasons": [
-          "removed a time written another way from m11v1 (private: private appointment)"
-         ],
-         "withheld": [
-          11
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -1664,26 +1522,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "cc05818cddae4cd6ac819ddcc75a91240ee6415e61ce6552872c1048f13f6fab",
+         "sha256": "793511b80dc3a6fb581e7f50d37948b1f21f8264fcd8094f0022908e9a3f3f97",
          "receipt_matches": true,
          "placeholder_tokens": 1,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: What do I have on 03[month]?",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: What do I have on [date]?",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date written another way from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -1729,26 +1575,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "cc05818cddae4cd6ac819ddcc75a91240ee6415e61ce6552872c1048f13f6fab",
+         "sha256": "793511b80dc3a6fb581e7f50d37948b1f21f8264fcd8094f0022908e9a3f3f97",
          "receipt_matches": true,
          "placeholder_tokens": 1,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: What do I have on 03[month]?",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: What do I have on [date]?",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date written another way from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -1809,26 +1643,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "521f0dfb6af33e35d3c6b4d079df85ed63141c9ad2818c121ac1f811fe86c74b",
+         "sha256": "442941f45e5693b6169b85f2fd4de0b5a7ec9afc37ec496247c0b047b977b78c",
          "receipt_matches": true,
          "placeholder_tokens": 1,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Anything on [number].XI.2026?",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Anything on [date]?",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date written another way from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -1874,26 +1696,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "521f0dfb6af33e35d3c6b4d079df85ed63141c9ad2818c121ac1f811fe86c74b",
+         "sha256": "442941f45e5693b6169b85f2fd4de0b5a7ec9afc37ec496247c0b047b977b78c",
          "receipt_matches": true,
          "placeholder_tokens": 1,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Anything on [number].XI.2026?",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n(none relevant)\n\nRequest: Anything on [date]?",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date written another way from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -2099,37 +1909,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "7b6a3f2429fef69bf100d3779bfe5db4b2906d74f68cc603a6f1d540f8318c63",
+         "sha256": "7ec0f79771d7308b88d3e6c7f8b79fb5bfa114214b446ea3bc83f98b25473b87",
          "receipt_matches": true,
          "placeholder_tokens": 3,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m5v1] Meeting preferences: nothing before 10:00, 25-minute slots by default, and an agenda shared the day before.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is [withheld] on [day] still my slot?",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m5v1] Meeting preferences: nothing before 10:00, 25-minute slots by default, and an agenda shared the day before.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is [time] on Tuesday still my slot?",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a time written another way from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "answer",
-         "allowed": true,
-         "reasons": [
-          "removed a time written another way from m7v1 (private: health appointment)"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -2175,37 +1962,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "7b6a3f2429fef69bf100d3779bfe5db4b2906d74f68cc603a6f1d540f8318c63",
+         "sha256": "7ec0f79771d7308b88d3e6c7f8b79fb5bfa114214b446ea3bc83f98b25473b87",
          "receipt_matches": true,
          "placeholder_tokens": 3,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m5v1] Meeting preferences: nothing before 10:00, 25-minute slots by default, and an agenda shared the day before.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is [withheld] on [day] still my slot?",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m5v1] Meeting preferences: nothing before 10:00, 25-minute slots by default, and an agenda shared the day before.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\n[m16v1] Running club track session every Tuesday at 19:00 at the Gerland stadium.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is [time] on Tuesday still my slot?",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a time written another way from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "answer",
-         "allowed": true,
-         "reasons": [
-          "removed a time written another way from m7v1 (private: health appointment)"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",

@@ -126,7 +126,7 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
   13 more were stored, and the brief's private items listed apart instead of in date order. Fixed
   ([`tests/test_review_judge.py`](../tests/test_review_judge.py)): the private schedule goes whole, outside the
   cap; the answer shown leaves out private items outside the period asked; the brief shows them in date order.
-  The requests the six demo turns send are unchanged (same SHA-256 as the recording of 17:48 UTC).
+  The requests the seven demo steps send are unchanged (same SHA-256 as the recording of 17:48 UTC).
 - **The Prove it check, the same night** ([`confidant/proof.py`](../confidant/proof.py)), built to show the scout's
   point (what sets Confidant apart is hiding when), failed on its first run, for "What's on 5 Nov?": 5 Nov is the
   private interview's day, so the typed date was masked and the period note dropped; moved to 14 Nov, the date
@@ -136,7 +136,18 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
   ([`tests/test_proof.py`](../tests/test_proof.py); round 9's test that a day no private memory holds is sent is
   reversed). Rerun of rounds 1 to 4 and 9: **0 of 199**, with 69/79, 50/59, 54/60, 11/11 and 33/34 calls: two
   web searches that typed a private date (W11, WB01) were routed as private and got no answer call; they get
-  one now, with the date masked. The five current result files are from this rerun.
+  one now, with the date masked.
+- **Round 10, 29 October: a second zero-context review of the submission** (see
+  [Round 10](#round-10-second-review-of-the-submission-29-october-2026)). A technical judge typed round 8's agent
+  questions into the chat and pressed Prove it: 7 of 16 differed. A date or time typed in a form the scanners do
+  not read ("half ten", "3 de novembro", "11月3日", "03NOV", "halb elf") was masked only when it equalled a private
+  value, and a shared memory written that way lost its time the same way. Run on each of the 199 messages, the
+  Prove it comparison found 11 whose request changed when the private appointments moved. Fixed: the written forms
+  of every date and time are looked for, whatever the memories hold, dates and times in bare digits are masked by
+  their shape, and the test suite now runs the leak test and that comparison on all 199 messages
+  ([`tests/test_leak_suite.py`](../tests/test_leak_suite.py)). Rerun of rounds 1 to 4 and 9: **0 of 199**, and
+  **0 of 199 requests that change**, with 69/79, 51/60, 54/60, 11/11 and 33/34 calls. The five current result files
+  are from this rerun.
 - Still reported, not counted: user-typed confidential details that are not stored values (for example
   `final-round lead designer` in a web search), and web-policy redactions of personal names in controls.
 
@@ -762,6 +773,49 @@ private value leave anyway, each with the forms that would prove the leak. One c
   tests of rounds 6 to 8 cover it), the Gradio UI beyond the one render check, replay mode, budget fallbacks
   and network errors.
 
+## Round 10 (second review of the submission, 29 October 2026)
+
+Three agents with no history read the submission as judges would: one the Devpost page and the video, one the
+code with no network and no key, one the page against the track's other entries. The second one found:
+
+- **An oracle on the user's path.** Round 8 had made an agent's words masked by kind; a user's typed dates and
+  times were masked alike only in the forms the scanners read. The guard's generated forms ("half ten", "3 de
+  novembro", "11月3日", "03NOV", "eleven sharp", "halb elf") were looked for only for private values, so such a form
+  was redacted only when it equalled one: "Anything at half ten?" reached Nebius as "Anything at [withheld]?"
+  while the dermatologist appointment was at 10:30, and as typed otherwise. Prove it showed it on 7 of the 16
+  questions the judge typed; "halb elf" also added a routing call.
+- **The same oracle through a shared memory.** The personal memory "Call with the landlord on Monday 2 Nov 2026
+  at half ten." lost its time in the context while a private item was at 10:30: shared memories were exempted
+  by the values their scanners read, not by their written forms.
+- **Counting leaked values cannot see an oracle**: the leak test counts "[withheld]" as a success, and no test
+  enforced its 0 of 199.
+- **Sensitive facts stored as personal** because an everyday word won: "dinner with the Acme hiring panel on
+  Thursday 5 Nov at 20:00" was then sent with its date; likewise a sponsor, leaving a husband, "8 weeks along"
+  and a performance improvement plan.
+
+Fixes, each first reproduced by a failing test ([`tests/test_review_round10.py`](../tests/test_review_round10.py)):
+
+- `forms.calendar_form_spans` looks for the written forms of every day of the year and of every time of day on a
+  five-minute grid, whatever the memories hold (about ten seconds to generate once, a few tens of milliseconds
+  per message). What the user types, an agent's words and the router's copy are masked with them ("Anything at
+  [time]?"), and the typed value is put back in the answer shown on the device. A shared memory's own written
+  dates and times exempt it, as its scanned values did.
+- Dates and times in bare digits are masked by their shape alone: eight-digit dates (`20261103`), Roman-numeral
+  months (`3.XI.2026`), a day and month after "on" (`on 3-11`), a time after "at", "for" or "by" (`set for
+  1030`) or right after a date (`3-11, 1030`). They were caught only by a private value's digit signature.
+- [`tests/test_leak_suite.py`](../tests/test_leak_suite.py) runs the leak test on the five rounds of messages and
+  the Prove it comparison on each of the 199 messages. Before the fixes, 11 messages sent a different request
+  when the private appointments moved (6 in bare digits or a Roman-numeral month, 5 in written forms); none
+  does now.
+- Prove it also moves the private appointments onto the date and time a question names, and its verdict says
+  "for this question".
+- Hiring panels, offer letters, background and reference checks, performance improvement plans, disciplinary and
+  grievance matters, "my sponsor", leaving a husband or wife, and pregnancy weeks are private terms.
+
+Still not covered: a time off the five-minute grid written in words ("twenty-two past ten"), typed amounts and
+names (masked only when they equal a stored value), and dated private facts that are not appointments (Prove it
+moves appointments only; a rent "on the 5th" stays where it is).
+
 ## How to rerun
 
 ```bash
@@ -773,7 +827,7 @@ python3 scripts/leak_test.py --fixtures tests/fixtures/leak_prompts_round3.jsonl
 python3 scripts/leak_test.py --fixtures tests/fixtures/leak_prompts_round4.jsonl --out docs/leak-test-round4-results.json
 python3 scripts/leak_test.py --fixtures tests/fixtures/leak_prompts_round9.jsonl --out docs/leak-test-round9-results.json
 scripts/with-keys.sh .venv/bin/python scripts/nemotron_attack_round.py --out new-round.jsonl --record new-round/  # a new Nemotron round (needs a key)
-python3 -m pytest -q                     # the unit suite
+python3 -m pytest -q                     # the unit suite, with the leak test and Prove it on all 199 messages
 ```
 
 The test needs nothing beyond the repository's own dependencies (`httpx`, `babel`, `num2words`). It opens no socket and needs no API
@@ -796,7 +850,7 @@ canaries from it, and it stops with an error if a hand-curated detail no longer 
 
 ## Inputs of the runs
 
-| input | 28 Oct, after the final review (current result files) | v5 (27 Oct) | v1 (26 Oct) |
+| input | 29 Oct, round 10 (current result files) | v5 (27 Oct) | v1 (26 Oct) |
 |---|---|---|---|
 | `tests/fixtures/leak_prompts.jsonl` (round 1) | same | `99ca842823eef80806100465f680d09fe238a0ebcb8d84fa0b59a9626f6ae4b6` | same |
 | `tests/fixtures/leak_prompts_heldout.jsonl` (round 2) | same | `1b032afe4a319f720305a224d971ac3865a472117c247057d373dd7ae5b43bb2` | (written after v2) |
@@ -805,9 +859,9 @@ canaries from it, and it stops with an error if a hand-curated detail no longer 
 | `tests/fixtures/leak_prompts_round9.jsonl` (round 9) | `d9b2f9521fdc182343c27578c7abfc47fa8b636a1bfc0633b44310cac4414445` | (written after round 8) | |
 | `scripts/leak_test.py` (the checker) | `853fc9f8bab8ae725ac09b5a93156cf0c095ed38858f7540fee92ab33ec2f68e` (reviewer forms checked) | | |
 | `data/demo_persona.json` | same | `fea35165f16025e9dccccc98e38488430be74681b9cc76c089ef9f4283e030c6` (category labels) | `d610971d373776c9f684420403edfbdefbff2bed23ba554f37d5ad871308e2da` |
-| `confidant/guard.py` | `3fa4c0ce9d87758657a06eafed73af78052a20b7efbf1f381fb98fbb6ac697d8` | `cf72e270f01cd67af31e36bc5b0e3bd6c99edd8b92c44591efc32a2d56f0adc1` | `2207c112d4c73ae777360da20d6e8950bc6979f1bb82a6f6657686398818cb9e` |
-| `confidant/forms.py` | same | `008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94` | (new in v5) |
+| `confidant/guard.py` | `32284b49ac2993dba6958ff172999220dacd9ddac66db641bd33337520093bb0` | `cf72e270f01cd67af31e36bc5b0e3bd6c99edd8b92c44591efc32a2d56f0adc1` | `2207c112d4c73ae777360da20d6e8950bc6979f1bb82a6f6657686398818cb9e` |
+| `confidant/forms.py` | `aa1bd3a844e4ecca3b6254ed78cf5d7baa21090cf08e43a808614543493695c7` (every date and time) | `008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94` | (new in v5) |
 | `confidant/scan.py` | `0d4ed99e1041ccd10bbedc3c77a55f67d86c290bbae652f6a2c04b80c107b221` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
-| `confidant/rules.py` | `be6f7a99858f0f2a1f21ef752ba3e6de9cd38ebab560e40a9a241f39912cc8b2` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
-| `confidant/assistant.py` | `f40469b1e39add0ef0a947e11bc272cee824f23bfbd6f159a9ea51238214548d` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
+| `confidant/rules.py` | `10a98beb67e7cc68500eac2feb4462cfdf329c61af7dec1fc111f81fd080bd97` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
+| `confidant/assistant.py` | `a2fe87d0a522dc4b078d5a9d2544826bbe97e0b475301e63f7a5fc705cc67700` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
 | Babel, num2words | same | 2.18.0, 0.5.14 | (not used) |

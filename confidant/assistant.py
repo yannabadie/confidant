@@ -19,6 +19,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Protocol
 
 from .budget import Budget
+from .forms import calendar_form_spans
 from .guard import (
     NEBIUS, PLACEHOLDER_RE, TAVILY, Guard, GuardDecision, PreparedContext, drop_echoed_labels, placeholder,
 )
@@ -310,6 +311,7 @@ def masked(message: str, *, keep_kind: bool = True) -> str:
     an intent, nothing of the values."""
     spans = [(value.start, value.end, value.kind) for value in find_values(message)]
     spans += [(start, end, "number") for start, end, _ in digit_runs(message)]
+    spans += calendar_form_spans(message)  # "half ten", "3 de novembro": whatever private memories hold
     out, cursor = [], 0
     for start, end, kind in sorted(spans, key=lambda span: (span[0], -span[1])):  # longest first at a start
         if start < cursor:
@@ -321,17 +323,42 @@ def masked(message: str, *, keep_kind: bool = True) -> str:
 
 
 CALENDAR_KINDS = ("date", "time", "day")
+# Dates and times written as digits in forms the scanners do not read, matched whatever private memories hold: a
+# bare digit run is otherwise caught only by the digit signature of a private value, which tells the receiver that
+# it equals one ("Remind me what 20261103 holds", "wasn't it first set for 1030?", "on 3-11", "on 3.XI.2026").
+_DIGIT_CALENDAR = (
+    (re.compile(r"(?<![\d.])(?P<v>(?:19|20)\d\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01]))(?![\d.])"), "date"),
+    (re.compile(r"(?i)(?<![\w.])(?P<v>(?:0?[1-9]|[12]\d|3[01]) ?[./ -] ?(?:xii|xi|ix|x|viii|vii|vi|iv|v|iii|ii|i)"
+                r" ?[./ -] ?(?:\d{4}|\d{2}))(?![\w.])"), "date"),
+    (re.compile(r"(?i)\b(?:on|by|until|till|from|before|after|since|for) (?P<v>(?:0?[1-9]|[12]\d|3[01])-(?:0?[1-9]|1[0-2]))"
+                r"(?![\w/-]|\.\d)"), "date"),
+    (re.compile(r"(?i)\b(?:at|for|by|around|until|till|from|before|after|about) (?P<v>(?:[01]?\d|2[0-3])[0-5]\d)\b"
+                r"(?!\s*(?:km|kg|m|mi|miles?|steps|people|guests|calories|kcal|euros?|eur|dollars?|usd|pounds?|gbp"
+                r"|[€$£%]))"), "time"),
+)
+
+
+_TIME_AFTER_DATE = re.compile(r"(?:, ?| | at )(?P<v>(?:[01]?\d|2[0-3])[0-5]\d)(?![\d:]|[.,]\d)")
 
 
 def names_calendar_value(message: str) -> bool:
-    """True when ``message`` holds a date, a clock time or a day of the month in a form the scanners read."""
-    return bool(find_dates(message)) or any(value.kind in CALENDAR_KINDS for value in find_values(message))
+    """True when ``message`` holds a date, a clock time or a day of the month, in a form the scanners read or in
+    one of the written forms of any date or time ("half ten", "3 de novembro")."""
+    return bool(_calendar_spans(message))
 
 
 def _calendar_spans(message: str) -> list[tuple[int, int, str]]:
     """The dates, clock times and days of the month of ``message``, as (start, end, kind), in order."""
     spans = [(value.start, value.end, value.kind) for value in find_values(message) if value.kind in CALENDAR_KINDS]
     spans += [(found.start, found.end, "date") for found in find_dates(message)]
+    # The written forms of every date and time, not only the private ones: "Anything at half ten?" is masked
+    # whether or not a private item is at 10:30 (round 10, tests/test_review_round10.py).
+    spans += calendar_form_spans(message)
+    spans += [(*match.span("v"), kind) for pattern, kind in _DIGIT_CALENDAR for match in pattern.finditer(message)]
+    for start, end, kind in list(spans):  # a time in bare digits right after a date: "confirming 3-11, 1030"
+        after = _TIME_AFTER_DATE.match(message, end) if kind == "date" else None
+        if after:
+            spans.append((*after.span("v"), "time"))
     kept, cursor = [], 0
     for start, end, kind in sorted(spans, key=lambda span: (span[0], -span[1])):  # longest first at a start
         if start >= cursor:

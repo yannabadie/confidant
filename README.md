@@ -31,9 +31,11 @@ assistant and one that knows too much. Confidant removes that trade-off with thr
 
 Placeholders hide what a private memory says. Confidant also hides **when** it happens: the Guard tab's
 **Prove it** check ([`confidant/proof.py`](confidant/proof.py)) rebuilds the last turn's requests on the
-device, as the memory is and with every private appointment moved to another week, weekday and hour, and
-shows the two SHA-256 side by side. They are identical, for a demo question or one of your own; the same
-comparison runs on 30 question pairs in [`tests/test_differential.py`](tests/test_differential.py).
+device, as the memory is and with every private appointment moved to another week, weekday and hour (and,
+when the question names a date or a time, moved onto it), and shows the SHA-256 side by side. They are
+identical for every demo question; try one of your own. The test suite runs the same comparison on the 16
+questions of [`tests/test_differential.py`](tests/test_differential.py) and on all 199 attack messages of the
+leak test ([`tests/test_leak_suite.py`](tests/test_leak_suite.py)).
 
 Some questions cannot be answered by a model that never learns when private items happen: "Am I free on
 Wednesday morning?" depends on exactly that. Confidant checks those **on the device**, against the real dates,
@@ -54,7 +56,7 @@ What we measured on Token Factory on 28 October 2026 ([`docs/token-factory-probe
   8,192 tokens; with its trace, the brief took 1,214 to 2,146 in the live runs.
 - `chat_template_kwargs: {"enable_thinking": false}` switches Nemotron 3's reasoning off; `/no_think` in the
   prompt did not stop Nano. With reasoning on, Nano spent its 256 tokens thinking and returned no route.
-- The six demo turns make 5 calls. In the live run the hosted demo replays (28 October, 17:48 UTC): 5,824
+- The seven demo steps make 5 calls (the correction, the refused PIN and the availability check make none). In the live run the hosted demo replays (28 October, 17:48 UTC): 5,824
   tokens, about $0.013 at list prices; the route took 0.3 seconds, the answers 1.4 to 4.6 and the brief 4.2
   (receipts and transcript in [`docs/evidence/`](docs/evidence/README.md)). An earlier recording, at 07:30 UTC,
   took 5,640 tokens. In the live run filmed for the video (28 October, 21:24 UTC): 5,078 tokens, $0.0104,
@@ -159,11 +161,16 @@ draft, so each private item appears only as its label, and no Hermes model reads
   and Claude also wrote the guard, so **round 9 was written by NVIDIA Nemotron 3 Ultra** on Token Factory
   ([`scripts/nemotron_attack_round.py`](scripts/nemotron_attack_round.py); its prompt and reply are in
   [`docs/round9/`](docs/round9/README.md)): 4 of its 29 messages leaked on the round-8 code, all through a day
-  of the month typed back ("rent ... on the 5th"). Each finding is now a test
+  of the month typed back ("rent ... on the 5th"). A tenth review, on 29 October, typed round 8's agent
+  questions into the chat and pressed Prove it: a date or time written in a form the scanners do not read
+  ("half ten", "3 de novembro", "11月3日") was masked only when it equalled a private value, and so was one
+  inside a shared memory, which dated the private item without showing it. Each finding is now a test
   ([`tests/test_review_round6.py`](tests/test_review_round6.py) to
-  [`tests/test_review_round9.py`](tests/test_review_round9.py)). The current version leaks 0 of the 199
-  prompts, a regression result, not an estimate: no round has been written against it yet. Every failure and
-  every fix is listed there.
+  [`tests/test_review_round10.py`](tests/test_review_round10.py)), and the suite runs the leak test and the
+  Prove it comparison on all 199 messages ([`tests/test_leak_suite.py`](tests/test_leak_suite.py)): none
+  leaks, and none sends a different request when the private appointments move (11 did before the fix). That
+  is a regression result, not an estimate: no new round of attack messages has been written against this
+  version yet. Every failure and every fix is listed there.
 - **Differential test** ([`tests/test_differential.py`](tests/test_differential.py)): values are not the only
   way to leak. A reviewer found that asking about Tuesday and about Monday put a private appointment's
   placeholder in the model's context only on its own day, which dated it (18 of 30 question pairs). Fixed:
@@ -177,11 +184,14 @@ draft, so each private item appears only as its label, and no Hermes model reads
   Availability questions are answered on the device, with no model call; the version that may be passed on
   (MCP, Telegram) lists shared items only.
 - Dates, clock times and days of the month that you type are masked alike in what Nebius gets ("What's on
-  [date]?"), and put back in the answer shown on the device: masked only when they equal a private value, as
-  until 28 October, they told Nebius which dates hold a private item (the Prove it check found it). For the
-  same reason they never make a message private by themselves. Typed amounts and names are still masked only
-  when they equal a stored value, and a web query still loses a typed value equal to a private one, which tells
-  the search provider that it matched.
+  [date]?"), and put back in the answer shown on the device: in the forms the scanners read, in the written
+  forms of every date and of every time of day on a five-minute grid ("half ten", "3 de novembro", "11月3日",
+  "03NOV"), and in bare digits by their shape ("20261103", "set for 1030"). Masked only when they equal a
+  private value, as until 28 October, they told Nebius which dates hold a private item (the Prove it check
+  found it). For the same reason they never make a message private by themselves. A time off that grid written
+  in words ("twenty-two past ten"), typed amounts and names are still masked only when they equal a stored
+  value, and a web query still loses a typed value equal to a private one, which tells the search provider that
+  it matched.
 - A chat question that names no time selects memories by its words, private ones included as placeholders:
   asking about "the dermatologist" tells the cloud model that a private health item matches that word.
 - Late binding protects the value, not the existence of a withheld memory: the model sees "private: health
@@ -211,12 +221,12 @@ draft, so each private item appears only as its label, and no Hermes model reads
 | `confidant/` | memory store, guard, receipts, budget, Token Factory and Tavily clients, assistant, MCP server, CLI, the Prove it check |
 | `app.py`, `assets/` | Gradio web demo |
 | `data/demo_persona.json` | the synthetic persona (25 memories) |
-| `data/replay/` | the demo turns recorded live on 28 October 2026, replayed when no key is set (the correction and the refused PIN make no model call, so nothing is recorded for them). Each holds the SHA-256 of every request it sent, the hashes of its receipts; replay answers only a request with the same hash, so a memory you add makes the recording decline instead of answering a request it never saw |
+| `data/replay/` | the demo turns recorded live on 28 October 2026, replayed when no key is set (the correction and the refused PIN make no model call: their files hold no model output). Each holds the SHA-256 of every request it sent, the hashes of its receipts; replay answers only a request with the same hash, so a memory you add makes the recording decline instead of answering a request it never saw |
 | `space/` | the three files of the Hugging Face Space |
 | `scripts/` | macOS keychain wrapper, Token Factory probes (models, reasoning and token budgets), the router check, the live recorder, the offline leak test and the script that has Nemotron write an attack round |
 | `docs/` | leak test report and machine-readable results, round 9's call to Nemotron (`round9/`), receipts and raw logs of the live runs (`evidence/`), the Token Factory probe, the router check, the Hermes deliveries and the Hermes agent session |
 | `integrations/hermes/` | Hermes Agent skill, the agent profile, the morning-brief cron script and its setup |
-| `tests/` | offline test suite (all HTTP mocked) |
+| `tests/` | offline test suite (all HTTP mocked), including the leak test and the Prove it comparison on its 199 messages |
 
 ## Development
 

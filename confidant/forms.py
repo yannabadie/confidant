@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 import re
 import unicodedata
+from calendar import monthrange
 from collections.abc import Iterable
 from datetime import date, time
 from functools import lru_cache
@@ -446,7 +447,7 @@ def _unbounded(form: str) -> bool:
     return any(unicodedata.name(char, "").startswith(_NO_SPACE_SCRIPTS) for char in form)
 
 
-@lru_cache(maxsize=2048)
+@lru_cache(maxsize=4096)
 def surface_forms(key: str, years: tuple[int, ...] = ()) -> frozenset[str]:
     """Every generated, canonical written form of a scanner key ("date:11-03", "time:10:30",
     "number:1180"); ``years`` adds year- and weekday-bearing date forms."""
@@ -479,7 +480,7 @@ def _numeral_edges(form: str) -> tuple[bool, bool]:
     return bool(numeral.match(form[0])), bool(numeral.match(form[-1]))
 
 
-@lru_cache(maxsize=2048)
+@lru_cache(maxsize=4096)
 def _patterns(key: str, years: tuple[int, ...]) -> tuple[re.Pattern[str], ...]:
     """Regexes for the forms of ``key``: whole words for spaced forms (a dash on either side is not a
     boundary), and for unspaced ones no digit or numeral just outside a numeral edge."""
@@ -542,6 +543,57 @@ class FormText:
         while 0 <= edge < len(text) and text[edge].isalnum():
             edge += step
         return text[index:edge] if step > 0 else text[edge + 1: index + 1]
+
+
+# --- every date and time, whatever the memories hold ------------------------------------------------------
+
+GRID_MINUTES = 5  # times of day are looked for on this grid: "half ten", "Viertel nach drei", "eleven sharp"
+
+
+@lru_cache(maxsize=1)
+def calendar_keys() -> tuple[str, ...]:
+    """Every day of the year ("date:11-03") and every time of day on a :data:`GRID_MINUTES` grid
+    ("time:10:30"), as scanner keys."""
+    dates = tuple(f"date:{month:02d}-{day:02d}" for month in range(1, 13)
+                  for day in range(1, monthrange(2024, month)[1] + 1))
+    times = tuple(f"time:{hour:02d}:{minute:02d}" for hour in range(24) for minute in range(0, 60, GRID_MINUTES))
+    return dates + times
+
+
+@lru_cache(maxsize=4096)
+def _calendar_hits(text: str) -> tuple[tuple[int, int, str], ...]:
+    """(start, end, key) of every generated form of any date or time in ``text``, longest first at a start."""
+    if not AVAILABLE or not any(char.isalpha() for char in text):
+        return ()
+    form_text = FormText(text)
+    return tuple(sorted(((start, end, key) for key in calendar_keys() for start, end in form_text.spans(key)),
+                        key=lambda hit: (hit[0], -hit[1], hit[2])))
+
+
+def calendar_form_spans(text: str) -> list[tuple[int, int, str]]:
+    """Where ``text`` writes a date or a time of day in one of its generated forms ("3 de novembro", "11月3日",
+    "03NOV", "half ten", "halb elf"), as (start, end, kind) with kind "date" or "time", in order and without
+    overlaps. Every date and every time on the grid is looked for, not only the ones private memories hold:
+    masking a typed form only when it equals a private value would tell the receiver that it does."""
+    kept: list[tuple[int, int, str]] = []
+    cursor = 0
+    for start, end, key in _calendar_hits(text):
+        if start >= cursor:
+            kept.append((start, end, key.partition(":")[0]))
+            cursor = end
+    return kept
+
+
+def calendar_form_keys(text: str) -> frozenset[str]:
+    """The keys of every date and time ``text`` writes in a generated form ("half ten" gives time:10:30 and
+    time:22:30): what a shared memory says of its own time, so that it is not taken for a private one's."""
+    return frozenset(key for _, _, key in _calendar_hits(text))
+
+
+def warm_up() -> None:
+    """Generate and compile the forms of every date and time once (about ten seconds), so that the first message
+    does not wait for it."""
+    calendar_form_spans("warm up: 3 de novembro, half ten")
 
 
 def years_of(text: str, today: date | None = None) -> tuple[int, ...]:

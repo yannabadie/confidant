@@ -19,6 +19,7 @@ import html
 import json
 import os
 import re
+import threading
 import uuid
 from collections import Counter
 from collections.abc import Callable, Collection, Mapping, Sequence
@@ -38,6 +39,7 @@ import gradio as gr
 from confidant.assistant import Assistant
 from confidant.budget import Budget
 from confidant.config import DEMO_PERSONA, REPLAY_DIR, env
+from confidant.forms import warm_up
 from confidant.guard import DEFAULT_POLICY, NEBIUS, PLACEHOLDER_RE, Guard, drop_echoed_labels
 from confidant.llm import ModelSelectionError, TokenFactory, discover_models
 from confidant.memory import MemoryStore
@@ -348,6 +350,8 @@ class Engine:
 # Demo content and per-visitor session state
 # =============================================================================
 RUNTIME = build_runtime()
+# The written forms of every date and time take about ten seconds to generate: start now, not at the first message.
+threading.Thread(target=warm_up, name="forms-warm-up", daemon=True).start()
 PERSONA_NAME = PERSONA.get("name", "Alex Martin")
 PERSONA_LINE = f"a fictional {PERSONA.get('role', 'product designer').lower()} in {PERSONA.get('city', 'Lyon')}"
 
@@ -1041,8 +1045,8 @@ def render_guard_panel(turn: TurnView | None) -> str:
 PROOF_INTRO = (
     '<div class="cf cf-panel cf-proof"><p class="cf-panel__lead">After a question or the daily brief, this rebuilds '
     "its requests on this device, with no model call and nothing sent: once with your memory as it is, once with "
-    "every private appointment moved to another week, weekday and hour. If Nemotron could learn when they are, "
-    "the two would differ.</p></div>"
+    "every private appointment moved to another week, weekday and hour, and, when your question names a date or "
+    "a time, once with them moved onto it. If Nemotron could learn when they are, the requests would differ.</p></div>"
 )
 
 
@@ -1066,11 +1070,23 @@ def render_proof(turn: TurnView, proof: Proof) -> str:
             f'{esc(what)}</span><span class="cf-check__reasons">As stored{mark}: <code>{esc(before)}</code></span>'
             f'<span class="cf-check__reasons">Moved: <code>{esc(after)}</code></span></div></li>'
         )
+    aimed = ""
+    if proof.aimed_moves:
+        same = proof.aimed == proof.original
+        aimed = (
+            '<section class="cf-section"><h4 class="cf-section-title">Also moved onto what you asked about'
+            f'<span class="cf-count">{len(proof.aimed_moves)}</span></h4><ul class="cf-checks">'
+            f'<li class="cf-check"><span class="cf-verdict{"" if same else " cf-verdict--blocked"}">'
+            f'{"Same" if same else "Differs"}</span><div class="cf-check__body"><span class="cf-check__what">'
+            f'{esc(proof.aimed_at)}</span><span class="cf-check__reasons">'
+            f'{"Every request keeps the same SHA-256." if same else "A request changes."}</span></div></li>'
+            "</ul></section>"
+        )
     if not proof.sent:
         verdict = "This turn sends nothing, either way: it is answered on this device."
     elif proof.identical:
-        verdict = ("Identical, byte for byte. Nemotron cannot tell when these appointments are, nor whether one "
-                   "falls in the period you asked about.")
+        verdict = ("Identical, byte for byte. For this question, Nemotron cannot tell when these appointments are, "
+                   "nor whether one falls in the period you asked about.")
     else:
         verdict = "The requests differ: what Nemotron receives would depend on when a private item happens."
     return (
@@ -1083,7 +1099,7 @@ def render_proof(turn: TurnView, proof: Proof) -> str:
         '<section class="cf-section"><h4 class="cf-section-title">Each request, SHA-256'
         f'<span class="cf-count">{len(rows)}</span></h4>'
         f'<ul class="cf-checks">{"".join(rows) or "<li class=cf-empty-list>No request.</li>"}</ul></section>'
-        f'<p class="cf-proof__verdict{"" if proof.identical else " cf-proof__verdict--bad"}">{esc(verdict)}</p></div>'
+        f'{aimed}<p class="cf-proof__verdict{"" if proof.identical else " cf-proof__verdict--bad"}">{esc(verdict)}</p></div>'
     )
 
 

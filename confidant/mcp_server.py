@@ -27,12 +27,14 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import threading
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from typing import Any, TextIO
 
 from .assistant import Assistant, cited_memories, correction_level, delivery_text
 from .config import VERSION
+from .forms import warm_up
 from .guard import PLACEHOLDER_RE, placeholder
 from .memory import KINDS, SENSITIVITIES, Memory
 from .rules import classify_kind, classify_new_fact, is_availability_question, make_label, stricter
@@ -159,7 +161,9 @@ class MCPServer:
         }
 
     def serve(self, stdin: TextIO | None = None, stdout: TextIO | None = None) -> None:
-        """Answer requests line by line until the input ends."""
+        """Answer requests line by line until the input ends. The guard's written forms of every date and time
+        are generated in the background meanwhile (about ten seconds), so the first tool call does not wait."""
+        threading.Thread(target=warm_up, name="forms-warm-up", daemon=True).start()
         source = sys.stdin if stdin is None else stdin
         sink = sys.stdout if stdout is None else stdout
         for line in source:

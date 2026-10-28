@@ -86,3 +86,20 @@ def test_the_session_memory_and_receipts_are_untouched() -> None:
     prove(store, "What's on my plate next week?")
     assert [memory.to_dict() for memory in store.all_versions()] == before
     assert receipts.today() == []
+
+
+@pytest.mark.parametrize("question, target", [
+    ("What do I have on Thursday 12 Nov?", "Thursday 12 Nov 2026"),
+    ("Anything on 11月4日?", "Wednesday 4 Nov 2026"),  # a judge's counter-example of 29 Oct (round 10)
+    ("Anything at half ten?", "10:30"),
+])
+def test_the_appointments_also_move_onto_the_date_or_time_asked_about(question: str, target: str) -> None:
+    proof = prove(seed(), question)
+    assert proof.aimed_at == target and proof.aimed_moves
+    assert all(target.split(" at ")[0] in move.after for move in proof.aimed_moves)
+    assert proof.identical, (proof.original, proof.moved, proof.aimed)
+
+
+def test_a_question_that_names_no_date_or_time_moves_them_once() -> None:
+    proof = prove(seed(), "What's on my plate next week?")
+    assert proof.aimed_at == "" and proof.aimed_moves == [] and proof.identical

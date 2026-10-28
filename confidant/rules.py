@@ -108,6 +108,7 @@ _HEALTH_TERMS = (
     r"alcoholi\w*|drinking problem|(?:aa|na) meetings?|alcoholics anonymous|relaps\w*|overdos\w*|"
     r"lupus|crohn\w*|arthritis|multiple sclerosis|fibromyalgia|endometriosis|migraines?|blood pressure|"
     r"eating disorder|anorexi\w*|bulimi\w*|self-harm|suicid\w*|"
+    r"\d+ weeks along|weeks pregnant|(?:first|second|third) trimester|expecting a baby|morning sickness|"
     r"medecin|ordonnance|maladie|enceinte|grossesse|hopital|clinique|prise de sang|arret maladie|mutuelle"
 )
 _MONEY_TERMS = (
@@ -121,6 +122,8 @@ _JOB_TERMS = (
     r"interview\w*|recruiter|job offer|resign\w*|notice period|severance|redundan\w*|laid off|layoffs?|fired|"
     r"unemploy\w*|burn-?out|salary negotiation|hiring managers?|headhunters?|job (?:search|hunt\w*|applications?)|"
     r"applying for|applied for|(?:a |another )?new job|leaving the company|counter-?offers?|"
+    r"hiring (?:panels?|committees?|teams?)|offer letters?|background checks?|reference checks?|"
+    r"performance improvement plans?|disciplinary|grievance|"
     r"entretien d'embauche|recruteur|demission|licenciement|chomage"
 )
 _LEGAL_TERMS = (
@@ -134,6 +137,7 @@ _INTIMATE_TERMS = (
     r"transgender|non-binary|coming out|came out|closeted|cheat(?:s|ed|ing)?|affair|unfaithful|"
     r"separat(?:ed|ing|ion)|broke up|breaking up|my ex|ex-(?:wife|husband|partner)|"
     r"trying for a baby|church|mosque|synagogue|mass|prayers?|ramadan|"
+    r"my sponsor|leav(?:e|es|ing) (?:my|her|his|their) (?:husband|wife|partner|boyfriend|girlfriend|spouse)|"
     r"must not know|mustn'?t know|must never know|should not know|shouldn'?t know|don'?t tell|do not tell|"
     r"not to be mentioned|keep (?:it|this|that) (?:quiet|secret|between us)|between you and me|"
     r"(?:nobody|no one) knows|ha(?:s|ve)n'?t told|ha(?:s|ve) not told|secret(?:ly)?|behind (?:his|her|their|my) back"

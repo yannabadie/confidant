@@ -15,8 +15,8 @@ What the runs showed, and what Confidant does about it:
   token limit is never used: the turn falls back to a local answer and says why, and it is never recorded for
   replay. The answer budget is now 8,192 tokens: with its trace, the brief took 1,236 to 1,874 tokens in the
   runs below, 2,146 in the first recording of the demo turns (07:30 UTC), 1,214 in the session filmed for the
-  first video (07:37 UTC), 1,352 in the recording the hosted demo replays (17:48 UTC) and 1,306 in the session
-  filmed for the final video (19:35 UTC).
+  first video (07:37 UTC), 1,352 in the recording the hosted demo replays (17:48 UTC), 1,306 in the session
+  filmed at 19:35 UTC and 1,485 in the session filmed for the final video (21:32 UTC, its Receipts tab on screen).
 - **The router reasoned away its budget.** Nemotron 3 Nano spent its 256 tokens thinking in both routed turns and
   returned an empty answer, or an unfinished JSON object; `/no_think` at the end of the system prompt did not
   stop it. With `chat_template_kwargs: {"enable_thinking": false}` it answered in 13 to 43 tokens. The router now
@@ -33,7 +33,7 @@ What the runs showed, and what Confidant does about it:
 
 Models: reason `nvidia/Nemotron-3-Ultra-550b-a55b`, fast `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`.
 
-### Calls made by the six demo turns
+### Calls made by the demo steps
 
 | purpose | model | max_tokens | finish | completion tokens |
 | --- | --- | --- | --- | --- |
@@ -62,7 +62,7 @@ Models: reason `nvidia/Nemotron-3-Ultra-550b-a55b`, fast `nvidia/NVIDIA-Nemotron
 
 Models: reason `nvidia/Nemotron-3-Ultra-550b-a55b`, fast `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`.
 
-### Calls made by the six demo turns
+### Calls made by the demo steps
 
 | purpose | model | reasoning | max_tokens | finish | completion tokens |
 | --- | --- | --- | --- | --- | --- |

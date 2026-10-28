@@ -1,0 +1,60 @@
+{
+ "what": "the recorder's record of the run filmed for the video (scripts of the demo, live on Nebius Token Factory)",
+ "started_local_paris": "2026-10-28 22:24:39",
+ "started_utc": "2026-10-28 21:24:39",
+ "commit": "ffefbbc",
+ "app_url": "http://127.0.0.1:7860",
+ "header": {
+  "badge": "Live\n· Nemotron on Nebius Token Factory",
+  "live": true,
+  "models": "Answers\nnvidia/Nemotron-3-Ultra-550b-a55b\nRouting\nnvidia/NVIDIA-Nemotron-3-Nano-30B-A3B\nWeb search\noff"
+ },
+ "clips": [
+  {
+   "name": "01-overview",
+   "complete": true,
+   "seconds": 17.619
+  },
+  {
+   "name": "02-step1",
+   "complete": true,
+   "seconds": 19.491
+  },
+  {
+   "name": "09-prove-it",
+   "complete": true,
+   "seconds": 15.252
+  },
+  {
+   "name": "03-step2",
+   "complete": true,
+   "seconds": 13.606
+  },
+  {
+   "name": "04-step3",
+   "complete": true,
+   "seconds": 17.176
+  },
+  {
+   "name": "05-step4",
+   "complete": true,
+   "seconds": 14.516
+  },
+  {
+   "name": "06-step5",
+   "complete": true,
+   "seconds": 11.627
+  },
+  {
+   "name": "07-step6-receipts",
+   "complete": true,
+   "seconds": 17.997
+  },
+  {
+   "name": "08-step7-availability",
+   "complete": true,
+   "seconds": 11.241
+  }
+ ],
+ "error": null
+}

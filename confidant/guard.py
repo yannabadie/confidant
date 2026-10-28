@@ -15,7 +15,7 @@ import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
-from .forms import FormText, years_of
+from .forms import FormText, calendar_form_keys, years_of
 from .memory import SENSITIVITIES, Memory
 from .scan import KIND_PHRASES, digit_runs, find_secrets, find_values, fold, signatures, words
 
@@ -250,6 +250,9 @@ class Guard:
             # value for anyone who can read the page
             declared = [m for m in current if m.sensitivity in allowed]
             exempt_keys = {value.key for memory in declared for value in find_values(memory.text)}
+            # and the dates and times they write in words ("at half ten"), read whatever private memories hold:
+            # redacting them only when they equal a private value would date that value (round 10)
+            exempt_keys |= {key for memory in declared for key in calendar_form_keys(memory.text)}
             exempt_words = {word for memory in declared for word in words(memory.text)}
             exempt_digits = {digits for memory in declared for digits in signatures(memory.text)}
             strict_set = set(strict_ids)
