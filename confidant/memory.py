@@ -7,6 +7,7 @@ Text that looks like a credential is refused before it reaches the database.
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import sqlite3
@@ -126,13 +127,9 @@ RELATED_WORDS: dict[str, tuple[str, ...]] = {
 RELATED_WORDS["relatives"] = RELATED_WORDS["family"]
 
 
-def match_expression(query: str) -> str | None:
-    """FTS5 query for free text: distinctive words, each quoted, OR-ed together.
-
-    Quoting makes any user input safe for the FTS5 grammar; stop words and bare
-    numbers are dropped because they match too much; a group word ("family") also
-    matches its members (RELATED_WORDS). Returns None if nothing is left.
-    """
+def match_terms(query: str) -> list[str]:
+    """The distinctive words of free text, as searched: stop words and bare numbers dropped (they match too
+    much), at most 16, and a group word ("family") followed by its members (RELATED_WORDS)."""
     tokens = [
         token
         for token in re.findall(r"[^\W_]+", fold(query)[0])
@@ -140,7 +137,13 @@ def match_expression(query: str) -> str | None:
     ]
     unique = list(dict.fromkeys(tokens))[:16]
     unique += [word for token in unique for word in RELATED_WORDS.get(token, ()) if word not in unique]
-    return " OR ".join(f'"{token}"' for token in unique) or None
+    return unique
+
+
+def match_expression(query: str) -> str | None:
+    """FTS5 query for free text: the words of :func:`match_terms`, each quoted (safe for the FTS5 grammar),
+    OR-ed together. Returns None if nothing is left."""
+    return " OR ".join(f'"{token}"' for token in match_terms(query)) or None
 
 
 class MemoryStore:
@@ -284,31 +287,63 @@ class MemoryStore:
     def search(
         self, query: str, *, limit: int = 8, sensitivities: Iterable[str] | None = None
     ) -> list[Memory]:
-        """Current memories matching ``query``, best first (FTS5 bm25, label weighted twice).
+        """Current memories matching ``query``, best first, the label weighted twice.
 
         Matching ignores case and accents and stems English words, so "Lea"
         finds "Léa" and "appointments" finds "appointment". ``sensitivities``
-        restricts the result to those levels.
+        restricts the result to those levels, and then the ranking is computed from
+        those levels' memories only (see :meth:`_search_within`).
         """
-        expression = match_expression(query)
-        if expression is None or limit <= 0:
+        terms = match_terms(query)
+        if not terms or limit <= 0:
             return []
-        sql = (
-            "SELECT m.* FROM memory_index JOIN memories AS m ON m.id = memory_index.rowid "
-            "WHERE memory_index MATCH ? AND m.status = 'current'"
-        )
-        params: list[Any] = [expression]
         if sensitivities is not None:
             levels = [_choice("sensitivity", level, SENSITIVITIES) for level in sensitivities]
-            if not levels:
-                return []
-            sql += f" AND m.sensitivity IN ({', '.join('?' * len(levels))})"
-            params.extend(levels)
-        sql += " ORDER BY bm25(memory_index, 1.0, 2.0) LIMIT ?"
-        params.append(limit)
+            return self._search_within(terms, levels, limit) if levels else []
+        sql = (
+            "SELECT m.* FROM memory_index JOIN memories AS m ON m.id = memory_index.rowid "
+            "WHERE memory_index MATCH ? AND m.status = 'current' ORDER BY bm25(memory_index, 1.0, 2.0) LIMIT ?"
+        )
         with self._lock:
-            rows = self._db.execute(sql, params).fetchall()
+            rows = self._db.execute(sql, [" OR ".join(f'"{term}"' for term in terms), limit]).fetchall()
         return [_to_memory(row) for row in rows]
+
+    def _search_within(self, terms: list[str], levels: list[str], limit: int) -> list[Memory]:
+        """Rank the current memories of ``levels`` that match ``terms`` with statistics of those memories alone.
+
+        FTS5's bm25 weighs a word by how rare it is in the whole index, private memories included, so the
+        order of shared results would change with the words of private ones ("tuesday friday" put a different
+        memory first once a private appointment moved from Tuesday to Friday). Here FTS5 only says which
+        memory holds which word (a yes or no), and the weight of a word comes from the allowed memories:
+        an inverse document frequency over them, doubled for a word in the label; ties go to the lower id.
+        """
+        placeholders = ", ".join("?" * len(levels))
+        with self._lock:
+            rows = self._db.execute(
+                f"SELECT * FROM memories WHERE status = 'current' AND sensitivity IN ({placeholders})", levels
+            ).fetchall()
+            allowed = {row["id"]: row for row in rows}
+            hits: list[dict[int, float]] = []
+            for term in terms:
+                weights: dict[int, float] = {}
+                for column, weight in (("text", 1.0), ("label", 2.0)):
+                    found = self._db.execute(
+                        "SELECT rowid FROM memory_index WHERE memory_index MATCH ?", (f'{column} : "{term}"',)
+                    ).fetchall()
+                    for (rowid,) in found:
+                        if rowid in allowed:
+                            weights[rowid] = weights.get(rowid, 0.0) + weight
+                hits.append(weights)
+        count = len(allowed)
+        scores: dict[int, float] = {}
+        for weights in hits:
+            if not weights:
+                continue
+            idf = math.log(1 + (count - len(weights) + 0.5) / (len(weights) + 0.5))
+            for memory_id, weight in weights.items():
+                scores[memory_id] = scores.get(memory_id, 0.0) + idf * weight
+        ranked = sorted(scores, key=lambda memory_id: (-scores[memory_id], memory_id))[:limit]
+        return [_to_memory(allowed[memory_id]) for memory_id in ranked]
 
     def all_current(self) -> list[Memory]:
         """Every current memory, by id."""

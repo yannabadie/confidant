@@ -922,8 +922,13 @@ class Assistant:
         """Answer from memory with the reasoning model."""
         today = self.today()
         window = time_window(message, today)
-        if window and (private or self.guard.check_outbound(message, NEBIUS, self.store.all_versions(), strict=True).withheld_ids):
-            window = None  # a period read from a private message could date a private item
+        # A period read from the user's private message could date a private item. Not for another agent's
+        # question: it chose the period, and dropping the note only when its date matched a private item
+        # would tell it so.
+        if window and not exchange.agent and (
+            private or self.guard.check_outbound(message, NEBIUS, self.store.all_versions(), strict=True).withheld_ids
+        ):
+            window = None
         notes = [f"Period asked about: {_period(window, today)}; every shared event of it is listed below."] if window else []
         return self._compose(exchange, "answer", message, self._retrieve(message, window, agent=exchange.agent), notes)
 
@@ -1119,7 +1124,11 @@ class Assistant:
         if timed:
             for memory in self._upcoming_withheld():
                 found.setdefault(memory.id, memory)
-        for memory in self.store.search(message, limit=8):
+        # Restricted to what Nebius may see, the search is also ranked without the private memories: searched
+        # with them and filtered after, private matches would use up result slots, so which shared memories
+        # make the context would tell which words the private ones hold.
+        levels = sorted(self.guard.allowed(NEBIUS)) if timed or agent else None
+        for memory in self.store.search(message, limit=8, sensitivities=levels):
             if (timed or agent) and not self.guard.may_send(memory, NEBIUS):
                 continue
             found.setdefault(memory.id, memory)
@@ -1162,6 +1171,8 @@ class Assistant:
     ) -> _Outcome:
         """Prepare the guarded context, ask the reasoning model, fall back to a local list."""
         prepared = self.guard.prepare_context(memories, NEBIUS)
+        if exchange.agent:  # every value and name masked alike: redacting only those a private memory holds
+            request = masked(request)  # would tell the agent which of its values are private
         typed = self.guard.check_outbound(request, NEBIUS, self.store.all_versions(), purpose=purpose, strict=True)
         if typed.withheld_ids or typed.reasons:  # what the user typed: no shared-value exemption
             exchange.decisions.append(typed)
