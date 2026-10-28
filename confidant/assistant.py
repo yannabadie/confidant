@@ -27,7 +27,7 @@ from .memory import (
     KINDS, SENSITIVITIES, Memory, MemoryNotFound, MemoryStore, SecretRefused, VersionConflict, utc_timestamp,
 )
 from .net import ServiceError
-from .receipts import ANSWERED, Receipt, ReceiptLog
+from .receipts import ANSWERED, Receipt, ReceiptLog, payload_sha256
 from .replay import RecordedTurn, ReplayBook
 from .rules import (
     INTENTS,
@@ -58,8 +58,8 @@ from .rules import (
     web_query_from,
 )
 from .scan import (
-    MONTH_WORDS, STOPWORDS, WEEKDAY_WORDS, detect_secret, digit_runs, find_secrets, find_values, has_value_cues,
-    words,
+    MONTH_WORDS, STOPWORDS, WEEKDAY_WORDS, detect_secret, digit_runs, find_dates, find_secrets, find_values,
+    has_value_cues, words,
 )
 from .search import COST_PER_SEARCH_USD, WebResult, record_results, search_payload
 
@@ -320,6 +320,65 @@ def masked(message: str, *, keep_kind: bool = True) -> str:
     return "".join(out)
 
 
+CALENDAR_KINDS = ("date", "time", "day")
+
+
+def names_calendar_value(message: str) -> bool:
+    """True when ``message`` holds a date, a clock time or a day of the month in a form the scanners read."""
+    return bool(find_dates(message)) or any(value.kind in CALENDAR_KINDS for value in find_values(message))
+
+
+def _calendar_spans(message: str) -> list[tuple[int, int, str]]:
+    """The dates, clock times and days of the month of ``message``, as (start, end, kind), in order."""
+    spans = [(value.start, value.end, value.kind) for value in find_values(message) if value.kind in CALENDAR_KINDS]
+    spans += [(found.start, found.end, "date") for found in find_dates(message)]
+    kept, cursor = [], 0
+    for start, end, kind in sorted(spans, key=lambda span: (span[0], -span[1])):  # longest first at a start
+        if start >= cursor:
+            kept.append((start, end, kind))
+            cursor = end
+    return kept
+
+
+def calendar_values(message: str) -> list[tuple[str, str]]:
+    """``(kind, text)`` of each date, clock time and day of the month of ``message``, in order."""
+    return [(kind, message[start:end]) for start, end, kind in _calendar_spans(message)]
+
+
+def masked_calendar(message: str) -> str:
+    """``message`` with every date, clock time and day of the month replaced by its kind ("[date]", "[time]",
+    "[day]"), whatever they are: what Nebius gets of the dates a user typed, so that which ones equal a private
+    value cannot show."""
+    out, cursor = [], 0
+    for start, end, kind in _calendar_spans(message):
+        out += [message[cursor:start], f"[{kind}]"]
+        cursor = end
+    out.append(message[cursor:])
+    return "".join(out)
+
+
+def _calendar_restored(text: str, typed: Sequence[tuple[str, str]]) -> str:
+    """``text`` with each "[date]", "[time]" or "[day]" the model wrote replaced by what the user typed, in order
+    for each kind (the last one repeats). For this device only: the draft that may leave keeps the masks."""
+    if not typed:
+        return text
+    by_kind: dict[str, list[str]] = {}
+    for kind, value in typed:
+        by_kind.setdefault(kind, []).append(value)
+    used: dict[str, int] = {}
+
+    def back(match: re.Match[str]) -> str:
+        kind = match.group(1)
+        values = by_kind.get(kind)
+        if not values:
+            return match.group()
+        index = used.get(kind, 0)
+        used[kind] = index + 1
+        return values[min(index, len(values) - 1)]
+
+    return re.sub(r"\[(date|time|day)\]", back, text)
+
+
 # Day and month names, which masked() leaves alone: in a private message they can say when a private item is.
 # Those that are also everyday words ("may", "march", "sun", "sat", "wed", "sept") count only when capitalised
 # inside a sentence: "in May", not "May I ask" or "you may".
@@ -563,6 +622,12 @@ def _period(window: tuple[date, date], today: date) -> str:
     return start if days == 1 else f"the {days} days from {start}"
 
 
+def _days(window: tuple[date, date]) -> str:
+    """How many days a period holds, in words a note can carry without its dates: "day", "3 days"."""
+    days = (window[1] - window[0]).days + 1
+    return "day" if days == 1 else f"{days} days"
+
+
 def _capitalised(text: str) -> str:
     return text[:1].upper() + text[1:]
 
@@ -685,6 +750,8 @@ class _Exchange:
         self.failed = False
         self.outbound: list[Outbound] = []
         self.opening_notices = len(notices)  # about the mode (replay, budget, models), set before any call
+        self.request_differs = False  # replay: the question was recorded, but for another request
+        self.typed_calendar: list[tuple[str, str]] = []  # (kind, text) of the dates and times masked, in order
         self.agent = False  # the message comes from another agent: its words never select a private memory
 
     def complete(
@@ -726,7 +793,18 @@ class _Exchange:
         if self.mode == "replay":
             if self.recorded is None or purpose not in self.recorded.outputs:
                 return None
-            self._log(NEBIUS, self.recorded.models.get(role, "replay"), purpose, messages, sent, withheld)
+            model = self.recorded.models.get(role, "replay")
+            expected = self.recorded.requests.get(purpose)
+            if expected and payload_sha256(messages) != expected:  # not the request the recording answered
+                self.request_differs = True
+                self._log(NEBIUS, model, purpose, messages, sent, withheld,
+                          status="no answer (request differs from the recording)")
+                self.notices.append(
+                    f"This {purpose} request differs from the one recorded live (a memory changed since the "
+                    "recording), so no model answered it: replay answers only the exact request it recorded."
+                )
+                return None
+            self._log(NEBIUS, model, purpose, messages, sent, withheld)
             return strip_reasoning(self.recorded.outputs[purpose])
         assert assistant.llm is not None and assistant.models is not None  # guaranteed in live mode
         try:
@@ -984,6 +1062,10 @@ class Assistant:
             if current.strip() and not trimmed.strip():  # every line stood for an item outside the period
                 trimmed = "Nothing in memory falls in the period asked."
             local = trimmed if trimmed != current else local
+        if exchange.typed_calendar:  # device only: the dates and times the user typed, masked for Nebius
+            current = local or outcome.draft
+            restored = _calendar_restored(current, exchange.typed_calendar)
+            local = restored if restored != current else local
         shown = local or outcome.draft
         segments = self.guard.segments(shown, prepared)
         unresolved = [segment.text for segment in segments if segment.placeholder and segment.memory is None]
@@ -1000,6 +1082,8 @@ class Assistant:
             self.recorder.add(RecordedTurn(
                 question=message, outputs=dict(exchange.outputs), web_results=list(exchange.web_results),
                 models=dict(self.models or {}), recorded_at=utc_timestamp(), web_search=exchange.web_search,
+                requests={call.purpose: call.sha256 for call in exchange.outbound
+                          if call.provider == NEBIUS and call.status == ANSWERED and call.purpose in exchange.outputs},
             ))
         report = GuardReport(
             prepared=prepared, decisions=exchange.decisions, kept_local=kept_local,
@@ -1085,7 +1169,10 @@ class Assistant:
         """Why a message must stay local: private values in it, private labels it
         names, or a private topic according to the local rules."""
         current = self.store.all_current()
-        decision = self.guard.check_outbound(message, NEBIUS, self.store.all_versions(), purpose="route", strict=True)
+        # Its dates and times are left out: that one equals a private item's would otherwise change how the
+        # message is handled (routed, masked, stored), which Nebius could see. They are masked alike instead.
+        decision = self.guard.check_outbound(masked_calendar(message), NEBIUS, self.store.all_versions(),
+                                             purpose="route", strict=True)
         reasons, ids = list(decision.reasons), list(decision.withheld_ids)
         for memory in current:
             named = label_mentioned(memory.label, message)
@@ -1102,16 +1189,25 @@ class Assistant:
         """Answer from memory with the reasoning model."""
         today = self.today()
         window = time_window(message, today)
+        # A date or clock time the user typed is masked, and the period note says only that the request names
+        # one, whether or not a private item is then: masking the value and dropping the note only when it equals
+        # a private value would tell Nebius so (the Guard tab's "Prove it" check, confidant/proof.py, moves every
+        # private appointment and compares the requests). The shared events of that period are still listed.
+        calendar = not exchange.agent and not private and names_calendar_value(message)
         # A period read from the user's private message could date a private item. Not for another agent's
         # question: it chose the period, and dropping the note only when its date matched a private item
         # would tell it so.
-        if window and not exchange.agent and (
+        if window and not exchange.agent and not calendar and (
             private or self.guard.check_outbound(message, NEBIUS, self.store.all_versions(), strict=True).withheld_ids
         ):
             window = None
-        notes = [f"Period asked about: {_period(window, today)}; every shared event of it is listed below."] if window else []
+        if window and calendar:
+            notes = [f"Period asked about: the {_days(window)} the request names (masked here); every shared event "
+                     "of it is listed below."]
+        else:
+            notes = [f"Period asked about: {_period(window, today)}; every shared event of it is listed below."] if window else []
         return self._compose(exchange, "answer", message, self._retrieve(message, window, agent=exchange.agent), notes,
-                             mask=private)
+                             mask=private, calendar=calendar)
 
     def _remember(self, exchange: _Exchange, message: str, route: Route, private: bool) -> _Outcome:
         """Store what the user stated, in the user's words when a cloud router chose this intent,
@@ -1185,7 +1281,8 @@ class Assistant:
             exchange.actions.append("recorded web sources " + ", ".join(f"{m.cite()} ({m.author})" for m in found))
         found_ids = {memory.id for memory in found}
         related = [m for m in self._retrieve(message, time_window(message, self.today())) if m.id not in found_ids]
-        return self._compose(exchange, "answer", message, self._capped(found + related))
+        return self._compose(exchange, "answer", message, self._capped(found + related),
+                             calendar=not exchange.agent and names_calendar_value(message))
 
     def _brief(self, exchange: _Exchange, message: str, route: Route, private: bool) -> _Outcome:
         """Events of the coming week, open to-dos and today's routines, plus today's receipts."""
@@ -1391,15 +1488,19 @@ class Assistant:
 
     def _compose(
         self, exchange: _Exchange, purpose: str, request: str, memories: list[Memory], notes: Sequence[str] = (),
-        *, mask: bool = False,
+        *, mask: bool = False, calendar: bool = False,
     ) -> _Outcome:
         """Prepare the guarded context, ask the reasoning model, fall back to a local list. ``mask``: the request
-        is a message the rules find private, sent with its values, names, days and months masked."""
+        is a message the rules find private, sent with its values, names, days and months masked. ``calendar``:
+        its dates, clock times and days of the month are masked, all of them alike."""
         prepared = self.guard.prepare_context(memories, NEBIUS)
         if mask:
             request = masked_private(request)
         elif exchange.agent:  # every value and name masked alike, whatever private memories hold
             request = masked(request)
+        elif calendar:  # likewise for the dates and times a user typed; put back here in the answer shown
+            exchange.typed_calendar = calendar_values(request)
+            request = masked_calendar(request)
         # What the user typed is checked against every stored value, shared ones included. An agent's words are
         # checked for credentials only, and sent after the stored-value check of the context: redacting the ones
         # that match a private value ("11月3日", "half ten", "rossi") would tell the agent which of its guesses
@@ -1423,7 +1524,9 @@ class Assistant:
     @staticmethod
     def _fallback(exchange: _Exchange, prepared: PreparedContext, memories: list[Memory]) -> str:
         """A local answer listing the relevant memories (private ones as placeholders)."""
-        if exchange.mode == "replay":
+        if exchange.mode == "replay" and exchange.request_differs:
+            lead = "The recording of this question answered a different request, so no model answered it"
+        elif exchange.mode == "replay":
             lead = "No recorded turn matches this question, so no model answered it"
             exchange.notices.append(REPLAY_SCOPE)
         else:

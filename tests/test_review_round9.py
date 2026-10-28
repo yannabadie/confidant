@@ -48,6 +48,9 @@ def test_a_day_of_the_month_with_its_month_is_still_a_date() -> None:
     assert [value.kind for value in find_values("the 5th of November")] == ["date"]
 
 
-def test_a_day_of_the_month_that_no_private_memory_holds_is_sent() -> None:
+def test_a_day_of_the_month_is_masked_whatever_private_memories_hold() -> None:
+    # Until the final review this day, which no private memory holds, was sent, and a day one held was masked:
+    # which days were masked told Nebius which ones hold a private item (tests/test_proof.py). Every date, time
+    # and day of the month a user types is masked alike now, and put back in the answer shown on the device.
     sent = sent_to_nebius("Draft a short note for the team: the retro moves to the 12th.")
-    assert any("12th" in text for text in sent)
+    assert sent and not any("12th" in text for text in sent) and any("[day]" in text for text in sent)

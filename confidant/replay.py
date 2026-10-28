@@ -15,7 +15,12 @@ a single turn::
                  "answer": "Next week: ⟦m7⟧ ... [m6v1]"},
      "web_results": [{"title": "...", "url": "https://...", "content": "...", "score": 0.9}],
      "models": {"reason": "nvidia/...", "fast": "nvidia/..."},
-     "recorded_at": "2026-10-28T10:00:00Z"}
+     "recorded_at": "2026-10-28T10:00:00Z",
+     "requests": {"answer": "5539...82b"}}
+
+``requests`` holds the SHA-256 of each request the turn sent live, by purpose, as its receipts keep it: replay
+answers only a request built now with the same hash, so a recording is never shown as the answer to a request
+it was not given (one changed by a memory stored since, say). A turn without it replays by its question alone.
 
 Outputs may also be given at the top level ("route": {...}, "answer": "..."),
 and JSON objects are accepted where text is expected.
@@ -66,6 +71,7 @@ class RecordedTurn:
     models: dict[str, str] = field(default_factory=dict)
     recorded_at: str = ""
     web_search: str = ""  # "ran" or "off" (no search client) when recorded live; "" when unknown
+    requests: dict[str, str] = field(default_factory=dict)  # purpose -> SHA-256 of the request sent live
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-ready form, as written by :meth:`ReplayBook.save`."""
@@ -78,6 +84,8 @@ class RecordedTurn:
         }
         if self.web_search:
             data["web_search"] = self.web_search
+        if self.requests:
+            data["requests"] = dict(self.requests)
         return data
 
     @classmethod
@@ -98,8 +106,9 @@ class RecordedTurn:
             for item in data.get("web_results") or []
         ]
         models = {str(role): str(model) for role, model in dict(data.get("models") or {}).items()}
+        requests = {str(purpose): str(sha).lower() for purpose, sha in dict(data.get("requests") or {}).items()}
         return cls(question, outputs, results, models, str(data.get("recorded_at") or ""),
-                   str(data.get("web_search") or ""))
+                   str(data.get("web_search") or ""), requests)
 
 
 class ReplayBook:

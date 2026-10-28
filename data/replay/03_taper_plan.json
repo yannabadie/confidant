@@ -10,5 +10,8 @@
   },
   "recorded_at": "2026-10-28T17:48:03Z",
   "web_search": "off",
-  "mode": "recorded live"
+  "mode": "recorded live",
+  "requests": {
+    "answer": "a0582f8e6e67ef9dcb95a994433473434ada9d2f7b4be141b3fa18fc031870cd"
+  }
 }

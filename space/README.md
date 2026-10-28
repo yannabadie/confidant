@@ -41,6 +41,11 @@ Run the seven-step demo script on the left of the app:
    no model call at all, since no cloud model may learn when a private item happens. After step 2 the
    moved appointment makes the answer "not free".
 
+Then open the Guard tab and press **Prove it**: the last turn's requests are rebuilt on the device, once as
+your memory is and once with every private appointment moved to another week, weekday and hour, and their
+SHA-256 are shown side by side. They are identical: Nemotron cannot tell when those appointments are, nor
+whether one falls in the period asked. It works with a question of your own too, and makes no model call.
+
 The persona, Alex Martin, is fictional. Each browser tab gets its own copy of the seed memory, so your
 changes are visible only to you and disappear when the tab closes.
 
@@ -51,8 +56,9 @@ changes are visible only to you and disappear when the tab closes.
   reached the app switches to replay and says so.
 - **Replay** otherwise. The demo turns recorded live on 28 October 2026 (`data/replay/`: Nemotron 3 Ultra
   and Nano on Token Factory) stand in for the cloud model; memory, guard, late binding and receipts still run
-  in the app, and every replayed turn is labelled. Replay has model answers for the demo steps only: a question
-  of your own gets the memories that match it. What the device recognises without a model works as it does
+  in the app, and every replayed turn is labelled. Replay has model answers for the demo steps only, and only
+  for the exact request each recorded (same SHA-256 as its receipt): a question of your own, or a demo step
+  after you added a memory, gets the memories that match it. What the device recognises without a model works as it does
   live: "Remember that…", a correction such as "…moved to Friday", "Am I free…?", and refusing a password
   or PIN.
 

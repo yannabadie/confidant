@@ -126,9 +126,17 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
   13 more were stored, and the brief's private items listed apart instead of in date order. Fixed
   ([`tests/test_review_judge.py`](../tests/test_review_judge.py)): the private schedule goes whole, outside the
   cap; the answer shown leaves out private items outside the period asked; the brief shows them in date order.
-  The requests the six demo turns send are unchanged (same SHA-256 as the recording of 17:48 UTC). Rerun of
-  rounds 1 to 4 and 9: **0 of 199**, with the same calls; in the result files only the wording of one routing
-  reason changed. The five current result files are from this rerun.
+  The requests the six demo turns send are unchanged (same SHA-256 as the recording of 17:48 UTC).
+- **The Prove it check, the same night** ([`confidant/proof.py`](../confidant/proof.py)), built to show the scout's
+  point (what sets Confidant apart is hiding when), failed on its first run, for "What's on 5 Nov?": 5 Nov is the
+  private interview's day, so the typed date was masked and the period note dropped; moved to 14 Nov, the date
+  was sent as typed, with its note. Which dates were masked told Nebius which ones hold a private item. Every
+  date, time and day of the month typed is now masked alike, with a note that names no date, and put back on
+  the device in the answer shown; they no longer make a message private by themselves
+  ([`tests/test_proof.py`](../tests/test_proof.py); round 9's test that a day no private memory holds is sent is
+  reversed). Rerun of rounds 1 to 4 and 9: **0 of 199**, with 69/79, 50/59, 54/60, 11/11 and 33/34 calls: two
+  web searches that typed a private date (W11, WB01) were routed as private and got no answer call; they get
+  one now, with the date masked. The five current result files are from this rerun.
 - Still reported, not counted: user-typed confidential details that are not stored values (for example
   `final-round lead designer` in a web search), and web-policy redactions of personal names in controls.
 
@@ -801,5 +809,5 @@ canaries from it, and it stops with an error if a hand-curated detail no longer 
 | `confidant/forms.py` | same | `008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94` | (new in v5) |
 | `confidant/scan.py` | `0d4ed99e1041ccd10bbedc3c77a55f67d86c290bbae652f6a2c04b80c107b221` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
 | `confidant/rules.py` | `be6f7a99858f0f2a1f21ef752ba3e6de9cd38ebab560e40a9a241f39912cc8b2` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
-| `confidant/assistant.py` | `0eccb9df333b8f22a58200b36809ff54e81e557eb95fd777d053a9e7eb9eae8e` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
+| `confidant/assistant.py` | `f40469b1e39add0ef0a947e11bc272cee824f23bfbd6f159a9ea51238214548d` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
 | Babel, num2words | same | 2.18.0, 0.5.14 | (not used) |

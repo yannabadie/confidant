@@ -29,6 +29,12 @@ assistant and one that knows too much. Confidant removes that trade-off with thr
    timeout, the first try before a retry) has its receipt too. The Guard tab shows those messages for the last
    turn, so anyone can hash them and compare. "What left my device today" is a table, not a guess.
 
+Placeholders hide what a private memory says. Confidant also hides **when** it happens: the Guard tab's
+**Prove it** check ([`confidant/proof.py`](confidant/proof.py)) rebuilds the last turn's requests on the
+device, as the memory is and with every private appointment moved to another week, weekday and hour, and
+shows the two SHA-256 side by side. They are identical, for a demo question or one of your own; the same
+comparison runs on 30 question pairs in [`tests/test_differential.py`](tests/test_differential.py).
+
 Some questions cannot be answered by a model that never learns when private items happen: "Am I free on
 Wednesday morning?" depends on exactly that. Confidant checks those **on the device**, against the real dates,
 private ones included, and makes no call at all.
@@ -168,6 +174,12 @@ draft, so each private item appears only as its label, and no Hermes model reads
   period asked, and puts the others in date order; the draft that may be passed on keeps the model's text.
   Availability questions are answered on the device, with no model call; the version that may be passed on
   (MCP, Telegram) lists shared items only.
+- Dates, clock times and days of the month that you type are masked alike in what Nebius gets ("What's on
+  [date]?"), and put back in the answer shown on the device: masked only when they equal a private value, as
+  until 28 October, they told Nebius which dates hold a private item (the Prove it check found it). For the
+  same reason they never make a message private by themselves. Typed amounts and names are still masked only
+  when they equal a stored value, and a web query still loses a typed value equal to a private one, which tells
+  the search provider that it matched.
 - A chat question that names no time selects memories by its words, private ones included as placeholders:
   asking about "the dermatologist" tells the cloud model that a private health item matches that word.
 - Late binding protects the value, not the existence of a withheld memory: the model sees "private: health
@@ -194,10 +206,10 @@ draft, so each private item appears only as its label, and no Hermes model reads
 
 | Path | Content |
 |---|---|
-| `confidant/` | memory store, guard, receipts, budget, Token Factory and Tavily clients, assistant, MCP server, CLI |
+| `confidant/` | memory store, guard, receipts, budget, Token Factory and Tavily clients, assistant, MCP server, CLI, the Prove it check |
 | `app.py`, `assets/` | Gradio web demo |
 | `data/demo_persona.json` | the synthetic persona (25 memories) |
-| `data/replay/` | the demo turns recorded live on 28 October 2026, replayed when no key is set (the correction and the refused PIN make no model call, so nothing is recorded for them) |
+| `data/replay/` | the demo turns recorded live on 28 October 2026, replayed when no key is set (the correction and the refused PIN make no model call, so nothing is recorded for them). Each holds the SHA-256 of every request it sent, the hashes of its receipts; replay answers only a request with the same hash, so a memory you add makes the recording decline instead of answering a request it never saw |
 | `space/` | the three files of the Hugging Face Space |
 | `scripts/` | macOS keychain wrapper, Token Factory probes (models, reasoning and token budgets), the router check, the live recorder, the offline leak test and the script that has Nemotron write an attack round |
 | `docs/` | leak test report and machine-readable results, round 9's call to Nemotron (`round9/`), receipts and raw logs of the live runs (`evidence/`), the Token Factory probe, the router check, the Hermes deliveries and the Hermes agent session |

@@ -42,6 +42,7 @@ from confidant.guard import DEFAULT_POLICY, NEBIUS, PLACEHOLDER_RE, Guard, drop_
 from confidant.llm import ModelSelectionError, TokenFactory, discover_models
 from confidant.memory import MemoryStore
 from confidant.net import ServiceError
+from confidant.proof import Proof, prove
 from confidant.receipts import ReceiptLog
 from confidant.replay import ReplayBook, normalize_question
 from confidant.search import Tavily
@@ -155,6 +156,7 @@ class TurnView:
     on_device: bool = False  # answered on this device with no model call (an availability check)
     notice: str = ""
     error: str = ""
+    intent: str = ""  # the intent the turn ran: what the Guard tab's "Prove it" check can rebuild
 
 
 @dataclass(frozen=True)
@@ -337,6 +339,7 @@ class Engine:
             mode=turn.mode,
             is_brief=is_brief,
             on_device=turn.intent == "availability",
+            intent=turn.intent,
             notice=turn.notice.replace(REPLAY_NOTICE, "").strip(),
         )
 
@@ -940,7 +943,7 @@ def render_check(check: CheckView, known: Collection[int], *, open_text: bool) -
 def outbound_verdict(call: OutboundView) -> str:
     """How a call ended, as the Guard tab labels it."""
     if call.mode == "replay":
-        return "Replay"
+        return "Replay" if call.status == "answered" else f"Replay, {call.status}"
     return "Sent" if call.status == "answered" else f"Sent, {call.status}"
 
 
@@ -1032,6 +1035,72 @@ def render_guard_panel(turn: TurnView | None) -> str:
         f'<span class="cf-count">{len(turn.outbound)}</span></h4>{render_outbound(turn.outbound, known)}</section>'
         f"{compare}</div>"
     )
+
+
+# --- Prove it (Guard tab) ------------------------------------------------------------
+PROOF_INTRO = (
+    '<div class="cf cf-panel cf-proof"><p class="cf-panel__lead">After a question or the daily brief, this rebuilds '
+    "its requests on this device, with no model call and nothing sent: once with your memory as it is, once with "
+    "every private appointment moved to another week, weekday and hour. If Nemotron could learn when they are, "
+    "the two would differ.</p></div>"
+)
+
+
+def render_proof(turn: TurnView, proof: Proof) -> str:
+    """The comparison: what moved, each request's SHA-256 both ways, and the verdict."""
+    moved = "".join(
+        f'<li class="cf-check"><span class="cf-verdict">{token_html(move.memory_id)}</span>'
+        f'<div class="cf-check__body"><span class="cf-check__what">{esc(move.before)}</span>'
+        f'<span class="cf-check__reasons">Moved to: {esc(move.after)}</span></div></li>'
+        for move in proof.moves
+    ) or '<li class="cf-empty-list">No private appointment to move.</li>'
+    receipts = {call.purpose: call.payload_sha256 for call in turn.outbound}
+    rows = []
+    for (purpose, before), (_, after) in zip(proof.original, proof.moved):
+        same = before == after
+        what = f"{PURPOSE_NAMES.get(purpose, purpose)} to {PROVIDER_NAMES.get(NEBIUS, NEBIUS)}"
+        mark = " (its receipt's hash)" if receipts.get(purpose) == before else ""
+        rows.append(
+            f'<li class="cf-check"><span class="cf-verdict{"" if same else " cf-verdict--blocked"}">'
+            f'{"Same" if same else "Differs"}</span><div class="cf-check__body"><span class="cf-check__what">'
+            f'{esc(what)}</span><span class="cf-check__reasons">As stored{mark}: <code>{esc(before)}</code></span>'
+            f'<span class="cf-check__reasons">Moved: <code>{esc(after)}</code></span></div></li>'
+        )
+    if not proof.sent:
+        verdict = "This turn sends nothing, either way: it is answered on this device."
+    elif proof.identical:
+        verdict = ("Identical, byte for byte. Nemotron cannot tell when these appointments are, nor whether one "
+                   "falls in the period you asked about.")
+    else:
+        verdict = "The requests differ: what Nemotron receives would depend on when a private item happens."
+    return (
+        '<div class="cf cf-panel cf-proof"><div class="cf-panel__head"><h3 class="cf-panel__title">Prove it</h3>'
+        f'<p class="cf-quote">{esc(turn.question)}</p>'
+        '<p class="cf-panel__lead">Rebuilt on this device, with no model call and nothing sent. The moves exist '
+        "only for this check; your memory is unchanged.</p></div>"
+        '<section class="cf-section"><h4 class="cf-section-title">Moved for the check'
+        f'<span class="cf-count">{len(proof.moves)}</span></h4><ul class="cf-checks">{moved}</ul></section>'
+        '<section class="cf-section"><h4 class="cf-section-title">Each request, SHA-256'
+        f'<span class="cf-count">{len(rows)}</span></h4>'
+        f'<ul class="cf-checks">{"".join(rows) or "<li class=cf-empty-list>No request.</li>"}</ul></section>'
+        f'<p class="cf-proof__verdict{"" if proof.identical else " cf-proof__verdict--bad"}">{esc(verdict)}</p></div>'
+    )
+
+
+def run_proof(session: Session | None) -> str:
+    """Rebuild the last turn's requests with the private appointments moved, and compare."""
+    turn = session.last_guarded if session is not None else None
+    if turn is None or turn.error or turn.intent not in ("answer", "brief"):
+        return (
+            '<div class="cf cf-panel cf-proof"><p class="cf-panel__lead">Ask a question about your memory first, '
+            "or run the daily brief: this check rebuilds the requests of that turn. Web searches and corrections "
+            "are not covered.</p></div>"
+        )
+    try:
+        proof = prove(session.engine.store, turn.question, intent=turn.intent, guard=session.engine.guard)
+    except Exception as exc:  # the page must survive; say what failed
+        return f'<div class="cf cf-panel cf-proof"><p class="cf-panel__lead">The check could not run: {esc(exc)}</p></div>'
+    return render_proof(turn, proof)
 
 
 # --- Receipts and brief tabs --------------------------------------------------------
@@ -1280,6 +1349,9 @@ def build_app() -> gr.Blocks:
                         )
                         memory_table = gr.HTML(first.memory_table, padding=False, elem_classes=["cf-bare"])
                     with gr.Tab("Guard", elem_id="cf-tab-guard"):
+                        prove_button = gr.Button("Prove it: move my private appointments and compare",
+                                                 elem_id="cf-prove", elem_classes=["cf-button-accent"])
+                        proof_panel = gr.HTML(PROOF_INTRO, padding=False, elem_classes=["cf-bare"])
                         guard_panel = gr.HTML(first.guard, padding=False, elem_classes=["cf-bare"])
                     with gr.Tab("Receipts", elem_id="cf-tab-receipts"):
                         receipts_panel = gr.HTML(first.receipts, padding=False, elem_classes=["cf-bare"])
@@ -1305,6 +1377,9 @@ def build_app() -> gr.Blocks:
             run_brief, inputs=[state], outputs=outputs, **work
         )
         reset_button.click(reset, inputs=[state], outputs=outputs, **quick)
+        prove_button.click(run_proof, inputs=[state], outputs=[proof_panel], **work)
+        for trigger in (send.click, message.submit, brief_button.click, reset_button.click):
+            trigger(lambda: PROOF_INTRO, outputs=[proof_panel], **quick)  # a new turn: the last proof no longer applies
     return demo
 
 

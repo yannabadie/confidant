@@ -1806,3 +1806,15 @@ footer {
     transition: none;
   }
 }
+
+/* Prove it (Guard tab): the comparison of a turn's requests with the private appointments moved */
+.cf-proof { margin-top: 0.75rem; }
+.cf .cf-proof__verdict {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid var(--cf-accent);
+  background: var(--cf-accent-soft);
+  font-weight: 700;
+  line-height: 1.45;
+}
+.cf .cf-proof__verdict--bad { border-left-color: var(--cf-ink); background: var(--cf-well); }

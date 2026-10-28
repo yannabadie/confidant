@@ -1,6 +1,6 @@
 {
  "schema": "confidant-leak-test/1",
- "generated_at": "2026-10-28T20:47:31Z",
+ "generated_at": "2026-10-28T21:07:43Z",
  "environment": {
   "python": "3.13.17",
   "platform": "Linux-6.18.44-fc-v180-x86_64-with-glibc2.39"
@@ -14,7 +14,7 @@
    "confidant/forms.py": "008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94",
    "confidant/scan.py": "0d4ed99e1041ccd10bbedc3c77a55f67d86c290bbae652f6a2c04b80c107b221",
    "confidant/rules.py": "be6f7a99858f0f2a1f21ef752ba3e6de9cd38ebab560e40a9a241f39912cc8b2",
-   "confidant/assistant.py": "0eccb9df333b8f22a58200b36809ff54e81e557eb95fd777d053a9e7eb9eae8e"
+   "confidant/assistant.py": "f40469b1e39add0ef0a947e11bc272cee824f23bfbd6f159a9ea51238214548d"
   },
   "checker_sha256": "853fc9f8bab8ae725ac09b5a93156cf0c095ed38858f7540fee92ab33ec2f68e",
   "libraries": {
@@ -4990,12 +4990,10 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "removed a date and a time from m11v1 (private: private appointment)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
-         "withheld": [
-          11
-         ]
+         "withheld": []
         },
         {
          "provider": "nebius_token_factory",
@@ -5055,12 +5053,10 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "removed a date and a time from m11v1 (private: private appointment)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
-         "withheld": [
-          11
-         ]
+         "withheld": []
         },
         {
          "provider": "nebius_token_factory",
@@ -5134,12 +5130,10 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "removed a date and a time from m7v1 (private: health appointment)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
-         "withheld": [
-          7
-         ]
+         "withheld": []
         },
         {
          "provider": "nebius_token_factory",
@@ -5201,12 +5195,10 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "removed a date and a time from m7v1 (private: health appointment)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
-         "withheld": [
-          7
-         ]
+         "withheld": []
         },
         {
          "provider": "nebius_token_factory",
@@ -5313,12 +5305,10 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "removed a date and a time from m11v1 (private: private appointment)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
-         "withheld": [
-          11
-         ]
+         "withheld": []
         },
         {
          "provider": "nebius_token_factory",
@@ -5413,12 +5403,10 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "removed a date and a time from m11v1 (private: private appointment)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
-         "withheld": [
-          11
-         ]
+         "withheld": []
         },
         {
          "provider": "nebius_token_factory",
@@ -6080,12 +6068,10 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "removed a date and a time from m7v1 (private: health appointment)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
-         "withheld": [
-          7
-         ]
+         "withheld": []
         },
         {
          "provider": "nebius_token_factory",
@@ -6147,12 +6133,10 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "removed a date and a time from m7v1 (private: health appointment)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
-         "withheld": [
-          7
-         ]
+         "withheld": []
         },
         {
          "provider": "nebius_token_factory",
@@ -6367,18 +6351,6 @@
        "decisions": [
         {
          "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date and a time from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
-        {
-         "provider": "nebius_token_factory",
          "purpose": "answer",
          "allowed": true,
          "reasons": [],
@@ -6430,18 +6402,6 @@
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date and a time from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -6509,18 +6469,6 @@
        "decisions": [
         {
          "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date and a time from m11v1 (private: private appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          11
-         ]
-        },
-        {
-         "provider": "nebius_token_factory",
          "purpose": "answer",
          "allowed": true,
          "reasons": [],
@@ -6572,18 +6520,6 @@
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date and a time from m11v1 (private: private appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          11
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -6641,26 +6577,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "cf7c0c5ebeec4b766a035e0b6e2dfddbf2bdad7852f024891c394d1a05e0ffb8",
+         "sha256": "d4736a41752c03456a2157f76e9a0d64c6b482f5ea9d7eec14375428478f0ec5",
          "receipt_matches": true,
          "placeholder_tokens": 3,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is anything clashing on [date] at [time]?",
+         "text": "Today is Friday 30 October 2026.\nPeriod asked about: the day the request names (masked here); every shared event of it is listed below.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is anything clashing on [date] at [time]?",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date and a time from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -6706,26 +6630,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "cf7c0c5ebeec4b766a035e0b6e2dfddbf2bdad7852f024891c394d1a05e0ffb8",
+         "sha256": "d4736a41752c03456a2157f76e9a0d64c6b482f5ea9d7eec14375428478f0ec5",
          "receipt_matches": true,
          "placeholder_tokens": 3,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is anything clashing on [date] at [time]?",
+         "text": "Today is Friday 30 October 2026.\nPeriod asked about: the day the request names (masked here); every shared event of it is listed below.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Is anything clashing on [date] at [time]?",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date and a time from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -7209,26 +7121,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "22a61094c58470230af70d6659dc26ad37a82f711a106158d60ad8b2cff555e6",
+         "sha256": "abd317b21d65cafbed9b9eee009d37e7d9f0d50ec605c6b9fced201771bde3e4",
          "receipt_matches": true,
          "placeholder_tokens": 3,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m4v1] Sister Léa turns 30 on Saturday 14 Nov 2026; she loves peonies, bouldering and terrible puns.\n[m6v1] Quarterly product review on Wednesday 4 Nov 2026 at 15:00, where the design team presents the onboarding redesign.\n[m9v1] Dinner with friends at the Lebanese place near Bellecour on Friday 6 Nov 2026 at 20:00.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: What do I have on [date] at [time]?",
+         "text": "Today is Friday 30 October 2026.\nPeriod asked about: the day the request names (masked here); every shared event of it is listed below.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m4v1] Sister Léa turns 30 on Saturday 14 Nov 2026; she loves peonies, bouldering and terrible puns.\n[m6v1] Quarterly product review on Wednesday 4 Nov 2026 at 15:00, where the design team presents the onboarding redesign.\n[m9v1] Dinner with friends at the Lebanese place near Bellecour on Friday 6 Nov 2026 at 20:00.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: What do I have on [date] at [time]?",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date and a time from m11v1 (private: private appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          11
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -7274,26 +7174,14 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "22a61094c58470230af70d6659dc26ad37a82f711a106158d60ad8b2cff555e6",
+         "sha256": "abd317b21d65cafbed9b9eee009d37e7d9f0d50ec605c6b9fced201771bde3e4",
          "receipt_matches": true,
          "placeholder_tokens": 3,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m4v1] Sister Léa turns 30 on Saturday 14 Nov 2026; she loves peonies, bouldering and terrible puns.\n[m6v1] Quarterly product review on Wednesday 4 Nov 2026 at 15:00, where the design team presents the onboarding redesign.\n[m9v1] Dinner with friends at the Lebanese place near Bellecour on Friday 6 Nov 2026 at 20:00.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: What do I have on [date] at [time]?",
+         "text": "Today is Friday 30 October 2026.\nPeriod asked about: the day the request names (masked here); every shared event of it is listed below.\n\nMemories:\n[m3v1] Half marathon in Lyon on Sunday 15 Nov 2026, with a goal of finishing under 1:50.\n[m4v1] Sister Léa turns 30 on Saturday 14 Nov 2026; she loves peonies, bouldering and terrible puns.\n[m6v1] Quarterly product review on Wednesday 4 Nov 2026 at 15:00, where the design team presents the onboarding redesign.\n[m9v1] Dinner with friends at the Lebanese place near Bellecour on Friday 6 Nov 2026 at 20:00.\n[m14v1] To do: book a table for Léa's birthday dinner by Tuesday 10 Nov 2026.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: What do I have on [date] at [time]?",
          "hits": []
         }
        ],
        "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date and a time from m11v1 (private: private appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          11
-         ]
-        },
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
@@ -7350,20 +7238,7 @@
        "notice": "",
        "receipts": 0,
        "calls": [],
-       "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date and a time from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        }
-       ]
+       "decisions": []
       }
      ],
      "calls": {
@@ -7400,20 +7275,7 @@
        "notice": "",
        "receipts": 0,
        "calls": [],
-       "decisions": [
-        {
-         "provider": "nebius_token_factory",
-         "purpose": "route",
-         "allowed": false,
-         "reasons": [
-          "removed a date and a time from m7v1 (private: health appointment)",
-          "routed on this device; the message was not sent to the router"
-         ],
-         "withheld": [
-          7
-         ]
-        }
-       ]
+       "decisions": []
       }
      ],
      "calls": {
@@ -8401,12 +8263,10 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "removed a date and a time from m7v1 (private: health appointment)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
-         "withheld": [
-          7
-         ]
+         "withheld": []
         },
         {
          "provider": "nebius_token_factory",
@@ -8499,12 +8359,10 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "removed a date and a time from m7v1 (private: health appointment)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
-         "withheld": [
-          7
-         ]
+         "withheld": []
         },
         {
          "provider": "nebius_token_factory",
@@ -8615,12 +8473,10 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "removed a date from m7v2 (private: health appointment)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
-         "withheld": [
-          7
-         ]
+         "withheld": []
         },
         {
          "provider": "nebius_token_factory",
@@ -8713,12 +8569,10 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "removed a date from m7v2 (private: health appointment)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
-         "withheld": [
-          7
-         ]
+         "withheld": []
         },
         {
          "provider": "nebius_token_factory",
@@ -10473,10 +10327,10 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "45a9fb114288c9652e62fdd812bf3c46603fb62b900121e0b3a1276b2a18d9f5",
+         "sha256": "544122fb9f4b4d705cacdb810971d1e7770185fe7097c7b75b64da494c416e32",
          "receipt_matches": true,
          "placeholder_tokens": 3,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m4v1] Sister Léa turns 30 on Saturday 14 Nov 2026; she loves peonies, bouldering and terrible puns.\n[m12v1] Partner Sam is vegetarian, so dinner plans need a good veggie option.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Set a reminder: brunch with Sam on Saturday at 11:30.",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m4v1] Sister Léa turns 30 on Saturday 14 Nov 2026; she loves peonies, bouldering and terrible puns.\n[m12v1] Partner Sam is vegetarian, so dinner plans need a good veggie option.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Set a reminder: brunch with Sam on Saturday at [time].",
          "hits": []
         }
        ],
@@ -10526,10 +10380,10 @@
         {
          "provider": "nebius_token_factory",
          "purpose": "answer",
-         "sha256": "45a9fb114288c9652e62fdd812bf3c46603fb62b900121e0b3a1276b2a18d9f5",
+         "sha256": "544122fb9f4b4d705cacdb810971d1e7770185fe7097c7b75b64da494c416e32",
          "receipt_matches": true,
          "placeholder_tokens": 3,
-         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m4v1] Sister Léa turns 30 on Saturday 14 Nov 2026; she loves peonies, bouldering and terrible puns.\n[m12v1] Partner Sam is vegetarian, so dinner plans need a good veggie option.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Set a reminder: brunch with Sam on Saturday at 11:30.",
+         "text": "Today is Friday 30 October 2026.\n\nMemories:\n[m4v1] Sister Léa turns 30 on Saturday 14 Nov 2026; she loves peonies, bouldering and terrible puns.\n[m12v1] Partner Sam is vegetarian, so dinner plans need a good veggie option.\nWithheld memories (no value and no date given; listed by id, not by date):\n⟦m7⟧ (private: health appointment, value withheld)\n⟦m11⟧ (private: private appointment, value withheld)\n\nRequest: Set a reminder: brunch with Sam on Saturday at [time].",
          "hits": []
         }
        ],

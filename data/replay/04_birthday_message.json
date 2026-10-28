@@ -10,5 +10,9 @@
     "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
   },
   "recorded_at": "2026-10-28T17:48:05Z",
-  "mode": "recorded live"
+  "mode": "recorded live",
+  "requests": {
+    "route": "6e2a05fde38793e3af6d248a86f9db340a0244f1e0676ef0760fc3bb6e470b8d",
+    "answer": "0c23f05c818c3b01ed2e4ab858402713c2ed70696b6f80f28352ab38395158e3"
+  }
 }

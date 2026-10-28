@@ -12,7 +12,7 @@ import os
 import re
 import sqlite3
 import threading
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, fields, replace
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -377,6 +377,25 @@ class MemoryStore:
         """Close the database connection."""
         with self._lock:
             self._db.close()
+
+    def copy(self, rewrite: Callable[[Memory], str] | None = None) -> MemoryStore:
+        """A new in-memory store with every version of every memory as here (ids, versions, statuses and
+        provenance kept) and the same snapshot date; ``rewrite`` gives each version's text in the copy. For
+        comparing what would leave the device if a memory said something else: nothing is shared with this
+        store, and the copy skips the checks a new memory gets, since it holds only memories this store took."""
+        with self._lock:
+            rows = [_to_memory(row) for row in self._db.execute("SELECT * FROM memories ORDER BY id, version")]
+            as_of = self._db.execute("SELECT value FROM meta WHERE key = 'as_of'").fetchone()
+        twin = MemoryStore(":memory:")
+        with twin._lock, twin._db:
+            for memory in rows:
+                version = replace(memory, text=rewrite(memory)) if rewrite else memory
+                twin._insert(version)
+                if version.status == "current":
+                    twin._index(version)
+            if as_of:
+                twin._db.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('as_of', ?)", (as_of["value"],))
+        return twin
 
     # --- internals (callers hold the lock and the transaction) ---------------
 
