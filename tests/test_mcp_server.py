@@ -10,7 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from confidant.mcp_server import TOOLS, MCPServer
+from confidant.mcp_server import AGENT_GUARD_NOTE, TOOLS, MCPServer
 
 from conftest import PERSONA, Rig
 
@@ -76,9 +76,9 @@ def test_memory_tools_keep_private_values_from_the_client(make_rig: Callable[...
              expected_version=1),
         call(4, "memory_history", memory_id=7),
     )
-    found = payload(responses[1])["memories"]
-    assert found[0]["cite"] == "m7v1" and found[0]["withheld"] is True
-    assert found[0]["text"] == "⟦m7⟧ (private: health appointment, value withheld)"
+    # search never returns a private memory: which words match one would tell the client what it says
+    # (outside review, 28 Oct; tests/test_review_round6.py); by its id, the client sees its placeholder only
+    assert payload(responses[1])["memories"] == []
     recorded = payload(responses[2])["memory"]
     assert (recorded["cite"], recorded["sensitivity"]) == ("m26v1", "personal")
     assert recorded["source_ref"] == "mcp:mcp-client"
@@ -86,6 +86,7 @@ def test_memory_tools_keep_private_values_from_the_client(make_rig: Callable[...
     versions = payload(responses[4])["versions"]
     assert [v["status"] for v in versions] == ["superseded", "current"]
     assert all("10:30" not in v["text"] and "9:00" not in v["text"] for v in versions)
+    assert versions[-1]["text"] == "⟦m7⟧ (private: health appointment, value withheld)" and versions[-1]["withheld"]
     assert rig.store.get(7).text.endswith("at 9:00.")
 
 
@@ -130,7 +131,7 @@ def test_guarded_answer_returns_placeholders_unless_revealed(make_rig: Callable[
     assert "⟦m7⟧" in hidden["answer"] and "10:30" not in hidden["answer"]
     assert hidden["placeholders"]["⟦m7⟧"] == "private: health appointment"
     assert hidden["citations"] == ["m7v1", "m6v1", "m11v1", "m9v1"] and hidden["mode"] == "live"
-    assert hidden["guard"] == "2 private memories never left Confidant"
+    assert hidden["guard"] == AGENT_GUARD_NOTE  # the same whatever the question: no count to compare
     assert rig.llm.purposes() == ["answer"]
     shown = payload(converse(MCPServer(rig.assistant, reveal_private=True), question)[1])
     assert "Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30." in shown["answer"]
@@ -174,7 +175,7 @@ def test_guarded_answer_checks_availability_on_the_device_and_passes_on_shared_i
     assert hidden["placeholders"] == {} and hidden["citations"] == []
     assert "⟦m11⟧" not in hidden["answer"] and "interview" not in hidden["answer"]
     assert hidden["answer"].startswith("Thursday 5 November 2026, around 11:00: no shared item in memory.")
-    assert hidden["guard"] == "2 private memories never left Confidant"
+    assert hidden["guard"] == AGENT_GUARD_NOTE
     shown = payload(converse(MCPServer(rig.assistant, reveal_private=True), question)[1])
     assert shown["answer"].startswith("Thursday 5 November 2026, around 11:00: not free.")
     assert "final-round interview" in shown["answer"] and shown["citations"] == ["m11v1"]

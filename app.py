@@ -37,7 +37,7 @@ import gradio as gr
 from confidant.assistant import Assistant
 from confidant.budget import Budget
 from confidant.config import DEMO_PERSONA, REPLAY_DIR, env
-from confidant.guard import DEFAULT_POLICY, NEBIUS, PLACEHOLDER_RE, Guard
+from confidant.guard import DEFAULT_POLICY, NEBIUS, PLACEHOLDER_RE, Guard, drop_echoed_labels
 from confidant.llm import ModelSelectionError, TokenFactory, discover_models
 from confidant.memory import MemoryStore
 from confidant.net import ServiceError
@@ -136,7 +136,8 @@ class TurnView:
     """Everything the UI shows about one answered message (or the daily brief)."""
 
     question: str
-    draft: str = ""  # the answer as written (by the cloud model, or here), placeholders included
+    draft: str = ""  # the answer as shown on this device, placeholders included
+    written: str = ""  # the draft as the cloud model wrote it, when it differs (this device put it in date order)
     values: Mapping[int, str] = field(default_factory=dict)  # placeholder id -> value filled in here
     citations: tuple[MemoryView, ...] = ()
     shared: tuple[MemoryView, ...] = ()  # sent verbatim with the answer request
@@ -305,6 +306,7 @@ class Engine:
         return TurnView(
             question=question,
             draft=BRIEF_RECEIPTS_LINE.sub("", draft) if is_brief else draft,
+            written=turn.draft if getattr(turn, "local", "") and turn.intent == "answer" else "",
             values=values,
             citations=tuple(_memory(m) for m in turn.citations),
             shared=tuple(_memory(m) for m in prepared.shared) if prepared else (),
@@ -538,6 +540,7 @@ def render_rich(text: str, fill: Mapping[int, str] | None = None, known: Collect
     its id is not in ``known`` either.
     """
     fill = fill or {}
+    text = drop_echoed_labels(text, fill) if fill else text  # the filled-in value replaces the label it repeats
     blocks: list[str] = []
     paragraph: list[str] = []
     items: list[str] = []
@@ -974,8 +977,9 @@ def render_guard_panel(turn: TurnView | None) -> str:
         compare = (
             '<section class="cf-section"><h4 class="cf-section-title">Late binding</h4><div class="cf-binding">'
             f'<div class="cf-binding__row"><p class="cf-binding__who">{"Nemotron wrote" if went_out else "Written on this device"}</p>'
-            f'<div class="cf-binding__text cf-answer">{render_rich(turn.draft, known=known)}</div></div>'
-            '<div class="cf-binding__row"><p class="cf-binding__who">You read</p>'
+            f'<div class="cf-binding__text cf-answer">{render_rich((went_out and turn.written) or turn.draft, known=known)}</div></div>'
+            '<div class="cf-binding__row"><p class="cf-binding__who">You read'
+            f'{"<small>filled in and put in date order on this device</small>" if went_out and turn.written else ""}</p>'
             f'<div class="cf-binding__text cf-answer">{render_rich(turn.draft, turn.values)}</div></div>'
             "</div></section>"
         )

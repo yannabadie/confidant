@@ -100,23 +100,41 @@ _HEALTH_TERMS = (
     r"antidepressants?|ssris?|anxiety|depress\w*|adhd|bipolar|rehab|addict\w*|sobriety|ivf|fertility|"
     r"miscarr\w*|abortion|contracepti\w*|gyn(?:a)?ecolog\w*|urolog\w*|oncolog\w*|cardiolog\w*|"
     r"neurolog\w*|illness|disease|sick leave|medical|counsell?ors?|counsell?ing|grief|bereave\w*|"
+    r"alzheimer\w*|dementia|parkinson\w*|strokes?|seizures?|heart attack|heart condition|autis\w*|asperger\w*|"
+    r"disabilit\w*|disabled|wheelchair|care home|nursing home|hospice|palliative|terminal(?:ly)? ill|"
+    r"alcoholi\w*|drinking problem|(?:aa|na) meetings?|alcoholics anonymous|relaps\w*|overdos\w*|"
+    r"lupus|crohn\w*|arthritis|multiple sclerosis|fibromyalgia|endometriosis|migraines?|blood pressure|"
+    r"eating disorder|anorexi\w*|bulimi\w*|self-harm|suicid\w*|"
     r"medecin|ordonnance|maladie|enceinte|grossesse|hopital|clinique|prise de sang|arret maladie|mutuelle"
 )
 _MONEY_TERMS = (
     r"rent|salary|salaries|wage|bank|loan|debt|mortgage|savings|tax|taxes|income|invoice|payslip|"
     r"credit|inheritance|heritage|housing costs?|monthly payments?|(?:utility|phone|electricity|energy|water|gas) bills?|overdraft|paycheck|pension|"
-    r"insurance|loyer|salaire|impots?|banque|"
+    r"insurance|bankrupt\w*|insolven\w*|repossess\w*|evict\w*|foreclos\w*|arrears|bailiffs?|gambl\w*|"
+    r"loyer|salaire|impots?|banque|faillite|"
     r"pret|dette|epargne"
 )
 _JOB_TERMS = (
     r"interview\w*|recruiter|job offer|resign\w*|notice period|severance|redundan\w*|laid off|layoffs?|fired|"
-    r"unemploy\w*|burn-?out|salary negotiation|entretien d'embauche|recruteur|demission|licenciement|chomage"
+    r"unemploy\w*|burn-?out|salary negotiation|hiring managers?|headhunters?|job (?:search|hunt\w*|applications?)|"
+    r"applying for|applied for|(?:a |another )?new job|leaving the company|counter-?offers?|"
+    r"entretien d'embauche|recruteur|demission|licenciement|chomage"
 )
 _LEGAL_TERMS = (
     r"confidential|lawyer|court|lawsuit|divorce|police|passport|visa|residence permit|id card|social security|"
-    r"avocat|tribunal|plainte|titre de sejour|carte d'identite"
+    r"arrest\w*|prison|jail\w*|convict\w*|criminal|probation|parole|custody|restraining order|fraud|sued|suing|"
+    r"deport\w*|asylum|immigration|"
+    r"avocat|tribunal|plainte|titre de sejour|carte d'identite|garde a vue"
 )
-_INTIMATE_TERMS = r"sexual\w*|sexuality|religio\w*|political party|union member\w*"
+_INTIMATE_TERMS = (
+    r"sexual\w*|sexuality|religio\w*|political party|union member\w*|gay|lesbian|bisexual|queer|trans|"
+    r"transgender|non-binary|coming out|came out|closeted|cheat(?:s|ed|ing)?|affair|unfaithful|"
+    r"separat(?:ed|ing|ion)|broke up|breaking up|my ex|ex-(?:wife|husband|partner)|"
+    r"trying for a baby|church|mosque|synagogue|mass|prayers?|ramadan|"
+    r"must not know|mustn'?t know|must never know|should not know|shouldn'?t know|don'?t tell|do not tell|"
+    r"not to be mentioned|keep (?:it|this|that) (?:quiet|secret|between us)|between you and me|"
+    r"(?:nobody|no one) knows|ha(?:s|ve)n'?t told|ha(?:s|ve) not told|secret(?:ly)?|behind (?:his|her|their|my) back"
+)
 _PRIVATE_TERMS = re.compile(
     rf"\b(?:{_HEALTH_TERMS}|{_MONEY_TERMS}|{_JOB_TERMS}|{_LEGAL_TERMS}|{_INTIMATE_TERMS})\b"
 )
@@ -136,6 +154,14 @@ _PERSONAL_TERMS = re.compile(
     r"\b(?:sister|brother|mother|mom|mum|father|dad|parents?|partner|wife|husband|boyfriend|girlfriend|"
     r"friends?|family|birthday|anniversary|kids?|son|daughter|prefers?|favou?rite|loves?|hates?|likes?|"
     r"dinner|holiday|vacation|trip|race|marathon|run|running|gym|home|weekend)\b"
+)
+# What makes a new fact clearly everyday: a taste, or a plan or pastime. A family word alone does not, since
+# facts about family are often the sensitive ones ("My brother lost his job").
+_EVERYDAY_TERMS = re.compile(
+    r"\b(?:prefers?|favou?rite|loves?|hates?|likes?|enjoys?|rather|usually|always|"
+    r"birthday|anniversary|party|wedding|dinner|lunch|breakfast|brunch|restaurant|holiday|vacation|trip|"
+    r"race|marathon|run|runs|running|gym|climbing|bouldering|football|tennis|swim\w*|hike|hiking|concert|"
+    r"film|movie|book club|crosswords?|recipe|cooking|band|playlist|weekend plans?)\b"
 )
 _PUBLIC_TERMS = re.compile(
     r"\b(?:team|tools?|workflow|process|guidelines?|checklist|documentation|docs|standup|sprint|"
@@ -199,8 +225,9 @@ def web_query_from(message: str) -> str:
 
 
 def classify_sensitivity(text: str) -> str:
-    """Sensitivity by keywords: private for health, money, legal or job-search topics,
-    public for work tooling without personal context, personal otherwise."""
+    """Sensitivity by keywords: private for health, money, legal, job-search or intimate topics and
+    for secrecy cues ("must not know"), public for work tooling without personal context, personal
+    otherwise."""
     folded = fold(text)[0]
     if _PRIVATE_TERMS.search(folded) or _MONEY.search(folded):
         return "private"
@@ -212,12 +239,12 @@ def classify_sensitivity(text: str) -> str:
 def classify_new_fact(text: str) -> str:
     """Sensitivity of a fact the user asks Confidant to keep. Keyword lists cannot name every
     illness, debt or dispute, so a fact is private unless the rules see something clearly
-    everyday (family, friends, plans, tastes) or work-public. When in doubt, private."""
+    everyday (a taste, a plan or pastime) or work-public; any sensitive or secrecy cue wins
+    over the everyday words, and a family word alone is not everyday. When in doubt, private."""
     level = classify_sensitivity(text)
     if level != "personal":
         return level
-    folded = fold(text)[0]
-    return "personal" if _PERSONAL_TERMS.search(folded) or _PREFERENCE_TERMS.search(folded) else "private"
+    return "personal" if _EVERYDAY_TERMS.search(fold(text)[0]) else "private"
 
 
 def classify_kind(text: str) -> str:

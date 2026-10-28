@@ -34,9 +34,14 @@ from .assistant import Assistant, cited_memories, delivery_text
 from .config import VERSION
 from .guard import PLACEHOLDER_RE, placeholder
 from .memory import KINDS, SENSITIVITIES, Memory
-from .rules import classify_kind, classify_new_fact, is_availability_question, make_label
+from .rules import classify_kind, classify_new_fact, is_availability_question, make_label, stricter
+from .scan import find_values
 
 PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
+# What guarded_answer says about the guard, whatever the question: a count of the private memories a question
+# touched would tell a client which of its words a private memory holds.
+AGENT_GUARD_NOTE = ("Private memories stay in Confidant: an agent sees at most a placeholder and its category, "
+                    "and only in answers about a period of time.")
 PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND, INVALID_PARAMS, INTERNAL_ERROR = (
     -32700, -32600, -32601, -32602, -32603,
 )
@@ -51,8 +56,8 @@ def _schema(properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
 TOOLS: list[dict[str, Any]] = [
     {
         "name": "memory_search",
-        "description": "Full-text search over the user's current memories. "
-                       "Private memories come back as placeholders with their label.",
+        "description": "Full-text search over the user's current memories that may be shared. Private "
+                       "memories are not searched: which words match one would tell a client what it says.",
         "inputSchema": _schema({
             "query": {"type": "string", "description": "Words to look for."},
             "limit": {"type": "integer", "minimum": 1, "maximum": 25, "default": 8},
@@ -61,7 +66,9 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "memory_record",
         "description": "Store a new memory with provenance. Credentials (passwords, PINs, card numbers, "
-                       "API keys) are refused. Sensitivity, kind and label are inferred locally if omitted.",
+                       "API keys) are refused. Sensitivity, kind and label are inferred locally if omitted; a "
+                       "client may raise the sensitivity the device infers, never lower it, and a private "
+                       "memory always gets a category label (\"health appointment\").",
         "inputSchema": _schema({
             "text": {"type": "string"},
             "sensitivity": {"type": "string", "enum": list(SENSITIVITIES)},
@@ -87,9 +94,11 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "guarded_answer",
         "description": "Answer a question from the user's memories through Confidant's privacy guard: "
-                       "the cloud model sees placeholders, never private values. Availability questions "
-                       "(\"Am I free on Tuesday morning?\") are checked on the device and list shared items "
-                       "only, since placing a private item in time would date it. Read-only.",
+                       "the cloud model sees placeholders, never private values. The words of a question never "
+                       "pick a private memory (private items appear only in time-based answers, where every "
+                       "upcoming one is listed, undated). Availability questions (\"Am I free on Tuesday "
+                       "morning?\") are checked on the device and list shared items only, since placing a private "
+                       "item in time would date it. Read-only.",
         "inputSchema": _schema({"question": {"type": "string"}}, ["question"]),
     },
     {
@@ -244,18 +253,24 @@ class MCPServer:
         limit = _integer(arguments, "limit", 8)
         if not 1 <= limit <= 25:
             raise ValueError("'limit' must be between 1 and 25.")
-        found = self.assistant.store.search(_string(arguments, "query"), limit=limit)
+        levels = None if self.reveal_private else [level for level in SENSITIVITIES if level != "private"]
+        found = self.assistant.store.search(_string(arguments, "query"), limit=limit, sensitivities=levels)
         return {"memories": [self._view(memory) for memory in found]}
 
     def _memory_record(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
-        """Tool: store a new memory."""
+        """Tool: store a new memory. The device decides how private it is: a client may only make it stricter.
+        A private memory gets a category label, since its label is sent wherever its value is not; a label the
+        client gives another memory is kept only if it holds no value (no date, time, number or name)."""
         text = _string(arguments, "text")
+        inferred = classify_new_fact(text)
+        sensitivity = stricter(_string(arguments, "sensitivity", inferred), inferred)
+        label = make_label(text, sensitivity)
+        offered = _string(arguments, "label", label)
+        if sensitivity != "private" and not find_values(offered) and len(offered.split()) <= 4:
+            label = offered
         memory = self.assistant.store.record(
-            text,
-            kind=_string(arguments, "kind", classify_kind(text)),
-            sensitivity=_string(arguments, "sensitivity", classify_new_fact(text)),
-            source_type="user", source_ref=f"mcp:{self.client}", author=self.client,
-            label=_string(arguments, "label", make_label(text)),
+            text, kind=_string(arguments, "kind", classify_kind(text)), sensitivity=sensitivity,
+            source_type="user", source_ref=f"mcp:{self.client}", author=self.client, label=label,
         )
         return {"memory": self._view(memory)}
 
@@ -289,7 +304,8 @@ class MCPServer:
         citations that appear in it."""
         question = _string(arguments, "question")
         intent = "availability" if is_availability_question(question) else "answer"
-        turn = self.assistant.handle(question, session_id=f"mcp:{self.client}", intent=intent)
+        turn = self.assistant.handle(question, session_id=f"mcp:{self.client}", intent=intent,
+                                     agent=not self.reveal_private)
         prepared = turn.guard.prepared
         withheld = prepared.withheld if prepared else []
         cited = turn.citations if self.reveal_private or prepared is None else cited_memories(turn.draft, prepared)
@@ -301,7 +317,7 @@ class MCPServer:
                 if memory.id in in_draft
             },
             "citations": [memory.cite() for memory in cited],
-            "guard": turn.guard.summary(),
+            "guard": turn.guard.summary() if self.reveal_private else AGENT_GUARD_NOTE,
             "mode": turn.mode,
             "notice": turn.notice,
         }

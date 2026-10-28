@@ -34,6 +34,21 @@ DEFAULT_POLICY: dict[str, dict[str, list[str]]] = {
 REDACTED = "[withheld]"
 WITHHELD_HEADING = "Withheld memories (no value and no date given; listed by id, not by date):"
 PLACEHOLDER_RE = re.compile(r"⟦\s*m(\d+)(?:v\d+)?\s*⟧")
+# The label a model copies from the context right after a placeholder: "⟦m7⟧ (private: health appointment, value
+# withheld)". Once the value is filled in on the device, repeating it reads "…at 10:30. (private: … withheld)".
+_ECHOED_LABEL = re.compile(
+    r"(⟦\s*m(\d+)(?:v\d+)?\s*⟧)[ \t]*\((?:public|personal|private):[ \t]*[^()\n]{1,80}?"
+    r"(?:,[ \t]*value withheld)?\)"
+)
+
+
+def drop_echoed_labels(text: str, ids: Iterable[int] | None = None) -> str:
+    """``text`` without the label copied right after each placeholder (of ``ids`` only, when given): for text
+    where the placeholder is filled in, or shown as its label, the copy only repeats it."""
+    keep = None if ids is None else set(ids)
+    return _ECHOED_LABEL.sub(
+        lambda match: match.group(1) if keep is None or int(match.group(2)) in keep else match.group(0), text
+    )
 _MEANINGFUL = re.compile(r"[^\W\d_]{3,}")
 _MIN_WHOLE_TEXT = 12
 _TITLES = r"dr|doctor|docteur|pr|prof|professor|mr|mrs|ms|miss|me|maitre|mme|mlle|m"
@@ -188,7 +203,8 @@ class Guard:
         Unknown placeholders stay visible; :meth:`unresolved` lists them and a
         warning is logged (with the tokens only, never values).
         """
-        parts = self.segments(text, prepared)
+        known = [memory.id for memory in prepared.placeholders.values()]
+        parts = self.segments(drop_echoed_labels(text, known), prepared)
         unknown = [part.text for part in parts if part.placeholder and part.memory is None]
         if unknown:
             _log.warning("Left %d unknown placeholder(s) visible: %s", len(unknown), ", ".join(unknown))

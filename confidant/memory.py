@@ -173,16 +173,19 @@ class MemoryStore:
             )
 
     def correct(
-        self, memory_id: int, new_text: str, *, author: str, source_ref: str, expected_version: int
+        self, memory_id: int, new_text: str, *, author: str, source_ref: str, expected_version: int,
+        sensitivity: str | None = None, label: str | None = None,
     ) -> Memory:
         """Add a corrected version of a memory and mark the previous one superseded.
 
-        Kind, sensitivity and label carry over. Raises VersionConflict when
-        ``expected_version`` is not the latest version, SecretRefused for
-        credential-like text, and ValueError if the memory was retracted.
+        Kind carries over; so do sensitivity and label unless given (the caller decides, e.g. a correction
+        that makes a memory private). Raises VersionConflict when ``expected_version`` is not the latest
+        version, SecretRefused for credential-like text, and ValueError if the memory was retracted.
         """
         text = _required(new_text, "new_text")
-        _refuse_secrets(text)
+        _refuse_secrets(text, label or "")
+        if sensitivity is not None:
+            _choice("sensitivity", sensitivity, SENSITIVITIES)
         with self._lock, self._db:
             current = self._latest(memory_id)
             if current.status == "retracted":
@@ -193,6 +196,7 @@ class MemoryStore:
                 current, version=current.version + 1, text=text, status="current",
                 source_type="user", source_ref=source_ref, author=author,
                 created_at=utc_timestamp(), supersedes=current.version, note="",
+                sensitivity=sensitivity or current.sensitivity, label=label or current.label,
             )
             self._supersede(current)
             self._insert(updated)
