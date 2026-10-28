@@ -173,10 +173,15 @@ draft, so each private item appears only as its label, and no Hermes model reads
   amount), though the category word may also be in the memory. Withheld items are listed apart, without dates,
   so their position in a list does not date them.
 - Credentials are refused before anything is stored or sent: passwords and PINs in English, French, German and
-  Spanish, written with gaps, dots or in words (`PIN is 4 8 2 1`, `4.8.2.1`, `four eight two one`), unlock
-  codes and combinations, a login or sign-in with its password, card numbers and the digits on the back of a
-  card, recovery phrases, identity and passport numbers, and API keys. A credential phrased in a way these patterns miss is stored like any
-  new fact: private unless clearly everyday, so never sent.
+  Spanish, written with gaps, dots or in words (`PIN is 4 8 2 1`, `4.8.2.1`, `four eight two one`,
+  `forty-eight twenty-one`), the value first (`4821 is my bank PIN`) or after a longer description (`the PIN for
+  the Barclays card is 4821`), unlock codes and combinations, a login or sign-in with its password, card numbers
+  and the digits on the back of a card, recovery phrases, identity and passport numbers, and API keys
+  ([`tests/test_credential_forms.py`](tests/test_credential_forms.py)). These are patterns, not understanding. A
+  code phrased in a way they miss (`my bank PIN is the year my mum was born, 1957`) is stored like any new fact:
+  private, so never sent, when a lock or unlock word sits next to a number, when a sensitive word is in it, or
+  when nothing in it is clearly everyday; otherwise personal, and personal memories may be sent when a task
+  needs them.
 - **Personal** memories (not private ones) may be sent to Token Factory when a task needs them, for example a
   birthday message; change the policy in `confidant/guard.py` to keep them local too.
 - Receipts are written by Confidant itself: they show exactly what it sent, but they are not an external audit.

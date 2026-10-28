@@ -166,6 +166,14 @@ _EVERYDAY_TERMS = re.compile(
     r"dinner|holiday|vacation|trip|race|marathon|run|running|gym|home|weekend"
     r"|vegan|vegetarian|veggie|pescatarian|flexitarian)\b"  # a diet as a taste: "Sam is vegan now"
 )
+# A number next to a lock or unlock word is a code, whatever form the credential patterns of scan.py miss: "the gym
+# locker opens with my birthday digits 0412" is private, everyday word or not. Times ("06:30") are not codes.
+_ACCESS_TERMS = re.compile(
+    r"\b(?:pin|passcode|password|combination|combo|padlock|keypad|digicode|unlock(?:s|ed|ing)?"
+    r"|(?:lock|locker|safe|door|gate|alarm|garage|building|entry|access|security|intercom)\s+(?:code|combination|combo)"
+    r"|(?:lock|locker|padlock|safe|door|gate|garage)\b[^.;\n]{0,30}?\bopens?\s+with)\b"
+)
+_CODE_NUMBER = re.compile(r"(?<![\d:.,])\d(?:[ -]?\d){2,7}(?![\d:]|[.,]\d)")
 _PUBLIC_TERMS = re.compile(
     r"\b(?:team|tools?|workflow|process|guidelines?|checklist|documentation|docs|standup|sprint|"
     r"design system|public)\b"
@@ -228,11 +236,13 @@ def web_query_from(message: str) -> str:
 
 
 def classify_sensitivity(text: str) -> str:
-    """Sensitivity by keywords: private for health, money, legal, job-search or intimate topics and
-    for secrecy cues ("must not know"), public for work tooling without personal context, personal
-    otherwise."""
+    """Sensitivity by keywords: private for health, money, legal, job-search or intimate topics, for
+    secrecy cues ("must not know") and for a number next to a lock or unlock word (a code), public for
+    work tooling without personal context, personal otherwise."""
     folded = fold(text)[0]
     if _PRIVATE_TERMS.search(folded) or _MONEY.search(folded):
+        return "private"
+    if _ACCESS_TERMS.search(folded) and _CODE_NUMBER.search(text):
         return "private"
     if _PUBLIC_TERMS.search(folded) and not _PERSONAL_TERMS.search(folded):
         return "public"

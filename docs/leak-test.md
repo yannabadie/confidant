@@ -106,7 +106,17 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
 - **Round 9, the same evening, by Nemotron 3 Ultra** (see [Round 9](#round-9-written-by-nemotron-3-ultra-28-october-2026)):
   4 of its 29 messages leaked on the round-8 code, all through one gap, a day of the month written alone ("rent
   ... on the 5th"). Fixed. Rerun of rounds 1 to 4 and 9: **0 of 199** in both profiles, with 69/79, 49/58,
-  53/59, 11/11 and 33/34 calls. The five current result files are from this rerun.
+  53/59, 11/11 and 33/34 calls.
+- **Credential forms, later that evening.** A probe of the video's claim that a bank PIN is refused found forms
+  the credential patterns let through: the value first ("4821 is my bank PIN"), a longer description before "is"
+  ("the PIN for the Barclays card is 4821"), number words other than digit by digit ("forty-eight twenty-one"),
+  and two names of a card code ("the code to my bank card", "my cash machine code"). And a code they missed was
+  stored as personal when it held an everyday word ("the gym locker opens with my birthday digits 0412"), so it
+  could be sent when a task needed it. Fixed ([`tests/test_credential_forms.py`](../tests/test_credential_forms.py)):
+  those forms are refused, and a number next to a lock or unlock word makes a fact private. A PIN given as a
+  riddle ("the year my mum was born, 1957") is still not refused; it is stored as private. Rerun of rounds 1 to 4
+  and 9: **0 of 199**, with the same calls; in the result files only the wording of one routing reason changed.
+  The five current result files are from this rerun.
 - Still reported, not counted: user-typed confidential details that are not stored values (for example
   `final-round lead designer` in a web search), and web-policy redactions of personal names in controls.
 
@@ -766,7 +776,7 @@ canaries from it, and it stops with an error if a hand-curated detail no longer 
 
 ## Inputs of the runs
 
-| input | 28 Oct, after round 9 (current result files) | v5 (27 Oct) | v1 (26 Oct) |
+| input | 28 Oct, after the credential forms (current result files) | v5 (27 Oct) | v1 (26 Oct) |
 |---|---|---|---|
 | `tests/fixtures/leak_prompts.jsonl` (round 1) | same | `99ca842823eef80806100465f680d09fe238a0ebcb8d84fa0b59a9626f6ae4b6` | same |
 | `tests/fixtures/leak_prompts_heldout.jsonl` (round 2) | same | `1b032afe4a319f720305a224d971ac3865a472117c247057d373dd7ae5b43bb2` | (written after v2) |
@@ -777,7 +787,7 @@ canaries from it, and it stops with an error if a hand-curated detail no longer 
 | `data/demo_persona.json` | same | `fea35165f16025e9dccccc98e38488430be74681b9cc76c089ef9f4283e030c6` (category labels) | `d610971d373776c9f684420403edfbdefbff2bed23ba554f37d5ad871308e2da` |
 | `confidant/guard.py` | `3fa4c0ce9d87758657a06eafed73af78052a20b7efbf1f381fb98fbb6ac697d8` | `cf72e270f01cd67af31e36bc5b0e3bd6c99edd8b92c44591efc32a2d56f0adc1` | `2207c112d4c73ae777360da20d6e8950bc6979f1bb82a6f6657686398818cb9e` |
 | `confidant/forms.py` | same | `008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94` | (new in v5) |
-| `confidant/scan.py` | `98331b0c107b1b4435fcf7656310dffb2e30ae82de6bdf7802a4f49a50269292` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
-| `confidant/rules.py` | `8ed9498c734462cdcf6d3278973d581ae2c476e9bd5571b9e472de924d73cb8c` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
-| `confidant/assistant.py` | `e52cc5a1add22c9af2cf4a9baea82174d7e4b848fd24fadd6ff2f85785d68e9d` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
+| `confidant/scan.py` | `77205a9a58cf4732df660ce3912769bdc69f05dd1dbb37bc04a5a0210403cf66` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
+| `confidant/rules.py` | `be6f7a99858f0f2a1f21ef752ba3e6de9cd38ebab560e40a9a241f39912cc8b2` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
+| `confidant/assistant.py` | `9bea9f213d98611a444576354a4da0f99397e37a7899e0acb54f14aae4f21df1` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
 | Babel, num2words | same | 2.18.0, 0.5.14 | (not used) |

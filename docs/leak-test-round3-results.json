@@ -1,6 +1,6 @@
 {
  "schema": "confidant-leak-test/1",
- "generated_at": "2026-10-28T19:13:22Z",
+ "generated_at": "2026-10-28T20:20:19Z",
  "environment": {
   "python": "3.13.17",
   "platform": "Linux-6.18.44-fc-v180-x86_64-with-glibc2.39"
@@ -12,9 +12,9 @@
   "sources_sha256": {
    "confidant/guard.py": "3fa4c0ce9d87758657a06eafed73af78052a20b7efbf1f381fb98fbb6ac697d8",
    "confidant/forms.py": "008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94",
-   "confidant/scan.py": "98331b0c107b1b4435fcf7656310dffb2e30ae82de6bdf7802a4f49a50269292",
-   "confidant/rules.py": "8ed9498c734462cdcf6d3278973d581ae2c476e9bd5571b9e472de924d73cb8c",
-   "confidant/assistant.py": "e52cc5a1add22c9af2cf4a9baea82174d7e4b848fd24fadd6ff2f85785d68e9d"
+   "confidant/scan.py": "77205a9a58cf4732df660ce3912769bdc69f05dd1dbb37bc04a5a0210403cf66",
+   "confidant/rules.py": "be6f7a99858f0f2a1f21ef752ba3e6de9cd38ebab560e40a9a241f39912cc8b2",
+   "confidant/assistant.py": "9bea9f213d98611a444576354a4da0f99397e37a7899e0acb54f14aae4f21df1"
   },
   "checker_sha256": "853fc9f8bab8ae725ac09b5a93156cf0c095ed38858f7540fee92ab33ec2f68e",
   "libraries": {
@@ -5151,7 +5151,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -5214,7 +5214,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -5287,7 +5287,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -5377,7 +5377,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -5631,7 +5631,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -5721,7 +5721,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -5829,7 +5829,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -5919,7 +5919,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -6030,7 +6030,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -6093,7 +6093,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -6757,7 +6757,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -6820,7 +6820,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -6895,7 +6895,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -6958,7 +6958,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -7036,7 +7036,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -7145,7 +7145,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -7403,7 +7403,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []
@@ -7466,7 +7466,7 @@
          "purpose": "route",
          "allowed": false,
          "reasons": [
-          "looks private to the local rules (health, money, legal or job search)",
+          "looks private to the local rules (health, money, legal, job search or a code)",
           "routed on this device; the message was not sent to the router"
          ],
          "withheld": []

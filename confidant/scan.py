@@ -616,9 +616,9 @@ _CODE_WORDS = (  # not "phone code" (a country's calling code) nor "pass code" (
     r"pin(?:\s*(?:code|number)|(?![\s-]+(?:the|a|an|this|that|these|those|it|them|up|down)\b))|passcode|sim\s*pin"
     r"|puk(?:\s*code)?"
     r"|(?:door|gate|alarm|garage|access|security|unlock|entry|keypad|building|intercom)\s*(?:opener\s+|remote\s+)?code"
-    r"|(?:debit|credit|bank|atm)?\s*card\s*(?:code|pin)"
+    r"|(?:debit|credit|bank|atm)?\s*card\s*(?:code|pin)|(?:cash\s*machine|cash\s*point|atm)\s+code"
     r"|code\s+(?:for|of|to)\s+(?:the\s+|my\s+)?(?:front\s+|back\s+|main\s+)?(?:door|gate|building|garage|alarm"
-    r"|safe|lock|locker|padlock)"
+    r"|safe|lock|locker|padlock|(?:bank\s+|debit\s+|credit\s+)?card)"
     # not a business named after it: "the code for the alarm company is ACME-2026"
     r"(?!\s+(?:company|companies|firm|shop|store|installer|provider|engineer|technician|repairs?|maker|service"
     r"|services|people|man|guy)\b)"
@@ -656,6 +656,25 @@ _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("a PIN or access code", re.compile(
         rf"\b(?:{_CODE_WORDS})\b[^\n\d.]{{0,20}}?(?:\b(?:is|was|est|ist|es|lautet)\b|[:=])\s*"
         r"(?<!\d)\d{1,4}(?:\.\d{1,4}){1,7}(?!\d|\.\d)", re.I)),
+    # a longer description between the word and "is": "the PIN for the Barclays card is 4821", "the PIN of the card
+    # I use for groceries is 4821"; no sentence break, comma or digit in between
+    ("a PIN or access code", re.compile(
+        rf"\b(?:{_CODE_WORDS})\b[^\n\d.,;:!?]{{0,40}}?\b(?:is|was|est|ist|es|lautet)\b\s*(?:{_CODE_VALUE})", re.I)),
+    # in number words, three or more right after "is" or a colon: "forty-eight twenty-one", "four thousand eight
+    # hundred twenty one", "forty eight, twenty one" (not "arrives in forty-eight hours", not "twenty-one")
+    ("a PIN or access code", re.compile(
+        rf"\b(?:{_CODE_WORDS})\b[^\n\d.,;:!?]{{0,40}}?(?:\b(?:is|was|est|ist|es|lautet)\b|[:=])\s*"
+        rf"(?:{_NUMBER_WORD})(?:[ ,-]+(?:and[ -]+)?(?:{_NUMBER_WORD})){{2,11}}\b", re.I)),
+    # the value first: "4821 is my bank PIN", "Remember 4821, it's my bank PIN", "4821 - that's the door code",
+    # "le 4821, c'est mon code de carte"; only a few words may sit between "my" or "the" and the code word, so "1500 is
+    # the time the door code changes" is not one
+    ("a PIN or access code", re.compile(
+        rf"(?<![\w.,])(?:{_CODE_VALUE})\s*(?:[,:;—–-]\s*)?"
+        r"(?:(?:is|was|it['’]s|that['’]s|this\s+is|c['’]est|est|ist|es)\s+)?"
+        r"(?:my|the|our|his|her|your|mon|ma|le|la|notre|mein|meine|die|der|mi|el)\s+"
+        r"(?:(?:bank|banking|debit|credit|atm|sim|phone|mobile|card|new|old|current|usual|front|back|main|work"
+        r"|office|home|own|secret|real|actual|(?:four|six|4|6)-digit)\s+){0,2}"
+        rf"(?:{_CODE_WORDS})\b", re.I)),
     ("a login and its password", re.compile(
         r"\b(?:login|log-in|logon|sign-?in|credentials|creds|identifiants?|zugangsdaten|anmeldedaten)\b"
         r"(?:[^.\n]{0,30}?\b(?:is|are|est|sont|ist|sind)\b|[^.\n:=\d]{0,30}?[:=])\s*"

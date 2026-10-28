@@ -1008,7 +1008,7 @@ class Assistant:
                 reasons.append(f"mentions {memory.cite()} ({memory.sensitivity}: {memory.label})")
                 ids.append(memory.id)
         if not reasons and classify_sensitivity(message) == "private":
-            reasons.append("looks private to the local rules (health, money, legal or job search)")
+            reasons.append("looks private to the local rules (health, money, legal, job search or a code)")
         return reasons, ids
 
     # --- intents ---------------------------------------------------------------
