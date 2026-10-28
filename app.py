@@ -85,6 +85,7 @@ class CheckView:
     allowed: bool
     reasons: tuple[str, ...]
     text: str  # exactly what was (or, in replay, would be) sent; empty when blocked
+    not_sent: str = ""  # why an allowed request never left (web search off, or no recorded search)
 
 
 @dataclass(frozen=True)
@@ -167,9 +168,12 @@ class Runtime:
 
 
 def replay_is_recorded(book: ReplayBook) -> bool:
-    """Whether every replay turn comes from a live recording (hand-written samples have no recorded_at)."""
+    """Whether every replay turn that holds model outputs or web results comes from a live recording
+    (hand-written samples have no recorded_at). A turn with neither replays nothing: the PIN refusal and the
+    private correction never call a model, so a live run has nothing to record for them."""
     turns = [book.lookup(question) for question in book.questions()]
-    return bool(turns) and all(turn is not None and turn.recorded_at for turn in turns)
+    replayed = [turn for turn in turns if turn is not None and (turn.outputs or turn.web_results)]
+    return bool(replayed) and all(turn.recorded_at for turn in replayed)
 
 
 def recorded_models(book: ReplayBook) -> dict[str, str]:
@@ -307,7 +311,8 @@ class Engine:
             placeholders=tuple(_memory(m) for m in prepared.withheld) if prepared else (),
             kept_local=tuple(_memory(m) for m in report.kept_local),
             checks=tuple(
-                CheckView(d.purpose, d.provider, d.allowed, tuple(d.reasons), d.redacted_text if d.allowed else "")
+                CheckView(d.purpose, d.provider, d.allowed, tuple(d.reasons), d.redacted_text if d.allowed else "",
+                          d.not_sent)
                 for d in report.decisions
             ),
             actions=tuple(turn.actions),
@@ -330,7 +335,7 @@ PERSONA_LINE = f"a fictional {PERSONA.get('role', 'product designer').lower()} i
 DEMO_SCRIPT: tuple[tuple[str, str], ...] = (
     ("What's on my plate next week?", "Private appointments are filled in on this device"),
     ("My dermatologist appointment moved to Wednesday 4 Nov at 9:00.", "Corrected on this device as version 2"),
-    ("Find a 10-day taper plan for my half marathon.", "Web search with nothing private in the query"),
+    ("Find a 10-day taper plan for my half marathon.", "A web query, guarded before it may leave"),
     ("Draft a birthday message for Léa.", "Personal memories may go to the cloud model"),
     ("Remember my bank PIN is 4821.", "Refused: credentials are never stored or sent"),
     ("Run my daily brief.", "The week ahead, plus today's receipts"),
@@ -876,14 +881,20 @@ def render_payload(text: str, known: Collection[int]) -> str:
 
 
 def render_check(check: CheckView, known: Collection[int], *, open_text: bool) -> str:
-    """One outbound request: verdict, destination, reasons and the exact text."""
+    """One request the guard checked: verdict, destination, reasons and the exact text. A request the guard
+    allowed that never left says so, with the reason the assistant recorded (web search off, or a replay with
+    no recorded search); a request that left and failed is not one of them."""
+    notes = list(check.reasons)
     if not check.allowed:
         verdict, css = "Blocked", " cf-verdict--blocked"
+    elif check.not_sent:
+        verdict, css = "Not sent", ""
+        notes.append(f"the guard allowed it, but {check.not_sent}")
     elif check.reasons:
         verdict, css = "Redacted", ""
     else:
         verdict, css = "Allowed", ""
-    reasons = "".join(f'<span class="cf-check__reasons">{esc(capitalised(r))}</span>' for r in check.reasons)
+    reasons = "".join(f'<span class="cf-check__reasons">{esc(capitalised(r))}</span>' for r in notes)
     payload = ""
     if check.text:
         payload = (
@@ -978,7 +989,7 @@ def render_guard_panel(turn: TurnView | None) -> str:
         f'<section class="cf-side cf-side--kept"><h4 class="cf-section-title">Kept on this device'
         f'<span class="cf-count">{len(turn.kept_local)}</span></h4>{kept}</section>'
         "</div>"
-        '<section class="cf-section"><h4 class="cf-section-title">Outbound requests'
+        '<section class="cf-section"><h4 class="cf-section-title">Requests checked by the guard'
         f'<span class="cf-count">{len(turn.checks)}</span></h4>{requests}</section>'
         '<section class="cf-section"><h4 class="cf-section-title">Exactly what left this device'
         f'<span class="cf-count">{len(turn.outbound)}</span></h4>{render_outbound(turn.outbound, known)}</section>'
@@ -1004,7 +1015,7 @@ def render_call(r: ReceiptView) -> str:
     return (
         '<li class="cf-call"><div class="cf-call__top">'
         f'<span class="cf-call__purpose">{esc(PURPOSE_NAMES.get(r.purpose, r.purpose))}</span>'
-        f'<span class="cf-call__time">{esc(r.at[11:19])}</span>{tag}</div>'
+        f'<span class="cf-call__time">{esc(r.at[11:19])} UTC</span>{tag}</div>'
         f'<div class="cf-call__provider">{esc(PROVIDER_NAMES.get(r.provider, r.provider))}</div>'
         f'<div class="cf-call__model">{esc(r.model if r.mode != "replay" or recorded else "sample, no model call")}</div>'
         f'<div class="cf-call__nums">{numbers}</div><div class="cf-call__nums">{ids}</div>'
@@ -1023,7 +1034,8 @@ def render_receipts(summary: SummaryView, receipts: Sequence[ReceiptView]) -> st
         )
     return (
         '<div class="cf cf-panel"><div class="cf-panel__head"><h3 class="cf-panel__title">Receipts</h3>'
-        '<p class="cf-panel__lead">Every call that left this device during this session.</p></div>'
+        '<p class="cf-panel__lead">Every call that left this device and was answered during this session; a call '
+        "that fails is reported in its turn.</p></div>"
         f'{render_slip(summary)}<section class="cf-section"><h4 class="cf-section-title">Calls'
         f'<span class="cf-count">{len(receipts)}</span></h4>{calls}</section></div>'
     )

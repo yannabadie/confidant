@@ -26,24 +26,23 @@ printf '%s\n' \
   | "$PY" -m confidant --home "$WORK/home" chat --record "$WORK/recorded.json" | tee "$WORK/transcript.txt"
 "$PY" -m confidant --home "$WORK/home" receipts > "$WORK/receipts.txt" || true
 "$PY" - "$WORK/recorded.json" <<'EOF'
-"""Overwrite each data/replay/0N_*.json placeholder with the live turn for the same question."""
+"""Overwrite each data/replay/0N_*.json placeholder with the live turn for the same question
+(confidant.replay.merge_recording: all or nothing, turns that never call a model are kept)."""
 import json, sys
 from pathlib import Path
-from confidant.replay import ReplayBook, normalize_question
+from confidant.replay import ReplayBook, merge_recording
 
-live = ReplayBook.load(sys.argv[1])
-missing = []
-for path in sorted(Path("data/replay").glob("0*_*.json")):
-    question = json.loads(path.read_text(encoding="utf-8"))["question"]
-    turn = live.lookup(question)
-    if turn is None or normalize_question(turn.question) != normalize_question(question):
-        missing.append(question)
-        continue
-    path.write_text(json.dumps({**turn.to_dict(), "mode": "recorded live"}, ensure_ascii=False, indent=2) + "\n",
-                    encoding="utf-8")
-    print(f"{path.name}: recorded {turn.recorded_at}, models {turn.models}")
-if missing:
-    print("not recorded live (placeholder kept):", missing, file=sys.stderr)
+paths = {path.name: path for path in sorted(Path("data/replay").glob("0*_*.json"))}
+placeholders = {name: json.loads(path.read_text(encoding="utf-8")) for name, path in paths.items()}
+result = merge_recording(placeholders, ReplayBook.load(sys.argv[1]))
+for name in result.kept:
+    print(f"{name}: no model call, as expected; kept")
+if result.problems:
+    print("not recorded, nothing written:", *result.problems, sep="\n  ", file=sys.stderr)
     sys.exit(3)
+for name, data in result.writes.items():
+    paths[name].write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"{name}: recorded {data['recorded_at']}, models {data['models']}, outputs {sorted(data['outputs'])}, "
+          f"web search {data.get('web_search', 'not used')}")
 EOF
 echo "Transcript and receipts: $WORK"

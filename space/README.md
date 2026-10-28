@@ -30,8 +30,9 @@ Run the seven-step demo script on the left of the app:
    shows the exact text Nemotron received.
 2. **My dermatologist appointment moved…** The correction becomes version 2; select its source chip to
    see the history.
-3. **Find a 10-day taper plan for my half marathon.** A web search whose query carries nothing private;
-   the results are stored with their URLs.
+3. **Find a 10-day taper plan for my half marathon.** The web query passes the guard first. The demo turns
+   were recorded with web search off, so the Guard tab shows the guarded query, marked as not sent; with a
+   Tavily key, the results are stored with their URLs.
 4. **Draft a birthday message for Léa.** Personal memories may go to the cloud model, and the answer
    cites them.
 5. **Remember my bank PIN is 4821.** Refused: credentials are never stored or sent.

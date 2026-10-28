@@ -14,7 +14,7 @@ import json
 import re
 import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Protocol
 
@@ -52,8 +52,12 @@ from .rules import (
 from .scan import STOPWORDS, detect_secret, digit_runs, find_secrets, find_values, has_value_cues, words
 from .search import COST_PER_SEARCH_USD, WebResult, record_results, search_payload
 
-REASON_MAX_TOKENS = 1024  # leaves room for a reasoning trace before the answer
-FAST_MAX_TOKENS = 256
+REASON_MAX_TOKENS = 8192  # a reasoning trace, then the answer: live, the brief took up to 2,146; 1,024 cut it off
+FAST_MAX_TOKENS = 256  # one short JSON object, with reasoning off (see THINKING)
+# Which roles reason. The fast model's job, routing, is one JSON object: with reasoning on, Nemotron Nano spent
+# its whole budget thinking and returned no route (scripts/probe_reasoning.py, docs/token-factory-probe.md).
+THINKING = {"reason": True, "fast": False}
+_FIRST_PERSON = frozenset({"i", "me", "my", "mine", "myself", "we", "us", "our", "ours", "ourselves"})
 REASON_TEMPERATURE = 0.3
 FAST_TEMPERATURE = 0.0
 MAX_CONTEXT_MEMORIES = 10
@@ -75,19 +79,24 @@ own line or after a colon, and do not say when it happens.
 3. Never guess, reconstruct or ask for a withheld value, and add nothing that its label does not say.
 4. If the memories hold nothing relevant, say so clearly ("Nothing in memory about that.") and offer only \
 general knowledge, labelled as such.
-5. Keep answers short: a few sentences or a brief list."""
+5. Keep answers short: a few sentences or a brief list, no tables (the chat and Telegram do not render them)."""
 
 ROUTER_SYSTEM_PROMPT = """\
-You route messages for Confidant, a personal memory assistant. Reply with exactly one JSON object and no other text:
+You route messages for Confidant, a personal assistant that knows the user's own life from their memories. \
+Reply with exactly one JSON object and no other text:
 {"intent": "answer" | "remember" | "correct" | "search" | "brief" | "availability", \
 "text": "...", "target": "...", "query": "..."}
-- remember: the user tells you something new to keep. "text": that fact as one short standalone sentence.
-- correct: the user changes or fixes something already known. "target": a few words naming that memory; \
+- answer, the default: any question their memories could answer, about their own plans, schedule, events, \
+people, tastes, training or past choices; also drafting and advice. Examples: "When is my next dentist visit?", \
+"What did Sam suggest for the trip?", "Write a thank-you note to my landlord."
+- search: only when they ask for outside knowledge that their memories cannot hold, such as a how-to, a recipe \
+or public facts. Examples: "How do I fix a flat bike tyre?", "Look up the opening hours of the Louvre." \
+"query": a short web query with no names, dates or personal details.
+- remember: they tell you something new to keep. "text": that fact as one short standalone sentence.
+- correct: they change or fix something already known. "target": a few words naming that memory; \
 "text": the full corrected fact as one sentence.
-- search: the user wants information from the web. "query": a short web query with no names, dates or personal details.
-- brief: the user asks for their daily brief.
-- availability: the user asks whether they are free or busy at some time.
-- answer: anything else (questions about their life, drafting, advice).
+- brief: they ask for their daily brief.
+- availability: they ask whether they are free or busy at a given time, e.g. "Am I free on Tuesday at 15:00?".
 Leave out fields that do not apply. /no_think"""
 
 CLASSIFY_SYSTEM_PROMPT = """\
@@ -108,9 +117,10 @@ class ChatClient(Protocol):
     """What the assistant needs from a chat model client (TokenFactory or a test double)."""
 
     def chat(
-        self, model: str, messages: Sequence[Mapping[str, str]], *, max_tokens: int, temperature: float, purpose: str
+        self, model: str, messages: Sequence[Mapping[str, str]], *, max_tokens: int, temperature: float, purpose: str,
+        thinking: bool = True,
     ) -> ChatResult:
-        """Run one chat completion."""
+        """Run one chat completion; ``thinking=False`` asks the model not to reason first."""
         ...
 
     def list_models(self) -> list[str]:
@@ -433,6 +443,10 @@ class _Exchange:
         self.tokens = 0
         self.outputs: dict[str, str] = {}
         self.web_results: list[WebResult] = []
+        self.web_search = ""  # live: "ran" or "off", kept with the recording; "" when no web query was made
+        # a live answer or brief call failed or was cut off: answered locally, never recorded (a failed route
+        # is: the rules route it, in replay as they did live)
+        self.failed = False
         self.outbound: list[Outbound] = []
         self.opening_notices = len(notices)  # about the mode (replay, budget, models), set before any call
 
@@ -476,10 +490,12 @@ class _Exchange:
         assert assistant.llm is not None and assistant.models is not None  # guaranteed in live mode
         try:
             result = assistant.llm.chat(
-                assistant.models[role], messages, max_tokens=max_tokens, temperature=temperature, purpose=purpose
+                assistant.models[role], messages, max_tokens=max_tokens, temperature=temperature, purpose=purpose,
+                thinking=THINKING[role],
             )
         except ServiceError as exc:
             self.notices.append(f"The live {purpose} call failed ({exc}); a local fallback was used.")
+            self.failed = self.failed or purpose != "route"
             return None
         self.live_calls += 1
         self.tokens += result.prompt_tokens + result.completion_tokens
@@ -488,9 +504,15 @@ class _Exchange:
             completion_tokens=result.completion_tokens, latency_ms=result.latency_ms,
             cost=estimate_cost(result.model, result.prompt_tokens, result.completion_tokens),
         )
+        if result.truncated:  # unfinished: the text may be the model's reasoning, never an answer
+            self.notices.append(
+                f"The {purpose} model reached its {max_tokens}-token limit before finishing; a local fallback was used."
+            )
+            self.failed = self.failed or purpose != "route"
+            return None
         if not result.text:
-            hint = " (it spent its token budget reasoning)" if result.finish_reason == "length" else ""
-            self.notices.append(f"The {purpose} model returned no answer text{hint}; a local fallback was used.")
+            self.notices.append(f"The {purpose} model returned no answer text; a local fallback was used.")
+            self.failed = self.failed or purpose != "route"
             return None
         self.outputs[purpose] = result.text
         return result.text
@@ -512,22 +534,34 @@ class _Exchange:
                 f"Web search is off (no TAVILY_API_KEY), so nothing was searched; the guarded query would have been "
                 f"\u201c{decision.redacted_text}\u201d. The answer uses memory only."
             )
+            self.decisions[-1] = replace(decision, not_sent="web search is off, so this query was not sent")
+            self.web_search = "off"
             return []
         payload = search_payload(decision.redacted_text, WEB_RESULT_COUNT)
         if self.mode == "replay":
-            results = list(self.recorded.web_results) if self.recorded else []
-            if results:
+            recorded = self.recorded
+            results = list(recorded.web_results) if recorded else []
+            if results or (recorded is not None and recorded.web_search == "ran"):
                 self._log(TAVILY, TAVILY_MODEL, "web_search", payload, [], decision.withheld_ids)
+            elif recorded is not None and recorded.web_search == "off":
+                self.notices.append(
+                    "Web search was off when this turn was recorded, so nothing was searched; the guarded query "
+                    f"would have been \u201c{decision.redacted_text}\u201d. The answer uses memory only."
+                )
+                self.decisions[-1] = replace(decision, not_sent="web search was off when this turn was recorded")
             else:
                 self.notices.append("Replay has no recorded web results for this request.")
+                self.decisions[-1] = replace(decision, not_sent="the recording holds no web search for this turn")
             return results
         started = time.perf_counter()
         try:
             results = assistant.search.search(decision.redacted_text, max_results=WEB_RESULT_COUNT)
-        except ServiceError as exc:
+        except ServiceError as exc:  # the query left the device: it is not marked as not sent
             self.notices.append(f"Web search failed ({exc}); the answer uses memory only.")
+            self.failed = True
             return []
         self.live_calls += 1
+        self.web_search = "ran"
         self._log(
             TAVILY, TAVILY_MODEL, "web_search", payload, [], decision.withheld_ids,
             latency_ms=round((time.perf_counter() - started) * 1000), cost=COST_PER_SEARCH_USD,
@@ -685,10 +719,10 @@ class Assistant:
         live = exchange.mode == "live" and exchange.live_calls > 0
         if live:
             self.budget.consume(exchange.session_id, exchange.tokens)
-        if live and self.recorder is not None and exchange.outputs:
+        if live and self.recorder is not None and exchange.outputs and not exchange.failed:
             self.recorder.add(RecordedTurn(
                 question=message, outputs=dict(exchange.outputs), web_results=list(exchange.web_results),
-                models=dict(self.models or {}), recorded_at=utc_timestamp(),
+                models=dict(self.models or {}), recorded_at=utc_timestamp(), web_search=exchange.web_search,
             ))
         report = GuardReport(
             prepared=prepared, decisions=exchange.decisions, kept_local=kept_local,
@@ -730,9 +764,10 @@ class Assistant:
             exchange.withheld_ids.update(ids)
             return rule_route(message), True
         local = rule_route(message)
-        if local.intent != "answer" or has_value_cues(message):
-            # the rules already know, or the message may carry a date, time or amount in some form
-            # the scanners do not read: either way, no need to show it to a router
+        if local.intent != "answer" or has_value_cues(message) or self._asks_about_own_period(message):
+            # the rules already know; or the message may carry a date, time or amount in some form the
+            # scanners do not read; or it asks about a period of the user's own time: in each case, no need
+            # to show it to a router
             return local, False
         raw = exchange.complete("route", "fast", ROUTER_SYSTEM_PROMPT, masked(message))
         route = parse_route(raw) if raw is not None else None
@@ -741,6 +776,20 @@ class Assistant:
                 exchange.actions.append("router reply was not valid JSON; used keyword rules")
             route = rule_route(message)
         return route, False
+
+    def _asks_about_own_period(self, message: str) -> bool:
+        """A question, in the first person, that names a period of time ("What's on my plate next week?").
+
+        It asks about the user's own schedule, which memory answers; live, with the final router prompt, the
+        router sent "What's on my plate next week?" to a web search in five calls out of seven. A question
+        about the world ("Is there a public holiday next week?") or a statement naming a period ("Next week
+        I'm in Paris") still goes to the router: the first may need the web, the second may be news to keep.
+        """
+        return (
+            message.rstrip().endswith("?")
+            and any(word in _FIRST_PERSON for word in words(message))
+            and period_asked(message, self.today()) is not None
+        )
 
     def _private_signals(self, message: str) -> tuple[list[str], list[int]]:
         """Why a message must stay local: private values in it, private labels it

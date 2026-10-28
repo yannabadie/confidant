@@ -78,6 +78,8 @@ class GuardDecision:
     ``allowed`` is False when nothing may be sent; ``redacted_text`` is what may
     be sent (the original text when nothing was found); ``reasons`` explain each
     removal; ``withheld_ids`` are the memories whose values were removed.
+    ``not_sent`` says why an allowed request was nonetheless never sent (web search
+    off, or a replay with no recorded search); it is empty for a request that left.
     """
 
     allowed: bool
@@ -86,6 +88,7 @@ class GuardDecision:
     withheld_ids: list[int]
     provider: str = ""
     purpose: str = ""
+    not_sent: str = ""
 
 
 @dataclass(frozen=True)

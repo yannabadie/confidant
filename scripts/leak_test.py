@@ -600,7 +600,7 @@ class RecordingLLM:
         self.log = log
 
     def chat(self, model: str, messages: Sequence[Mapping[str, str]], *, max_tokens: int, temperature: float,
-             purpose: str) -> ChatResult:
+             purpose: str, thinking: bool = True) -> ChatResult:
         sent = [dict(message) for message in messages]
         self.log.append(Call(NEBIUS, purpose, sent))
         return ChatResult(text=self.profile.reply(purpose, sent), prompt_tokens=100, completion_tokens=20,

@@ -17,7 +17,7 @@ from confidant.llm import ChatResult
 PERSONA = Path(__file__).resolve().parent.parent / "data" / "demo_persona.json"
 MODELS = {"reason": "nvidia/Nemotron-3-Ultra-550b-a55b", "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"}
 Messages = Sequence[Mapping[str, str]]
-Reply = str | Exception | Callable[[Messages], str]
+Reply = str | Exception | ChatResult | Callable[[Messages], str]
 
 TAPER_RESULTS = [
     WebResult("Ten-day half marathon taper", "https://running.example.org/taper",
@@ -78,13 +78,19 @@ class FakeLLM:
         self.replies = dict(DEMO_REPLIES if replies is None else replies)
         self.calls: list[dict] = []
 
-    def chat(self, model: str, messages: Messages, *, max_tokens: int, temperature: float, purpose: str) -> ChatResult:
-        """Return the scripted reply for ``purpose`` (or raise it, if it is an exception)."""
-        self.calls.append({"model": model, "purpose": purpose, "max_tokens": max_tokens,
+    def chat(
+        self, model: str, messages: Messages, *, max_tokens: int, temperature: float, purpose: str,
+        thinking: bool = True,
+    ) -> ChatResult:
+        """Return the scripted reply for ``purpose`` (or raise it, if it is an exception; a ChatResult is
+        returned as is, e.g. one cut off at the token limit)."""
+        self.calls.append({"model": model, "purpose": purpose, "max_tokens": max_tokens, "thinking": thinking,
                            "messages": [dict(message) for message in messages]})
         reply = self.replies.get(purpose, "")
         if isinstance(reply, Exception):
             raise reply
+        if isinstance(reply, ChatResult):
+            return reply
         text = reply(messages) if callable(reply) else reply
         return ChatResult(text=text, prompt_tokens=120, completion_tokens=30, latency_ms=7, model=model)
 

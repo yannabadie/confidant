@@ -61,6 +61,11 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
   real dates and make no call. Nine prompts of the four rounds are such questions; one prompt that asks to
   "search the web" (I06) now goes to web search, its query guarded. Rerun on this version: still 0 of 170,
   with 77/89, 53/63, 58/64 and 11/11 calls.
+- **Rerun on 28 October**, after the live run on Token Factory changed routing (the router runs with reasoning
+  off, a first-person question about a period of the user's time is routed on the device, a reply cut off at the
+  token limit is never used): still 0 of 170 in both profiles, with 75/85, 53/63, 58/64 and 11/11 calls. Round 1
+  makes two fewer routing calls in each profile. The four current result files, linked above, are from this
+  rerun.
 - **A differential check found what payload scanning cannot**: asked "What do I have on Tuesday?" and the same
   about Monday, Confidant put a private appointment's placeholder in the model's context only on the day that
   appointment was, which dated it without showing any value (18 of 30 question pairs, 27 October). Fixed;

@@ -6,3 +6,4 @@ probe-latest.log
 .venv/
 .hermes-demo/
 *.egg-info/
+probe-reasoning*.md

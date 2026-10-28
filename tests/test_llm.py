@@ -231,3 +231,27 @@ def test_cost_estimates_follow_the_model_tier() -> None:
 def test_a_key_is_required() -> None:
     with pytest.raises(ValueError, match="NEBIUS_API_KEY"):
         TokenFactory("")
+
+
+def test_thinking_off_asks_the_chat_template_to_skip_reasoning() -> None:
+    # Nemotron 3 on Token Factory reads chat_template_kwargs.enable_thinking (probe of 28 Oct 2026).
+    seen: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, json=completion('{"intent": "answer"}'))
+
+    tf = client(handler)
+    tf.chat("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", MESSAGES, purpose="route", thinking=False)
+    tf.chat("nvidia/Nemotron-3-Ultra-550b-a55b", MESSAGES, purpose="answer")
+    assert seen[0]["chat_template_kwargs"] == {"enable_thinking": False}
+    assert "chat_template_kwargs" not in seen[1]
+
+
+def test_a_reply_cut_off_at_max_tokens_is_marked_truncated() -> None:
+    # An unfinished trace has no tags to strip: the flag is how a caller knows not to use the text.
+    body = completion("The user wants a daily brief for the next 7 days")
+    body["choices"][0]["finish_reason"] = "length"
+    result = client(lambda request: httpx.Response(200, json=body)).chat("m", MESSAGES)
+    assert result.truncated and result.text.startswith("The user wants")
+    assert not client(lambda request: httpx.Response(200, json=completion("ready"))).chat("m", MESSAGES).truncated

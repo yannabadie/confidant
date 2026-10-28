@@ -4,6 +4,12 @@
 whether in ``reasoning_content`` or inline ``<think>`` blocks, never reach the
 user, while their tokens still count in the reported usage. Receipts for these
 calls are written by the assistant, which knows which memories each one carried.
+
+Two behaviours of Token Factory measured on 28 October 2026 (scripts/probe_reasoning.py):
+a reply that reaches ``max_tokens`` before its reasoning trace closes may arrive with
+the unfinished trace as its answer text, untagged, so a caller must not use the text
+of a ``truncated`` result; and ``thinking=False`` switches reasoning off through the
+chat template (``chat_template_kwargs.enable_thinking``), which Nemotron 3 honours.
 """
 from __future__ import annotations
 
@@ -64,6 +70,11 @@ class ChatResult:
     latency_ms: int
     model: str
     finish_reason: str = ""
+
+    @property
+    def truncated(self) -> bool:
+        """The model stopped at ``max_tokens``: the text is unfinished, or an unfinished reasoning trace."""
+        return self.finish_reason == "length"
 
 
 def strip_reasoning(text: str) -> str:
@@ -183,17 +194,21 @@ class TokenFactory:
         max_tokens: int = 1024,
         temperature: float = 0.2,
         purpose: str = "chat",
+        thinking: bool = True,
     ) -> ChatResult:
         """Run one chat completion (POST /chat/completions) and return the final answer.
 
-        ``purpose`` labels error messages. Raises ServiceError on failure.
+        ``purpose`` labels error messages; ``thinking=False`` asks the chat template to
+        skip reasoning. Raises ServiceError on failure.
         """
-        payload = {
+        payload: dict[str, object] = {
             "model": model,
             "messages": [dict(message) for message in messages],
             "max_tokens": max_tokens,
             "temperature": temperature,
         }
+        if not thinking:
+            payload["chat_template_kwargs"] = {"enable_thinking": False}
         data, latency_ms = self._request("POST", "/chat/completions", purpose, payload)
         try:
             choice = data["choices"][0]

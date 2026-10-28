@@ -34,8 +34,19 @@ private ones included, and makes no call at all.
 
 | Step | Model (Nebius Token Factory) | Why this model |
 |---|---|---|
-| Route a question the local rules cannot route (answer or search) | Nemotron 3 Nano | fast and cheap; the reply is parsed as JSON, with keyword rules as fallback. Messages that touch a private memory, and anything the rules recognise (remember, correct, search, brief, availability), are routed on the device |
-| Compose the answer or the daily brief from guarded context | Nemotron 3 Ultra | long-context reasoning over many memories |
+| Route a question the local rules cannot route | Nemotron 3 Nano 30B-A3B (`nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`), reasoning off | fast and cheap: one short JSON object, with keyword rules as fallback ([router check](docs/router-check.md): 40 of 48 calls as expected). Messages that touch a private memory, carry a date, time or amount, ask about a period of your time ("What's on my plate next week?"), or that the rules recognise (remember, correct, search, brief, availability) are routed on the device |
+| Compose the answer or the daily brief from guarded context | Nemotron 3 Ultra 550B-A55B (`nvidia/Nemotron-3-Ultra-550b-a55b`), reasoning on | reasoning over many memories while following the placeholder rules: copy `⟦m7⟧` verbatim, cite `[m6v1]`, never date a withheld item |
+
+What we measured on Token Factory on 28 October 2026 ([`docs/token-factory-probe.md`](docs/token-factory-probe.md)):
+
+- A reply that reaches `max_tokens` before its reasoning trace closes can arrive with the unfinished trace as its
+  text, untagged; the first live daily brief was such a trace. Confidant never uses a reply that stopped at the
+  token limit: the turn falls back to a local answer, says so, and is never recorded for replay. Answers get
+  8,192 tokens; with its trace, the brief took 1,236 to 2,146.
+- `chat_template_kwargs: {"enable_thinking": false}` switches Nemotron 3's reasoning off; `/no_think` in the
+  prompt did not stop Nano. With reasoning on, Nano spent its 256 tokens thinking and returned no route.
+- The six demo turns, recorded live: 5 calls, 5,640 tokens, about $0.013 at list prices; the route took 1 second,
+  the answers 1.3 to 1.9 and the brief 5.4.
 
 The sensitivity of a new memory is decided on the device: asking a model whether a fact is private would show
 it the fact. Keyword lists cannot name every illness or dispute, so a new fact is private unless the rules see
@@ -44,8 +55,10 @@ routed on the device; the router sees the others with their values masked.
 
 All calls use the OpenAI-compatible Token Factory API (`https://api.tokenfactory.nebius.com/v1`).
 Model ids are discovered at start-up from `/v1/models` and can be pinned with `CONFIDANT_MODEL_REASON` and
-`CONFIDANT_MODEL_FAST`. Web search uses **Tavily**; queries pass the same guard: private values are removed
-from the query, or the search is blocked. Results are stored as `web` memories with their URL and retrieval date.
+`CONFIDANT_MODEL_FAST`. Web search uses **Tavily** when `TAVILY_API_KEY` is set (the recorded demo ran without
+it, so its web step shows the guarded query and sends nothing); queries pass the same guard: private values are
+removed from the query, or the search is blocked. Results are stored as `web` memories with their URL and
+retrieval date.
 
 ## Architecture
 
@@ -73,8 +86,9 @@ python -m confidant chat         # terminal chat
 python app.py                    # web UI on http://127.0.0.1:7860
 ```
 
-Without a key, the app runs in clearly labelled **replay** mode: from turns recorded live when `data/replay/`
-holds them, otherwise from hand-written sample answers, which the interface labels as samples.
+Without a key, the app runs in clearly labelled **replay** mode, from the demo turns recorded live on
+28 October 2026 in `data/replay/` (Nemotron 3 Ultra and Nano on Token Factory); with no recording there, it shows
+hand-written sample answers, which the interface labels as samples.
 
 ### Use it from Hermes Agent (or any MCP client)
 
@@ -131,10 +145,10 @@ draft, so each private item appears only as its label, and no Hermes model reads
 | `confidant/` | memory store, guard, receipts, budget, Token Factory and Tavily clients, assistant, MCP server, CLI |
 | `app.py`, `assets/` | Gradio web demo |
 | `data/demo_persona.json` | the synthetic persona (25 memories) |
-| `data/replay/` | turns replayed when no key is set (hand-written samples until a live recording replaces them) |
+| `data/replay/` | the demo turns recorded live on 28 October 2026, replayed when no key is set (the correction and the refused PIN make no model call, so nothing is recorded for them) |
 | `space/` | the three files of the Hugging Face Space |
-| `scripts/` | macOS keychain wrapper, a Token Factory probe, the live recorder and the offline leak test |
-| `docs/` | leak test report and machine-readable results |
+| `scripts/` | macOS keychain wrapper, Token Factory probes (models, reasoning and token budgets), the router check, the live recorder and the offline leak test |
+| `docs/` | leak test report and machine-readable results, the Token Factory probe, the router check, the Hermes deliveries |
 | `integrations/hermes/` | Hermes Agent skill, the morning-brief cron script and its setup |
 | `tests/` | offline test suite (all HTTP mocked) |
 

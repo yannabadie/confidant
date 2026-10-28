@@ -57,16 +57,20 @@ class RecordedTurn:
     web_results: list[WebResult] = field(default_factory=list)
     models: dict[str, str] = field(default_factory=dict)
     recorded_at: str = ""
+    web_search: str = ""  # "ran" or "off" (no search client) when recorded live; "" when unknown
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-ready form, as written by :meth:`ReplayBook.save`."""
-        return {
+        data: dict[str, Any] = {
             "question": self.question,
             "outputs": dict(self.outputs),
             "web_results": [asdict(result) for result in self.web_results],
             "models": dict(self.models),
             "recorded_at": self.recorded_at,
         }
+        if self.web_search:
+            data["web_search"] = self.web_search
+        return data
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> RecordedTurn:
@@ -86,7 +90,8 @@ class RecordedTurn:
             for item in data.get("web_results") or []
         ]
         models = {str(role): str(model) for role, model in dict(data.get("models") or {}).items()}
-        return cls(question, outputs, results, models, str(data.get("recorded_at") or ""))
+        return cls(question, outputs, results, models, str(data.get("recorded_at") or ""),
+                   str(data.get("web_search") or ""))
 
 
 class ReplayBook:
@@ -144,3 +149,41 @@ class ReplayBook:
     def __len__(self) -> int:
         """Number of recorded turns."""
         return len(self._turns)
+
+
+@dataclass(frozen=True)
+class MergeResult:
+    """What a live recording does to the replay placeholders: files to write, files kept, problems."""
+
+    writes: dict[str, dict[str, Any]]
+    kept: list[str]
+    problems: list[str]
+
+
+def merge_recording(placeholders: Mapping[str, Mapping[str, Any]], live: ReplayBook) -> MergeResult:
+    """Replace each placeholder (file name -> its JSON) with the live turn for the same question.
+
+    A placeholder with no outputs stands for a turn that never calls a model (the PIN refusal, the
+    private correction): it is kept as it is. Any other placeholder must come back from the live run
+    with every answer it holds ("answer", "brief"; the route may be decided on the device). If one does
+    not, nothing is written at all, so a hand-written answer never sits among live ones unnoticed.
+    """
+    writes: dict[str, dict[str, Any]] = {}
+    kept: list[str] = []
+    problems: list[str] = []
+    for name, placeholder in placeholders.items():
+        question = str(placeholder["question"])
+        needed = sorted(set(placeholder.get("outputs") or {}) - {"route"})
+        turn = live.lookup(question)
+        if turn is None or normalize_question(turn.question) != normalize_question(question):
+            if needed:
+                problems.append(f"{name}: no live output (needs {', '.join(needed)})")
+            else:
+                kept.append(name)
+            continue
+        lacking = [purpose for purpose in needed if purpose not in turn.outputs]
+        if lacking:
+            problems.append(f"{name}: the live turn lacks {', '.join(lacking)} (its call failed or was cut off)")
+            continue
+        writes[name] = {**turn.to_dict(), "mode": "recorded live"}
+    return MergeResult({} if problems else writes, kept, problems)

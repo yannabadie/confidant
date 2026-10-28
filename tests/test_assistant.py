@@ -10,10 +10,11 @@ from confidant.guard import WITHHELD_HEADING
 
 from confidant import Budget, ReplayBook, ServiceError
 from confidant.assistant import ANSWER_SYSTEM_PROMPT, FAST_MAX_TOKENS, REASON_MAX_TOKENS, extract_json, parse_route
+from confidant.llm import ChatResult
 from confidant.receipts import payload_sha256
 from confidant.replay import RecordedTurn
 
-from conftest import DEMO_REPLIES, Rig
+from conftest import DEMO_REPLIES, MODELS, Rig
 
 PLATE = "What's on my plate next week?"
 MOVED = "My dermatologist appointment moved to Tuesday 4 Nov at 9:00."
@@ -35,6 +36,12 @@ def test_answer_prompt_carries_the_required_rules() -> None:
         assert rule in ANSWER_SYSTEM_PROMPT
 
 
+def test_answer_prompt_asks_for_no_tables() -> None:
+    # Live, Nemotron Ultra answered the taper question with a Markdown table, which neither the chat nor the
+    # Telegram delivery renders: the pipes showed as text.
+    assert "no tables" in ANSWER_SYSTEM_PROMPT
+
+
 def test_next_week_cites_events_and_late_binds_private_ones(make_rig: Callable[..., Rig]) -> None:
     rig = make_rig()
     turn = rig.ask(PLATE)
@@ -48,21 +55,23 @@ def test_next_week_cites_events_and_late_binds_private_ones(make_rig: Callable[.
     assert "⟦m7⟧ (private: health appointment, value withheld)" in prepared.context_text
     assert turn.guard.late_bound_ids == [7, 11]
     assert turn.guard.summary() == "2 private memories never left Confidant"
-    assert rig.llm is not None and rig.llm.purposes() == ["route", "answer"]
-    assert [call["max_tokens"] for call in rig.llm.calls] == [FAST_MAX_TOKENS, REASON_MAX_TOKENS]
+    assert rig.llm is not None and rig.llm.purposes() == ["answer"]  # a question about next week: no router
+    assert [call["max_tokens"] for call in rig.llm.calls] == [REASON_MAX_TOKENS]
     assert all(value not in rig.llm.sent_text() for value in PRIVATE_VALUES)
 
 
 def test_receipts_record_each_call_with_ids_and_payload_hash(make_rig: Callable[..., Rig]) -> None:
     rig = make_rig()
     turn = rig.ask(PLATE)
-    assert [(r.purpose, r.mode, r.provider) for r in turn.receipts] == [
-        ("route", "live", "nebius_token_factory"), ("answer", "live", "nebius_token_factory")]
-    answer = turn.receipts[1]
+    assert [(r.purpose, r.mode, r.provider) for r in turn.receipts] == [("answer", "live", "nebius_token_factory")]
+    answer = turn.receipts[0]
     assert (answer.sent_memory_ids, answer.withheld_memory_ids) == ([6, 9], [7, 11])
     assert answer.model == "nvidia/Nemotron-3-Ultra-550b-a55b" and answer.prompt_tokens == 120
-    assert answer.payload_sha256 == payload_sha256(rig.llm.calls[1]["messages"])
+    assert answer.payload_sha256 == payload_sha256(rig.llm.calls[0]["messages"])
     assert answer.cost_usd_estimate > 0 and rig.receipts.today("s1") == turn.receipts
+    routed = rig.ask(BIRTHDAY)  # a turn with two calls has two receipts, in order
+    assert [(r.purpose, r.mode) for r in routed.receipts] == [("route", "live"), ("answer", "live")]
+    assert [r.payload_sha256 for r in routed.receipts] == [payload_sha256(c["messages"]) for c in rig.llm.calls[1:]]
 
 
 def test_each_outbound_call_is_kept_with_the_hash_its_receipt_stores(make_rig: Callable[..., Rig]) -> None:
@@ -184,7 +193,7 @@ def test_daily_brief_lists_the_week_and_appends_todays_receipts(make_rig: Callab
     assert prepared is not None and {7, 11} <= set(prepared.withheld_ids)
     assert {6, 9, 8, 14, 15} <= set(prepared.shared_ids)
     assert "Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30." in turn.answer
-    assert turn.answer.splitlines()[-1].startswith("Receipts today: 3 outbound calls")
+    assert turn.answer.splitlines()[-1].startswith("Receipts today: 2 outbound calls")  # the answer, the brief
     assert rig.ask(BRIEF).intent == "brief"
 
 
@@ -287,7 +296,7 @@ def test_a_failed_live_call_falls_back_locally_with_a_notice(make_rig: Callable[
     assert turn.mode == "live" and "HTTP 503" in turn.notice and "local fallback" in turn.notice
     assert turn.answer.startswith("The cloud model could not answer this time")
     assert "Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30." in turn.answer
-    assert [r.purpose for r in turn.receipts] == ["route"]
+    assert turn.receipts == []  # the one call failed, so no receipt: nothing was received
 
 
 def test_an_empty_reasoning_answer_falls_back(make_rig: Callable[..., Rig]) -> None:
@@ -437,3 +446,165 @@ def test_a_question_naming_a_day_never_selects_private_items_by_their_words(make
     answers = [call["messages"][1]["content"] for call in rig.llm.calls if call["purpose"] == "answer"]
     blocks = [prompt.split(WITHHELD_HEADING, 1)[1].split("\n\nRequest:")[0] for prompt in answers]
     assert len(answers) == 3 and len(set(blocks)) == 1 and "⟦m7⟧" in blocks[0] and "⟦m11⟧" in blocks[0]
+
+
+# --- token limits and reasoning, as seen live on 28 Oct 2026 (scripts/probe_reasoning.py) -----------------
+
+def cut_off(text: str, tokens: int, model: str = MODELS["reason"]) -> ChatResult:
+    """A reply the model did not finish: it reached max_tokens (finish_reason "length")."""
+    return ChatResult(text=text, prompt_tokens=504, completion_tokens=tokens, latency_ms=2908, model=model,
+                      finish_reason="length")
+
+
+UNFINISHED_TRACE = (
+    "The user wants a daily brief for the next 7 days from today (Friday 30 October 2026).\n\n"
+    "We have memories with dates:\n- m6v1: Quarterly product review on Wednesday 4 Nov 2026 at 15:00\n"
+    "Withheld memories: we need to list them after the events. We must not guess"
+)
+
+
+def test_a_brief_cut_off_at_the_token_limit_is_never_shown(make_rig: Callable[..., Rig]) -> None:
+    # Live, Nemotron Ultra spent the brief's whole budget reasoning; the unfinished trace came back as the
+    # answer text, with no tags, and was shown (and recorded for replay) as the brief.
+    recorder = ReplayBook()
+    rig = make_rig(replies(brief=cut_off(UNFINISHED_TRACE, REASON_MAX_TOKENS)), recorder=recorder)
+    turn = rig.assistant.daily_brief("s1")
+    assert "The user wants" not in turn.answer and "We must not guess" not in turn.answer
+    assert turn.answer.startswith("The cloud model could not answer this time")
+    assert "token limit" in turn.notice and "local fallback" in turn.notice
+    assert [r.purpose for r in turn.receipts] == ["brief"]  # the call happened and its tokens are counted
+    assert len(recorder) == 0  # an unfinished reply is never kept as a replay
+
+
+def test_a_router_reply_cut_off_at_the_token_limit_is_not_read_for_an_intent(make_rig: Callable[..., Rig]) -> None:
+    # An unfinished trace can hold a draft JSON object the model had not settled on.
+    trace = 'The user asks for a birthday message. Maybe {"intent": "search", "query": "birthday wishes"}? But'
+    rig = make_rig(replies(route=cut_off(trace, FAST_MAX_TOKENS, MODELS["fast"])))
+    turn = rig.ask(BIRTHDAY)
+    assert turn.intent == "answer" and rig.llm.purposes() == ["route", "answer"]
+    assert "token limit" in turn.notice
+
+
+def test_the_router_runs_with_reasoning_off_and_the_answers_with_it_on(make_rig: Callable[..., Rig]) -> None:
+    # With reasoning on, Nano spent its 256 tokens thinking and returned no route twice out of two.
+    rig = make_rig()
+    rig.ask(BIRTHDAY)
+    rig.assistant.daily_brief("s1")
+    assert [(call["purpose"], call["thinking"]) for call in rig.llm.calls] == [
+        ("route", False), ("answer", True), ("brief", True)]
+
+
+def test_the_reasoning_budget_fits_the_longest_trace_seen_live() -> None:
+    # docs/token-factory-probe.md: with its trace, the brief took up to 2,146 tokens (the final recording of
+    # 28 Oct); 1,024 cut it off.
+    assert REASON_MAX_TOKENS >= 2 * 2146
+
+
+def test_the_router_prompt_makes_answer_the_default_for_the_users_own_life() -> None:
+    # With reasoning off and "answer" described last, as "anything else", Nano sent "What's on my plate next
+    # week?" and two other questions about the user's own life to a web search (one run, recorded in the
+    # history of docs/router-check.md). The new wording did not measurably help (same file).
+    from confidant.assistant import ROUTER_SYSTEM_PROMPT
+
+    rules = [line for line in ROUTER_SYSTEM_PROMPT.splitlines() if line.startswith("- ")]
+    assert rules[0].startswith("- answer, the default:") and "own plans, schedule" in rules[0]
+    assert next(rule for rule in rules if rule.startswith("- search")).startswith("- search: only when")
+
+
+def test_a_question_about_a_period_of_the_users_own_time_is_never_left_to_the_router(
+    make_rig: Callable[..., Rig],
+) -> None:
+    # Live, with reasoning off and the final prompt, Nano sent "What's on my plate next week?" to a web search in
+    # five calls out of seven (docs/token-factory-probe.md): a first-person question naming a period is about the
+    # user's own schedule, so the rules route it and nothing reaches a router.
+    rig = make_rig(replies(route='{"intent": "search", "query": "my schedule next week"}'))
+    turn = rig.ask(PLATE)
+    assert turn.intent == "answer" and rig.llm.purposes() == ["answer"]
+    assert rig.tavily is not None and rig.tavily.queries == []
+
+
+def test_a_statement_that_names_a_period_still_reaches_the_router(make_rig: Callable[..., Rig]) -> None:
+    # Only a question about a period stays away from the router: "Next week I'm in Paris for work." is news to
+    # keep, which the local rules do not see, so the router must still be asked.
+    rig = make_rig(replies(route='{"intent": "remember", "text": "In Paris for work next week."}'))
+    turn = rig.ask("Next week I'm in Paris for work.")
+    assert rig.llm.purposes()[0] == "route" and turn.intent == "remember"
+
+
+# --- findings of the zero-context review of 28 Oct (period rule, recorder, web search state) ---------------
+
+def test_a_question_about_a_period_with_no_first_person_still_reaches_the_router(
+    make_rig: Callable[..., Rig],
+) -> None:
+    # "Is there a public holiday next week?" asks about the world, not about the user's own time.
+    rig = make_rig(replies(route='{"intent": "search", "query": "public holiday next week"}'))
+    turn = rig.ask("Is there a public holiday next week?")
+    assert rig.llm.purposes()[0] == "route" and turn.intent == "search"
+
+
+def test_a_first_person_question_about_a_period_is_routed_on_the_device(make_rig: Callable[..., Rig]) -> None:
+    rig = make_rig(replies(route='{"intent": "search", "query": "my week"}'))
+    turn = rig.ask("What do I have next week?")
+    assert turn.intent == "answer" and rig.llm.purposes() == ["answer"]
+
+
+def test_a_routed_turn_whose_answer_was_cut_off_is_never_recorded(make_rig: Callable[..., Rig]) -> None:
+    # The route succeeded, so the turn had outputs; recording them alone would replay a turn with no answer.
+    recorder = ReplayBook()
+    rig = make_rig(replies(answer=cut_off("The user wants a birthday message", REASON_MAX_TOKENS)), recorder=recorder)
+    rig.ask(BIRTHDAY)
+    assert rig.llm.purposes() == ["route", "answer"] and len(recorder) == 0
+
+
+def test_a_routed_turn_whose_answer_call_failed_is_never_recorded(make_rig: Callable[..., Rig]) -> None:
+    recorder = ReplayBook()
+    rig = make_rig(replies(answer=ServiceError("Nebius Token Factory (answer) had a server error (HTTP 503).")),
+                   recorder=recorder)
+    rig.ask(BIRTHDAY)
+    assert len(recorder) == 0
+
+
+def web_decision(turn):
+    """The guard's decision on the turn's web query."""
+    return next(d for d in turn.guard.decisions if d.purpose == "web search")
+
+
+def test_a_web_query_with_web_search_off_is_marked_as_not_sent(make_rig: Callable[..., Rig]) -> None:
+    turn = make_rig(web=False).ask(TAPER)
+    decision = web_decision(turn)
+    assert decision.allowed and "web search is off" in decision.not_sent
+    assert not [o for o in turn.outbound if o.provider == "tavily"]
+
+
+def test_a_web_search_that_failed_is_not_marked_as_not_sent(make_rig: Callable[..., Rig]) -> None:
+    # The query left the device and the search engine failed: saying it was not sent would be false.
+    class FailingTavily:
+        def search(self, query: str, *, max_results: int = 5):
+            raise ServiceError("Tavily did not answer within 15 s.")
+
+    rig = make_rig()
+    rig.assistant.search = FailingTavily()
+    turn = rig.ask(TAPER)
+    assert web_decision(turn).not_sent == "" and "Web search failed" in turn.notice
+
+
+def test_the_recorder_keeps_whether_web_search_ran(make_rig: Callable[..., Rig]) -> None:
+    off, on = ReplayBook(), ReplayBook()
+    make_rig(web=False, recorder=off).ask(TAPER)
+    make_rig(recorder=on).ask(TAPER)
+    assert off.lookup(TAPER).web_search == "off" and on.lookup(TAPER).web_search == "ran"
+
+
+def test_replaying_a_turn_recorded_with_web_search_off_says_so(make_rig: Callable[..., Rig]) -> None:
+    book = ReplayBook([RecordedTurn(TAPER, {"answer": "Race day is Sunday 15 November [m3v1]."},
+                                    recorded_at="2026-10-28T06:53:46Z", web_search="off")])
+    turn = make_rig(live=False, replay=book).ask(TAPER)
+    assert "web search was off when this turn was recorded" in turn.notice.lower()
+    assert "web search was off" in web_decision(turn).not_sent
+
+
+def test_replaying_a_search_that_found_nothing_still_shows_its_request(make_rig: Callable[..., Rig]) -> None:
+    book = ReplayBook([RecordedTurn(TAPER, {"answer": "Nothing in memory about that."},
+                                    recorded_at="2026-10-28T06:53:46Z", web_search="ran")])
+    turn = make_rig(live=False, replay=book).ask(TAPER)
+    assert [o.provider for o in turn.outbound].count("tavily") == 1 and web_decision(turn).not_sent == ""
