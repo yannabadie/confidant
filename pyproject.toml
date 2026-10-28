@@ -18,8 +18,9 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-app = ["gradio"]
-dev = ["pytest"]
+# app.py runs on Gradio 5 (the Space pins 5.49.1 in requirements.txt); Gradio 6 changed launch() and Blocks()
+app = ["gradio>=5.49.1,<6"]
+dev = ["pytest", "gradio>=5.49.1,<6"]
 
 [project.scripts]
 confidant = "confidant.cli:main"

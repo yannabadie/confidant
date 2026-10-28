@@ -8,7 +8,7 @@ your device. When a private fact is needed, the cloud model never sees it: NVIDI
 Factory writes the answer with a placeholder such as `⟦m7⟧`, and Confidant fills in the real value locally.
 
 - **Live demo:** https://huggingface.co/spaces/yannabadie/confidant (the Space clones this repository; see `space/`)
-- **Video (under 3 minutes):** _YouTube link added at publication_
+- **Video (2 min 26 s):** https://youtu.be/z6-ygooKppk
 - Built for the Nebius × NVIDIA Global AI Hackathon, Personal AI track.
 
 ## Why
