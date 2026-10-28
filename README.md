@@ -163,8 +163,11 @@ draft, so each private item appears only as its label, and no Hermes model reads
   changes, through the chat and over MCP.
 - Withheld items carry no date, and a question that names a time, the brief and every agent's question get the
   same list of them whatever the period and whatever the day, so a cloud model cannot tell whether one falls in
-  a given slot, nor when one is over. Availability questions are answered on the device, with no model call;
-  the version that may be passed on (MCP, Telegram) lists shared items only.
+  a given slot, nor when one is over. That list goes whole (up to 60 items), outside the cap of 10 memories picked
+  for the message. The answer shown on the device then leaves out the private items that are over or outside the
+  period asked, and puts the others in date order; the draft that may be passed on keeps the model's text.
+  Availability questions are answered on the device, with no model call; the version that may be passed on
+  (MCP, Telegram) lists shared items only.
 - A chat question that names no time selects memories by its words, private ones included as placeholders:
   asking about "the dermatologist" tells the cloud model that a private health item matches that word.
 - Late binding protects the value, not the existence of a withheld memory: the model sees "private: health
@@ -172,10 +175,11 @@ draft, so each private item appears only as its label, and no Hermes model reads
   appointment", "private appointment", "housing cost", "savings"), never a value (no name, date, time or
   amount), though the category word may also be in the memory. Withheld items are listed apart, without dates,
   so their position in a list does not date them.
-- Credentials are refused before anything is stored or sent: passwords and PINs in English, French, German and
-  Spanish, written with gaps, dots or in words (`PIN is 4 8 2 1`, `4.8.2.1`, `four eight two one`,
-  `forty-eight twenty-one`), the value first (`4821 is my bank PIN`) or after a longer description (`the PIN for
-  the Barclays card is 4821`), unlock codes and combinations, a login or sign-in with its password, card numbers
+- Credentials are refused before anything is stored or sent: passwords and PINs in English, French, German,
+  Spanish, Italian and Portuguese, written with gaps, dots, slashes or in words (`PIN is 4 8 2 1`, `4.8.2.1`,
+  `4/8/2/1`, `four eight two one`, `forty-eight twenty-one`, `quattro otto due uno`), the value first (`4821 is my
+  bank PIN`) or after a longer description (`my bank PIN, the one I chose at the branch, is 4821`), unlock codes
+  and combinations, a login or sign-in with its password, card numbers
   and the digits on the back of a card, recovery phrases, identity and passport numbers, and API keys
   ([`tests/test_credential_forms.py`](tests/test_credential_forms.py)). These are patterns, not understanding. A
   code phrased in a way they miss (`my bank PIN is the year my mum was born, 1957`) is stored like any new fact:

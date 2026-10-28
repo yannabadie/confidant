@@ -177,10 +177,12 @@ def test_the_brief_sends_the_same_placeholders_every_day(tmp_path: Path) -> None
 
 
 def test_a_private_appointment_that_is_over_is_not_shown_as_coming_up(tmp_path: Path) -> None:
+    # A question with no period: since the judge's review (tests/test_review_judge.py) the device also leaves out
+    # private items outside a period asked, and on 4 Nov "next week" holds neither 3 nor 5 Nov.
     store = seeded(tmp_path)
-    reply = {"answer": "Next week: [m9v1].\nWithheld:\n- ⟦m7⟧\n- ⟦m11⟧"}
+    reply = {"answer": "Coming up: [m9v1].\nWithheld:\n- ⟦m7⟧\n- ⟦m11⟧"}
     turn = assistant(store, FakeLLM(reply), today=lambda: date(2026, 11, 4)).handle(
-        "What's on my plate next week?", session_id="s")
+        "What's coming up?", session_id="s")
     assert "Dermatologist" not in turn.answer  # 3 Nov is over
     assert "final-round interview" in turn.answer  # 5 Nov is not
     assert "⟦m7⟧" in turn.draft  # what may leave the device does not depend on the date

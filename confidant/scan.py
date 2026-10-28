@@ -617,6 +617,7 @@ _CODE_WORDS = (  # not "phone code" (a country's calling code) nor "pass code" (
     r"|puk(?:\s*code)?"
     r"|(?:door|gate|alarm|garage|access|security|unlock|entry|keypad|building|intercom)\s*(?:opener\s+|remote\s+)?code"
     r"|(?:debit|credit|bank|atm)?\s*card\s*(?:code|pin)|(?:cash\s*machine|cash\s*point|atm)\s+code"
+    r"|(?:four|six|4|6)[ -]digits?\s+(?:for|of)\s+(?:the\s+|my\s+)?(?:bank\s+|debit\s+|credit\s+)?card"
     r"|code\s+(?:for|of|to)\s+(?:the\s+|my\s+)?(?:front\s+|back\s+|main\s+)?(?:door|gate|building|garage|alarm"
     r"|safe|lock|locker|padlock|(?:bank\s+|debit\s+|credit\s+)?card)"
     # not a business named after it: "the code for the alarm company is ACME-2026"
@@ -625,22 +626,34 @@ _CODE_WORDS = (  # not "phone code" (a country's calling code) nor "pass code" (
     r"|lock\s*(?:screen\s*)?code|cvv2?|cvc|cryptogramme(?:\s+visuel)?|digicode"
     r"|code\s+(?:pin|secret|confidentiel|d['’]acc[eè]s|de\s+(?:la\s+)?(?:porte|carte)|de\s+s[ée]curit[ée])"
     r"|geheimzahl|pin-?nummer|zugangscode|t[üu]rcode|c[óo]digo\s+(?:pin|de\s+acceso|de\s+seguridad|secreto)"
+    # Italian and Portuguese: "il codice della mia carta", "il codice del bancomat", "o código do meu cartão"
+    r"|codice\s+(?:pin|segreto|di\s+accesso|di\s+sblocco|del\s+(?:bancomat|portone|lucchetto|cancello|citofono)"
+    r"|della\s+(?:mia\s+)?(?:carta|porta|cassaforte)|dell['’]allarme)"
+    r"|c[óo]digo\s+(?:de\s+acesso|de\s+desbloqueio|do\s+(?:meu\s+)?(?:cart[ãa]o|alarme|port[ãa]o|cadeado)"
+    r"|da\s+(?:minha\s+)?(?:porta|fechadura))"
     r"|(?:safe|lock|locker|padlock|suitcase|bike\s*lock)\s+(?:combination|combo|code)"
     r"|combination\s+(?:to|for|of)\s+(?:the|my)\s+(?:safe|lock|locker|padlock|suitcase|bike\s*lock)"
 )
+# Digits in words for a code, Italian and Portuguese included ("quattro otto due uno"); only here, since "due" or "sei"
+# alone is an ordinary word elsewhere
+_CODE_DIGIT_WORD = _alternation({*_DIGIT_WORDS, "uno", "due", "tre", "quattro", "cinque", "sei", "sette", "otto",
+                                 "nove", "um", "uma", "dois", "duas", "três", "tres", "quatro", "sete", "oito"})
 _CODE_VALUE = (  # gaps of a space or a dash; not dots, which make versions, decimals and times ("2.1.0", "9.30")
     r"(?<!\d)\d(?:[ -]?\d){2,7}(?!\d|[.,]\d)"
-    rf"|\b(?:{_DIGIT_WORD})(?:[ ,-]+(?:{_DIGIT_WORD})){{2,7}}\b"
+    rf"|\b(?:{_CODE_DIGIT_WORD})(?:[ ,-]+(?:{_CODE_DIGIT_WORD})){{2,7}}\b"
 )
+# "is" in the languages the code words are read in, Italian and Portuguese included ("è", "é")
+_COPULA = r"is|was|est|ist|es|lautet|era|è|é"
 _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("a password", re.compile(
-        r"\b(?:password|passwd|passphrase|pwd|pw|mots?\s+de\s+passe|mdp|passwort|kennwort|contrase[ñn]a"
+        r"\b(?:password|passwd|passphrase|pwd|pw|mots?\s+de\s+passe|mdp|passwort|kennwort|contrase[ñn]a|senha"
+        r"|parola\s+d['’]ordine|palavra-?passe"
         r"|wi-?fi\s+(?:key|code)|cl[ée]\s+(?:wi-?fi|wpa)|code\s+wi-?fi)s?\b"
         r"(?!\s+(?:manager|policy|policies|reset|rules?|hints?|strength|field|prompt|change|expiry|generator"
         r"|requirements?|protected|tips?|advice|training|guide|ideas?|reminders?|rotation|best\s+practices?)\b)"
         # "is", or a colon right after the keyword or after a few words with no digit ("pw for the router:"),
         # never one inside a time ("training on Tuesday at 14:00")
-        r"(?:[^.\n]{0,30}?\b(?:is|was|est|ist|lautet|es|era)\b|[^.\n:=\d]{0,30}?[:=])\s*"
+        r"(?:[^.\n]{0,30}?\b(?:is|was|est|ist|lautet|es|era|è|é)\b|[^.\n:=\d]{0,30}?[:=])\s*"
         r"(?!(?:strong|weak|wrong|correct|incorrect|expired|required|missing|invalid|too|the|a|an|not|still"
         r"|written|on|in|at|under|behind|taped|printed|kept|somewhere|available|shared"
         r"|saved|stored|changed|reset|new|trop|tr[eè]s|faible|fort|oubli[ée]e?|perdu|chang[ée]|expir[ée]|le|la"
@@ -650,28 +663,36 @@ _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("a PIN or access code", re.compile(rf"\b(?:{_CODE_WORDS})\b\D{{0,20}}?(?:{_CODE_VALUE})", re.I)),
     # letters inside, right after "is" or a colon: "the digicode is 12A45"
     ("a PIN or access code", re.compile(
-        rf"\b(?:{_CODE_WORDS})\b[^\n\d.]{{0,20}}?(?:\b(?:is|was|est|ist|es|lautet)\b|[:=])\s*"
+        rf"\b(?:{_CODE_WORDS})\b[^\n\d.]{{0,20}}?(?:\b(?:{_COPULA})\b|[:=])\s*"
         r"(?<![\w-])(?=[A-Za-z0-9]{4,10}(?![\w-]))(?=(?:[A-Za-z]*\d){3})(?=[0-9]*[A-Za-z])[A-Za-z0-9]+", re.I)),
     # dotted, right after "is" or a colon: "my PIN is 4.8.2.1", "alarm code: 45.12" (not "pin the 2.1.0 notes")
     ("a PIN or access code", re.compile(
-        rf"\b(?:{_CODE_WORDS})\b[^\n\d.]{{0,20}}?(?:\b(?:is|was|est|ist|es|lautet)\b|[:=])\s*"
+        rf"\b(?:{_CODE_WORDS})\b[^\n\d.]{{0,20}}?(?:\b(?:{_COPULA})\b|[:=])\s*"
         r"(?<!\d)\d{1,4}(?:\.\d{1,4}){1,7}(?!\d|\.\d)", re.I)),
-    # a longer description between the word and "is": "the PIN for the Barclays card is 4821", "the PIN of the card
-    # I use for groceries is 4821"; no sentence break, comma or digit in between
+    # a longer description between the word and "is": "the PIN for the Barclays card is 4821", "my bank PIN, the one I
+    # chose at the branch last spring, is 4821"; no sentence break, digit or other "is" in between, so "the gate code
+    # is on the fridge, my flight number is 4821" is not one
     ("a PIN or access code", re.compile(
-        rf"\b(?:{_CODE_WORDS})\b[^\n\d.,;:!?]{{0,40}}?\b(?:is|was|est|ist|es|lautet)\b\s*(?:{_CODE_VALUE})", re.I)),
+        rf"\b(?:{_CODE_WORDS})\b(?:(?!\b(?:{_COPULA})\b)[^\n\d.;:!?]){{0,60}}?\b(?:{_COPULA})\b\s*(?:{_CODE_VALUE})",
+        re.I)),
+    # single digits joined by underscores or slashes, right after "is" or a colon: "my PIN is 4_8_2_1", "4/8/2/1"
+    # (not a date: "expires on 12/2027")
+    ("a PIN or access code", re.compile(
+        rf"\b(?:{_CODE_WORDS})\b[^\n\d.;:!?]{{0,40}}?(?:\b(?:{_COPULA})\b|[:=])\s*(?<![\d/_])\d(?:[_/]\d){{2,7}}(?![\d/_])",
+        re.I)),
     # in number words, three or more right after "is" or a colon: "forty-eight twenty-one", "four thousand eight
     # hundred twenty one", "forty eight, twenty one" (not "arrives in forty-eight hours", not "twenty-one")
     ("a PIN or access code", re.compile(
-        rf"\b(?:{_CODE_WORDS})\b[^\n\d.,;:!?]{{0,40}}?(?:\b(?:is|was|est|ist|es|lautet)\b|[:=])\s*"
+        rf"\b(?:{_CODE_WORDS})\b(?:(?!\b(?:{_COPULA})\b)[^\n\d.;:!?]){{0,40}}?(?:\b(?:{_COPULA})\b|[:=])\s*"
         rf"(?:{_NUMBER_WORD})(?:[ ,-]+(?:and[ -]+)?(?:{_NUMBER_WORD})){{2,11}}\b", re.I)),
     # the value first: "4821 is my bank PIN", "Remember 4821, it's my bank PIN", "4821 - that's the door code",
     # "le 4821, c'est mon code de carte"; only a few words may sit between "my" or "the" and the code word, so "1500 is
     # the time the door code changes" is not one
     ("a PIN or access code", re.compile(
         rf"(?<![\w.,])(?:{_CODE_VALUE})\s*(?:[,:;—–-]\s*)?"
-        r"(?:(?:is|was|it['’]s|that['’]s|this\s+is|c['’]est|est|ist|es)\s+)?"
-        r"(?:my|the|our|his|her|your|mon|ma|le|la|notre|mein|meine|die|der|mi|el)\s+"
+        r"(?:(?:is|was|it['’]s|that['’]s|this\s+is|c['’]est|est|ist|es|è|é)\s+)?"
+        r"(?:my|the|our|his|her|your|mon|ma|le|la|notre|mein|meine|die|der|mi|el|il\s+mio|la\s+mia|o\s+meu"
+        r"|a\s+minha)\s+"
         r"(?:(?:bank|banking|debit|credit|atm|sim|phone|mobile|card|new|old|current|usual|front|back|main|work"
         r"|office|home|own|secret|real|actual|(?:four|six|4|6)-digit)\s+){0,2}"
         rf"(?:{_CODE_WORDS})\b", re.I)),

@@ -85,6 +85,9 @@ _FIRST_PERSON = frozenset({"i", "me", "my", "mine", "myself", "we", "us", "our",
 REASON_TEMPERATURE = 0.3
 FAST_TEMPERATURE = 0.0
 MAX_CONTEXT_MEMORIES = 10
+# The private schedule goes whole, a placeholder line per item, so that none is dropped from an answer about its
+# own day by a cap shared with the memories picked for the message; this bounds only the prompt's size.
+MAX_WITHHELD_ITEMS = 60
 BRIEF_HORIZON_DAYS = 7
 AVAILABILITY_MAX_DAYS = 14  # an availability check covers at most this many days
 BRIEF_QUESTION = "Run my daily brief."
@@ -408,17 +411,90 @@ _LIST_ITEM = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
 _PLACEHOLDER_LINE = re.compile(r"⟦\s*m\d+")
 
 
-def _without_over(text: str, over: Callable[[int], bool]) -> str:
-    """``text`` without the lines that stand for one withheld item that is over ("- ⟦m7⟧" once 3 Nov has
-    passed). For this device only: Nebius gets every private item whatever its date, so that none is dated by
-    the day it drops out, and the draft that may leave keeps them all."""
-    kept = []
-    for line in text.split("\n"):
-        ids = {int(match.group(1) or match.group(2)) for match in _CITATION.finditer(line)}
-        held = {int(match.group(1)) for match in PLACEHOLDER_RE.finditer(line)}
-        if not (len(ids) == 1 and held == ids and over(next(iter(ids)))):
-            kept.append(line)
-    return "\n".join(kept)
+_HEADING = re.compile(r"^\s*(?:#+\s+.*|\*\*[^*]+\*\*\s*:?|[^\s].{0,58}:)\s*$")
+
+
+def _lone_placeholder(line: str) -> int | None:
+    """The id of the one withheld item a line stands for ("- ⟦m7⟧ (private: …)"), else None."""
+    ids = {int(match.group(1) or match.group(2)) for match in _CITATION.finditer(line)}
+    held = {int(match.group(1)) for match in PLACEHOLDER_RE.finditer(line)}
+    return next(iter(ids)) if len(ids) == 1 and held == ids else None
+
+
+def _without_items(text: str, drop: Callable[[int], bool]) -> str:
+    """``text`` without the lines that stand for one withheld item ``drop`` selects: one that is over ("- ⟦m7⟧"
+    once 3 Nov has passed), or outside the period asked. A heading whose lines all went goes too; a sentence
+    that led into them says that none falls in the period asked.
+
+    For this device only: Nebius gets every private item whatever the period and whatever the day, so that
+    none is dated by being left out, and the draft that may leave keeps them all."""
+    lines = text.split("\n")
+    gone = [(memory_id := _lone_placeholder(line)) is not None and drop(memory_id) for line in lines]
+    if not any(gone):
+        return text
+    out: list[str] = []
+    for index, line in enumerate(lines):
+        if gone[index]:
+            continue
+        block = []
+        for later in range(index + 1, len(lines)):
+            if not lines[later].strip() or (_HEADING.match(lines[later]) and not gone[later]):
+                break
+            block.append(later)
+        if block and all(gone[later] for later in block) and line.rstrip().endswith((":", "**")):
+            if _HEADING.match(line):
+                continue
+            line = line.rstrip()[:-1] + ": none falls in the period asked."
+        out.append(line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip("\n") if text.strip() else text
+
+
+def _merged_withheld(text: str, date_key: Callable[[int], tuple[date, int] | None]) -> str:
+    """``text`` (a brief) with its withheld items moved into its list of dated events, in date order, and the
+    heading they were listed under taken out once empty: the model lists them apart, since they carry no date.
+    Only when there is such a list and every moved item has a date. For this device only, like
+    :func:`_in_date_order`."""
+    lines = text.split("\n")
+    held = [index for index, line in enumerate(lines)
+            if (memory_id := _lone_placeholder(line)) is not None and date_key(memory_id) is not None]
+    run: list[int] = []
+    for index, line in enumerate(lines):
+        refs = {int(match.group(1) or match.group(2)) for match in _CITATION.finditer(line)}
+        if _LIST_ITEM.match(line) and len(refs) == 1 and index not in held and date_key(next(iter(refs))) is not None:
+            if run and index != run[-1] + 1:
+                break
+            run.append(index)
+        elif run:
+            break
+    if not held or not run or any(run[0] <= index <= run[-1] for index in held):
+        return text
+    bullet = _LIST_ITEM.match(lines[run[0]]).group(0)  # type: ignore[union-attr]
+
+    def key(line: str) -> tuple[date, int]:
+        refs = [int(match.group(1) or match.group(2)) for match in _CITATION.finditer(line)]
+        return date_key(refs[0]) or (date.max, 0)
+
+    merged = sorted([lines[index] for index in run] + [bullet + _LIST_ITEM.sub("", lines[index]).strip()
+                                                       for index in held], key=key)
+    emptied = set()
+    for index, line in enumerate(lines):
+        if _HEADING.match(line) and index not in held:
+            block = []
+            for later in range(index + 1, len(lines)):
+                if not lines[later].strip() or _HEADING.match(lines[later]):
+                    break
+                block.append(later)
+            if block and all(later in held for later in block):
+                emptied.add(index)
+    out: list[str] = []
+    for index, line in enumerate(lines):
+        if index == run[0]:
+            out.extend(merged)
+        elif index in held or index in emptied or run[0] < index <= run[-1]:
+            continue
+        else:
+            out.append(line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out))
 
 
 def _in_date_order(text: str, date_key: Callable[[int], tuple[date, int] | None]) -> str:
@@ -895,9 +971,18 @@ class Assistant:
         if not local and route.intent == "answer":
             ordered = _in_date_order(outcome.draft, self._date_key)  # device only: the order dates the items
             local = ordered if ordered != outcome.draft else ""
-        if route.intent in ("answer", "brief"):  # device only: which items are over dates them
+        if not local and route.intent == "brief":
+            merged = _merged_withheld(outcome.draft, self._date_key)  # device only, likewise
+            local = merged if merged != outcome.draft else ""
+        if route.intent in ("answer", "brief"):  # device only: which items are over, or in the period, dates them
+            today = self.today()
+            period = (today, today + timedelta(days=BRIEF_HORIZON_DAYS)) if route.intent == "brief" \
+                else period_asked(message, today)
             current = local or outcome.draft
-            trimmed = _without_over(current, self._is_over)
+            trimmed = _without_items(current, lambda memory_id: self._is_over(memory_id)
+                                     or (period is not None and self._is_outside(memory_id, period)))
+            if current.strip() and not trimmed.strip():  # every line stood for an item outside the period
+                trimmed = "Nothing in memory falls in the period asked."
             local = trimmed if trimmed != current else local
         shown = local or outcome.draft
         segments = self.guard.segments(shown, prepared)
@@ -1100,7 +1185,7 @@ class Assistant:
             exchange.actions.append("recorded web sources " + ", ".join(f"{m.cite()} ({m.author})" for m in found))
         found_ids = {memory.id for memory in found}
         related = [m for m in self._retrieve(message, time_window(message, self.today())) if m.id not in found_ids]
-        return self._compose(exchange, "answer", message, (found + related)[:MAX_CONTEXT_MEMORIES])
+        return self._compose(exchange, "answer", message, self._capped(found + related))
 
     def _brief(self, exchange: _Exchange, message: str, route: Route, private: bool) -> _Outcome:
         """Events of the coming week, open to-dos and today's routines, plus today's receipts."""
@@ -1221,9 +1306,7 @@ class Assistant:
             for memory in self._events_between(*window):
                 if self.guard.may_send(memory, NEBIUS):
                     found[memory.id] = memory
-        if timed:
-            for memory in self._private_schedule():
-                found.setdefault(memory.id, memory)
+        schedule = self._private_schedule() if timed else []
         # Restricted to what Nebius may see, the search is also ranked without the private memories: searched
         # with them and filtered after, private matches would use up result slots, so which shared memories
         # make the context would tell which words the private ones hold.
@@ -1232,7 +1315,17 @@ class Assistant:
             if (timed or agent) and not self.guard.may_send(memory, NEBIUS):
                 continue
             found.setdefault(memory.id, memory)
-        return list(found.values())[:MAX_CONTEXT_MEMORIES]
+        return self._capped([*found.values(), *schedule])
+
+    def _capped(self, memories: list[Memory]) -> list[Memory]:
+        """At most :data:`MAX_CONTEXT_MEMORIES` of the memories picked for a message, then every item of the
+        private schedule among ``memories`` (up to :data:`MAX_WITHHELD_ITEMS`). A placeholder is one short line;
+        counted against the same cap, the private items of a busy month would push out the shared ones, or
+        each other, and an answer about a day could lose that day's private item."""
+        schedule = {memory.id for memory in self._private_schedule()}
+        picked = [memory for memory in memories if memory.id not in schedule][:MAX_CONTEXT_MEMORIES]
+        held = list({memory.id: memory for memory in memories if memory.id in schedule}.values())
+        return picked + held[:MAX_WITHHELD_ITEMS]
 
     def _items_on(self, day: date) -> list[Memory]:
         """Current events on ``day`` (one dated that day, or a range of days that holds it) and routines held
@@ -1258,6 +1351,28 @@ class Assistant:
             if memory.source_type != "web" and not self.guard.may_send(memory, NEBIUS)
             and (memory.kind == "event" or any(recurs_on(memory, today + timedelta(days=n)) for n in range(7)))
         ]
+
+    def _is_outside(self, memory_id: int, period: tuple[date, date]) -> bool:
+        """True for a current private event none of whose days falls in ``period``, or a private weekly routine
+        held on none of its days: on this device only, for leaving it out of the answer shown."""
+        try:
+            memory = self.store.get(memory_id)
+        except MemoryNotFound:
+            return False
+        if memory.status != "current" or self.guard.may_send(memory, NEBIUS):
+            return False
+        first, last = period
+        today = self.today()
+        if memory.kind == "event":
+            try:
+                days = event_days(memory, today)
+            except (ValueError, OverflowError):
+                return False
+            if days is not None:
+                return days[1] < first or last < days[0]
+        span = min((last - first).days, 6)
+        weekly = any(recurs_on(memory, today + timedelta(days=n)) for n in range(7))
+        return weekly and not any(recurs_on(memory, first + timedelta(days=n)) for n in range(span + 1))
 
     def _is_over(self, memory_id: int) -> bool:
         """True for a current private event whose last day is before today: on this device only, for leaving it

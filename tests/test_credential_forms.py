@@ -91,3 +91,45 @@ def test_such_a_code_is_kept_on_the_device(make_rig: Callable[..., Rig]) -> None
 ])
 def test_everyday_facts_with_numbers_stay_personal(fact: str) -> None:
     assert classify_new_fact(fact) == "personal"
+
+
+# An outside audit the same evening (an agent with no history of the project) found more: Italian and Portuguese
+# PINs reached Nebius as the request, since neither their words nor their digits were read ("Ricorda che il codice
+# della mia carta è 4821"), and PINs written with underscores or slashes, or after a description with commas,
+# were stored (as private) instead of refused.
+
+AUDIT_MISSED = [
+    "Ricorda che il mio PIN è quattro otto due uno.",
+    "Ricorda che il codice della mia carta è 4821.",
+    "Il codice del bancomat è 4821",
+    "Lembra que a senha do meu cartão é 4821.",
+    "O código do meu cartão é 4821.",
+    "Remember my bank PIN is 4_8_2_1.",
+    "Remember my bank PIN is 4/8/2/1.",
+    "Remember my bank PIN, the one I chose at the branch last spring, is 4821.",
+    "Correction: the four digits for my bank card are now 4821.",
+]
+
+
+@pytest.mark.parametrize("message", AUDIT_MISSED)
+def test_a_pin_the_audit_wrote_is_refused(message: str) -> None:
+    assert detect_secret(message) is not None
+
+
+@pytest.mark.parametrize("message", ["Ricorda che il codice della mia carta è 4821.",
+                                     "Lembra que a senha do meu cartão é 4821."])
+def test_such_a_pin_never_reaches_nebius(make_rig: Callable[..., Rig], message: str) -> None:
+    rig = make_rig()
+    rig.ask(message)
+    assert rig.llm.calls == []
+
+
+@pytest.mark.parametrize("message", [
+    "The gate code is on the fridge, my flight number is 4821",
+    "Il codice fiscale è sulla tessera sanitaria",
+    "A senha da reunião foi enviada por email",
+    "My PIN expires on 12/2027, remind me in November",
+    "Il treno parte alle due e tre quarti",
+])
+def test_these_ordinary_messages_in_other_words_are_not_refused(message: str) -> None:
+    assert detect_secret(message) is None
