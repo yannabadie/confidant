@@ -49,7 +49,8 @@ changes are visible only to you and disappear when the tab closes.
 - **Live** when the Space has a `NEBIUS_API_KEY` secret (web search also needs `TAVILY_API_KEY`). The
   header names the Nemotron models in use. Usage is capped per day and per session; when a cap is
   reached the app switches to replay and says so.
-- **Replay** otherwise. Recorded Nemotron outputs from `data/replay/` stand in for the cloud model;
-  memory, guard, late binding and receipts still run in the app, and every replayed turn is labelled.
+- **Replay** otherwise. The demo turns recorded live on 28 October 2026 (`data/replay/`: Nemotron 3 Ultra
+  and Nano on Token Factory) stand in for the cloud model; memory, guard, late binding and receipts still run
+  in the app, and every replayed turn is labelled.
 
 Code, architecture and the MCP server for agents are described in the repository's `README.md`.
