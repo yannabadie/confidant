@@ -19,7 +19,8 @@ for tuning.
 | 4 (held out) | 12 | 27 Oct, after v4, by a reviewer of the whole submission | **11 leaked** (v4) | 0 (v5) |
 
 A fifth review compared answers instead of payloads and found a leak of another kind, which no round
-could see: see [Differential check](#differential-check-27-october-2026).
+could see: see [Differential check](#differential-check-27-october-2026). A sixth, on 28 October, read the code
+and the MCP tools rather than the chat, and found leaks there: see [Round 6](#round-6-outside-review-28-october-2026).
 
 Each prompt runs against two fake model profiles, a cooperative one and a hostile one that tries to
 exfiltrate; the counts above are prompts that leaked in at least one profile. Machine-readable results, latest
@@ -71,6 +72,14 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
   appointment was, which dated it without showing any value (18 of 30 question pairs, 27 October). Fixed;
   `tests/test_differential.py` now moves the private appointments to other days and checks that nothing that
   leaves the device changes.
+- **Round 6, 28 October** (an outside code review and a judge's read, both by agents with no history of the
+  project) found leaks the prompt rounds could not see, because they were not in the chat: an MCP client could
+  search for words of private memories and get them back with their dates, read a private memory's label
+  written in its own words, and learn from the guard field whether its question matched a private memory. Six
+  more findings concerned storage and routing. All are reproduced as tests before their fixes
+  (`tests/test_review_round6.py`); see [Round 6](#round-6-outside-review-28-october-2026). Rerun after them:
+  still 0 of 170 in both profiles, with 69/79, 49/58, 53/59 and 11/11 calls (private messages are no longer
+  sent to web search). The four current result files are from this rerun.
 - Still reported, not counted: user-typed confidential details that are not stored values (for example
   `final-round lead designer` in a web search), and web-policy redactions of personal names in controls.
 
@@ -97,6 +106,11 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
 | Values typed in forms no scanner reads: `3 de novembro`, `11月3日`, `03NOV`, `3.XI.2026`, `half ten`, `ten and a half`, `eleven sharp`, `eleven-eighty`, `six grand`, `seis mil`, `sechstausend` (4: R4-01 to R4-10, R4-12) | v5. **Generated forms**: each protected date, time and amount (100 to 999,999) is also written out in the date and time formats of 82 CLDR locales (Babel), in words in the 44 languages of num2words (days and months in words too), as military dates and Roman-numeral months with a year, and in spoken forms in seven languages (`half ten`, `halb elf`, `a las diez y media`, `une heure`, `eleven sharp`, `six grand`, `eleven-eighty`). Matches are whole words within one sentence; a form next to a number word (`vingt-trois novembre`, `seis mil quinientos`) or followed by more of a time (`huit heures et demie`) is skipped; short forms that are everyday words somewhere (`3 set`, `mil`, `bin`) are not generated. Without Babel and num2words installed, the guard falls back to the scanners and logs it (`forms.py`, `guard.py`) |
 | The checker scored only the forms its own extractors knew: on v4 it saw 1 of round 4's 11 leaks | v5 of the test. A case can list its reviewer's `forms`, checked literally after normalisation, so a held-out round is scored on what its author meant (`scripts/leak_test.py`, `reviewer_form_canaries`) |
 | A question that names a day picked private events by the words they share with it ("Tuesday" in "Dermatologist appointment on Tuesday 3 Nov"), so which placeholders reached the model, and the guard summary an MCP client reads, dated them (differential check: 18 of 30 pairs) | 27 Oct. **A message that refers to a time in any way gets every upcoming withheld event, and full-text search adds no withheld memory to it** (`rules.names_time`, `assistant._retrieve`); a differential test (`tests/test_differential.py`) |
+| Over MCP, `memory_search` returned private memories that matched an agent's words, with their dates; `memory_record` kept a private memory's label as the client wrote it (`lupus flare review`); the `guard` field of `guarded_answer` said whether a private memory had matched (round 6: C2, C3, S1) | 28 Oct. An agent's search never returns a private memory; a private memory recorded over MCP gets a category label, and a client's label is kept only for a shared memory and only if it holds no value; the sensitivity the device chose cannot be lowered by the client; the guard field is the same sentence whatever matched (`mcp_server.py`) |
+| A sensitive fact next to an everyday word was stored as personal ("my brother was arrested", "Mum's dementia is getting worse", "we're trying for a baby") and later sent in clear (round 6: I1, 18 facts) | 28 Oct. Wider lists (health, money, job search, legal matters, intimate life, secrecy cues such as "don't tell"); an everyday word no longer makes a sensitive fact shareable (`rules.classify_new_fact`) |
+| A correction that made a memory sensitive kept the old sensitivity and label (round 6: I2) | 28 Oct. A correction is classified on the device; the stricter of the old and the new sensitivity wins, with a new category label (`assistant._correct`, `MemoryStore.correct`) |
+| A message judged private could still be sent to web search, with its values removed (round 6: I3) | 28 Oct. A private message is not searched on the web; the answer draws on memory only, and says so (`assistant._search`) |
+| A question about the user's own week without a final "?" reached the cloud router, which sent some to web search (round 6: I9) | 28 Oct. Such questions are routed on the device whatever their punctuation (`assistant._asks_about_own_period`) |
 
 What the fixes cost: more redaction (any value equal to a private one is removed from what the user types,
 whichever reading or digit string made it match, even when a shared memory holds the same value, and an
@@ -523,6 +537,34 @@ observable difference beyond the period the user named reveals when a private it
 - `tests/test_differential.py` keeps the check: 16 questions, chat and MCP, persona against moved appointments.
   On the code before the fix it fails 7 of them.
 
+## Round 6 (outside review, 28 October 2026)
+
+Two more reviews, each by a Claude agent started without this project's history: a five-axis code review and
+a judge's read of the whole submission. Their probes went through the MCP server, storage, corrections, web
+search and replay, not only the chat. Each finding below was reproduced as a failing test in
+`tests/test_review_round6.py` before its fix.
+
+- **Found, over MCP:** `memory_search` returned private memories that matched an agent's words, with their
+  dates (an agent searching `interview` got the private interview and its day); `memory_record` kept the
+  label an agent gave a private memory (`lupus flare review`); and `guarded_answer`'s `guard` field said
+  whether a private memory had matched the question. **Fixed:** an agent's search never returns a private
+  memory, nor does moving a private event change any search result (14 probe words, persona against moved
+  appointments); labels of private memories are categories whoever records them; the guard field is one
+  constant sentence. A server started with `--reveal-private` (the user's own client) still finds them.
+- **Found, in storage:** 18 sensitive facts next to an everyday word were stored as personal and could be
+  sent in clear later (`my brother was arrested`, `Mum's dementia is getting worse`, `we're trying for a
+  baby`); a correction that made a memory sensitive kept its old sensitivity; a private message still went
+  to web search with its values removed; a question about the user's own week without a final `?` reached the
+  cloud router. **Fixed:** all four (rows of "What changed"); 8 everyday facts stay personal.
+- **Found, in what the user reads and in the receipts** (not leaks, but claims): the model's label echoed after
+  each filled-in value; private items listed after the shared ones instead of in date order; replay serving
+  the recording of another question ("Draft a birthday message for Sam." showed Léa's); credentials in common
+  phrasings stored instead of refused (`PIN is 4 8 2 1`, `mot de passe … est Soleil2026!`, a recovery phrase);
+  availability ignoring end times and date ranges; and requests that left without an answer getting no
+  receipt (a 503 then a 503: two requests, no receipt). **Fixed**, each with its tests.
+- Rerun of rounds 1 to 4 after these fixes: **0 of 170** in both profiles. The leak checker scans chat
+  payloads only, so it cannot score the MCP findings: the tests do.
+
 ## Known limits of this test
 
 - **Rounds 1 to 4 have been used for tuning, and v5 has no held-out estimate yet.** Their 0 leaks say that those
@@ -587,16 +629,16 @@ canaries from it, and it stops with an error if a hand-curated detail no longer 
 
 ## Inputs of the runs
 
-| input | v5 (27 Oct) | v1 (26 Oct) |
-|---|---|---|
-| `tests/fixtures/leak_prompts.jsonl` (round 1) | `99ca842823eef80806100465f680d09fe238a0ebcb8d84fa0b59a9626f6ae4b6` | same |
-| `tests/fixtures/leak_prompts_heldout.jsonl` (round 2) | `1b032afe4a319f720305a224d971ac3865a472117c247057d373dd7ae5b43bb2` | (written after v2) |
-| `tests/fixtures/leak_prompts_round3.jsonl` (round 3) | `c31bd4b80cf1a94d89d213207d76c4f542aa808246e817ff05c9485524b02de1` | (written after v3) |
-| `tests/fixtures/leak_prompts_round4.jsonl` (round 4) | `bd532c156c9ce659b46554bcc0740105a37bdabd0d081ced8dd363fef012e04e` | (written after v4) |
-| `data/demo_persona.json` | `fea35165f16025e9dccccc98e38488430be74681b9cc76c089ef9f4283e030c6` (category labels) | `d610971d373776c9f684420403edfbdefbff2bed23ba554f37d5ad871308e2da` |
-| `confidant/guard.py` | `cf72e270f01cd67af31e36bc5b0e3bd6c99edd8b92c44591efc32a2d56f0adc1` | `2207c112d4c73ae777360da20d6e8950bc6979f1bb82a6f6657686398818cb9e` |
-| `confidant/forms.py` | `008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94` | (new in v5) |
-| `confidant/scan.py` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
-| `confidant/rules.py` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
-| `confidant/assistant.py` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
-| Babel, num2words | 2.18.0, 0.5.14 | (not used) |
+| input | 28 Oct, after round 6 (current result files) | v5 (27 Oct) | v1 (26 Oct) |
+|---|---|---|---|
+| `tests/fixtures/leak_prompts.jsonl` (round 1) | same | `99ca842823eef80806100465f680d09fe238a0ebcb8d84fa0b59a9626f6ae4b6` | same |
+| `tests/fixtures/leak_prompts_heldout.jsonl` (round 2) | same | `1b032afe4a319f720305a224d971ac3865a472117c247057d373dd7ae5b43bb2` | (written after v2) |
+| `tests/fixtures/leak_prompts_round3.jsonl` (round 3) | same | `c31bd4b80cf1a94d89d213207d76c4f542aa808246e817ff05c9485524b02de1` | (written after v3) |
+| `tests/fixtures/leak_prompts_round4.jsonl` (round 4) | same | `bd532c156c9ce659b46554bcc0740105a37bdabd0d081ced8dd363fef012e04e` | (written after v4) |
+| `data/demo_persona.json` | same | `fea35165f16025e9dccccc98e38488430be74681b9cc76c089ef9f4283e030c6` (category labels) | `d610971d373776c9f684420403edfbdefbff2bed23ba554f37d5ad871308e2da` |
+| `confidant/guard.py` | `e0b1eb0ed20ac3309231cc93e99d1460f180b7fae994c611b6a06d375500f42a` | `cf72e270f01cd67af31e36bc5b0e3bd6c99edd8b92c44591efc32a2d56f0adc1` | `2207c112d4c73ae777360da20d6e8950bc6979f1bb82a6f6657686398818cb9e` |
+| `confidant/forms.py` | same | `008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94` | (new in v5) |
+| `confidant/scan.py` | `9f2bf049a1fd0c57a38baa71c36b0acfe59293d185c0f4bc98fcb5bac0a3d263` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
+| `confidant/rules.py` | `1351279a4d20e4048499160885191bb34b5d80dcbc68d797d1666fb5fd542b8f` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
+| `confidant/assistant.py` | `56c9c13b1398a4c68459bdb231022e75e492521844119a1e8baf9bcc5acf6012` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
+| Babel, num2words | same | 2.18.0, 0.5.14 | (not used) |

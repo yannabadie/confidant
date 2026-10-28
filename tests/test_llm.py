@@ -25,7 +25,7 @@ CATALOG = [
     "nvidia/Nemotron-3-Ultra-550b-a55b", "nvidia/Nemotron-3-Ultra-550b-a55b-serverless",
     "nvidia/Nemotron-3-Super-120b-a12b", "nvidia/Nemotron-3-Super-120b-a12b-serverless",
     "nvidia/Nemotron-3-Nano-30B-A3B", "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B", "nvidia/Nemotron-3-Nano-Omni",
-    "nvidia/Nemotron-3.5-Lightning", "nvidia/Nemotron-3.5-Lightning-serverless",
+    "nvidia/Nemotron-3_5-Lightning", "nvidia/Nemotron-3_5-Lightning-serverless",  # as Token Factory lists it
     "nvidia/Llama-3_1-Nemotron-Ultra-253B-v1",
 ]
 
@@ -176,7 +176,7 @@ def test_pick_models_ranks_the_live_catalog() -> None:
 def test_pick_models_falls_back_through_the_preferences() -> None:
     no_ultra_nano = [i for i in CATALOG if "Ultra-550b" not in i and "Nano-30B" not in i]
     assert pick_models(no_ultra_nano) == {"reason": "nvidia/Nemotron-3-Super-120b-a12b",
-                                          "fast": "nvidia/Nemotron-3.5-Lightning"}
+                                          "fast": "nvidia/Nemotron-3_5-Lightning"}
     assert pick_models(["nvidia/Llama-3_1-Nemotron-Ultra-253B-v1", "nvidia/Nemotron-3-Super-120b-a12b-serverless"]) == {
         "reason": "nvidia/Nemotron-3-Super-120b-a12b-serverless",
         "fast": "nvidia/Nemotron-3-Super-120b-a12b-serverless",
@@ -255,3 +255,11 @@ def test_a_reply_cut_off_at_max_tokens_is_marked_truncated() -> None:
     result = client(lambda request: httpx.Response(200, json=body)).chat("m", MESSAGES)
     assert result.truncated and result.text.startswith("The user wants")
     assert not client(lambda request: httpx.Response(200, json=completion("ready"))).chat("m", MESSAGES).truncated
+
+
+def test_the_lightning_fallback_matches_the_id_token_factory_lists() -> None:
+    """Token Factory lists Nemotron 3.5 Lightning as nvidia/Nemotron-3_5-Lightning (outside review, 28 Oct: the
+    fallback was spelt nemotron-3.5-lightning and could never match)."""
+    from confidant.llm import pick_models
+    chosen = pick_models(["nvidia/Nemotron-3-Ultra-550b-a55b", "nvidia/Nemotron-3_5-Lightning"])
+    assert chosen["fast"] == "nvidia/Nemotron-3_5-Lightning"

@@ -1,20 +1,20 @@
 {
  "schema": "confidant-leak-test/1",
- "generated_at": "2026-10-28T07:28:44Z",
+ "generated_at": "2026-10-28T17:28:44Z",
  "environment": {
-  "python": "3.12.15",
-  "platform": "macOS-27.0.1-arm64-arm-64bit"
+  "python": "3.13.17",
+  "platform": "Linux-6.18.44-fc-v180-x86_64-with-glibc2.39"
  },
  "inputs": {
   "fixtures": "tests/fixtures/leak_prompts_round4.jsonl",
   "fixtures_sha256": "bd532c156c9ce659b46554bcc0740105a37bdabd0d081ced8dd363fef012e04e",
   "persona_sha256": "fea35165f16025e9dccccc98e38488430be74681b9cc76c089ef9f4283e030c6",
   "sources_sha256": {
-   "confidant/guard.py": "20a179f6af87e8961625ba8fdbecd1ad1d9f1cdf3854a70d7737bc61d1bb5e8c",
+   "confidant/guard.py": "e0b1eb0ed20ac3309231cc93e99d1460f180b7fae994c611b6a06d375500f42a",
    "confidant/forms.py": "008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94",
-   "confidant/scan.py": "6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf",
-   "confidant/rules.py": "0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470",
-   "confidant/assistant.py": "6acfa3023567e38400a79ab58b85f0691285208fe8e05b5183d9f3314a244ef7"
+   "confidant/scan.py": "9f2bf049a1fd0c57a38baa71c36b0acfe59293d185c0f4bc98fcb5bac0a3d263",
+   "confidant/rules.py": "1351279a4d20e4048499160885191bb34b5d80dcbc68d797d1666fb5fd542b8f",
+   "confidant/assistant.py": "56c9c13b1398a4c68459bdb231022e75e492521844119a1e8baf9bcc5acf6012"
   },
   "checker_sha256": "123555bb97605f4ee231d081af29fe37f857f964ff0875abbcc8ca6ab8ea5784",
   "libraries": {

@@ -23,8 +23,9 @@ assistant and one that knows too much. Confidant removes that trade-off with thr
    or `private`. Each provider has an allow-list. Private memories are replaced by placeholders before any
    call leaves the device, and every outbound query (including web searches) is checked for private values.
 3. **Receipts for every outbound call.** Provider, model, tokens, which memories were sent, which were
-   withheld, and a SHA-256 of the exact messages sent. The Guard tab shows those messages for the last turn,
-   so anyone can hash them and compare. "What left my device today" is a table, not a guess.
+   withheld, and a SHA-256 of the exact messages sent. A request that left and got no answer (an HTTP 503, a
+   timeout, the first try before a retry) has its receipt too. The Guard tab shows those messages for the last
+   turn, so anyone can hash them and compare. "What left my device today" is a table, not a guess.
 
 Some questions cannot be answered by a model that never learns when private items happen: "Am I free on
 Wednesday morning?" depends on exactly that. Confidant checks those **on the device**, against the real dates,
@@ -89,15 +90,21 @@ python app.py                    # web UI on http://127.0.0.1:7860
 
 Without a key, the app runs in clearly labelled **replay** mode, from the demo turns recorded live on
 28 October 2026 in `data/replay/` (Nemotron 3 Ultra and Nano on Token Factory); with no recording there, it shows
-hand-written sample answers, which the interface labels as samples.
+hand-written sample answers, which the interface labels as samples. Replay answers only the recorded questions,
+matched exactly (case, accents, punctuation and contractions aside); another question gets the memories that
+match it and no model answer. Remembering, corrections, availability and refusals need no model, so they run
+in replay as they do live.
 
 ### Use it from Hermes Agent (or any MCP client)
 
 Confidant ships an MCP server (`python -m confidant serve-mcp`, standard library only) exposing
 `memory_search`, `memory_record`, `memory_correct`, `memory_history`, `guarded_answer` and `daily_brief`.
-MCP clients see private memories only as placeholders with their label. An availability question sent to
-`guarded_answer` is checked on the device, and the client gets the shared items of that period only: saying
-that a private item falls in it would date that item.
+An MCP client never gets a private memory's text: `memory_search` leaves private memories out (which of them
+match an agent's words would tell it what they say), the other tools show a placeholder with a category label,
+and a private memory recorded over MCP gets a category label whatever label the client sends. An availability
+question sent to `guarded_answer` is checked on the device, and the client gets the shared items of that period
+only: saying that a private item falls in it would date that item. Start the server with `--reveal-private` for
+a client of your own that may see everything.
 
 `integrations/hermes/` holds a reusable Hermes skill and the morning-brief job: a Hermes cron job in no-agent
 mode runs [`confidant-brief.sh`](integrations/hermes/confidant-brief.sh), that is
@@ -119,9 +126,12 @@ draft, so each private item appears only as its label, and no Hermes model reads
   and a hostile fake model. Round 1 (65 prompts) found 20 leaks in the first version; rounds 2, 3 and 4, each
   written after the previous fixes, still found 27 of 45, 30 of 48 and 11 of 12. Most were values the user
   typed in forms the guard did not read; early versions also leaked from storage (labels built from a private
-  fact's words, an old version, event order, sensitive facts stored as personal). The current version leaks 0
-  of the 170, a regression result, not an estimate: no round has been written against it yet. Every failure
-  and every fix is listed there.
+  fact's words, an old version, event order, sensitive facts stored as personal). A sixth review, on
+  28 October, went through the MCP tools instead of the chat and found three leaks there (search results,
+  labels, the guard field), plus sensitive facts still stored as personal; each is now a test
+  ([`tests/test_review_round6.py`](tests/test_review_round6.py)). The current version leaks 0 of the 170, a
+  regression result, not an estimate: no round has been written against it yet. Every failure and every fix
+  is listed there.
 - **Differential test** ([`tests/test_differential.py`](tests/test_differential.py)): values are not the only
   way to leak. A reviewer found that asking about Tuesday and about Monday put a private appointment's
   placeholder in the model's context only on its own day, which dated it (18 of 30 question pairs). Fixed:
@@ -134,7 +144,11 @@ draft, so each private item appears only as its label, and no Hermes model reads
   appointment, value withheld", which is itself information. Labels name a category only ("health
   appointment", "private appointment", "housing cost", "finances"), never a word of the memory. Withheld items
   are listed apart, without dates, so their position in a list does not date them.
-- Credentials are refused at write time (passwords, PINs, card numbers, API keys): Confidant never stores them.
+- Credentials are refused before anything is stored or sent: passwords and PINs in English, French, German and
+  Spanish, written with gaps or in words (`PIN is 4 8 2 1`, `four eight two one`), unlock codes and
+  combinations, a login with its password, card numbers and the digits on the back of a card, recovery
+  phrases, identity numbers and API keys. A credential phrased in a way these patterns miss is stored like any
+  new fact: private unless clearly everyday, so never sent.
 - **Personal** memories (not private ones) may be sent to Token Factory when a task needs them, for example a
   birthday message; change the policy in `confidant/guard.py` to keep them local too.
 - Receipts are written by Confidant itself: they show exactly what it sent, but they are not an external audit.

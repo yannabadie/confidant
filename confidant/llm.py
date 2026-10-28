@@ -30,7 +30,7 @@ KEY_ENV = "NEBIUS_API_KEY"
 # Model choice per role: the first preference with a usable match wins (matched
 # case-insensitively on the part of the id after the last "/").
 REASON_PREFERENCE = ("nemotron-3-ultra", "nemotron-3-super", "llama-3_1-nemotron-ultra")
-FAST_PREFERENCE = ("nemotron-3-nano-30b", "nemotron-3.5-lightning", "nemotron-3-super")
+FAST_PREFERENCE = ("nemotron-3-nano-30b", "nemotron-3_5-lightning", "nemotron-3-super")  # ids as listed
 SKIPPED_MARKERS = ("omni", "vl", "kvoff")
 SERVERLESS_SUFFIX = "-serverless"
 ROLE_ENV = {"reason": "CONFIDANT_MODEL_REASON", "fast": "CONFIDANT_MODEL_FAST"}
