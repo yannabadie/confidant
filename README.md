@@ -46,8 +46,9 @@ What we measured on Token Factory on 28 October 2026 ([`docs/token-factory-probe
   8,192 tokens; with its trace, the brief took 1,214 to 2,146 in the live runs.
 - `chat_template_kwargs: {"enable_thinking": false}` switches Nemotron 3's reasoning off; `/no_think` in the
   prompt did not stop Nano. With reasoning on, Nano spent its 256 tokens thinking and returned no route.
-- The six demo turns make 5 calls. In the live run the hosted demo replays: 5,640 tokens, about $0.013 at list
-  prices; the route took 1 second, the answers 1.3 to 1.9 and the brief 5.4. In the live run filmed for the video:
+- The six demo turns make 5 calls. In the live run the hosted demo replays (28 October, 17:48 UTC): 5,824
+  tokens, about $0.013 at list prices; the route took 0.3 seconds, the answers 1.4 to 4.6 and the brief 4.2. An
+  earlier recording, at 07:30 UTC, took 5,640 tokens. In the live run filmed for the video:
   4,597 tokens, $0.0094.
 
 The sensitivity of a new memory is decided on the device: asking a model whether a fact is private would show

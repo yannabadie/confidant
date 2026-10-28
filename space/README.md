@@ -51,6 +51,8 @@ changes are visible only to you and disappear when the tab closes.
   reached the app switches to replay and says so.
 - **Replay** otherwise. The demo turns recorded live on 28 October 2026 (`data/replay/`: Nemotron 3 Ultra
   and Nano on Token Factory) stand in for the cloud model; memory, guard, late binding and receipts still run
-  in the app, and every replayed turn is labelled.
+  in the app, and every replayed turn is labelled. Replay has model answers for the demo steps only: a question
+  of your own gets the memories that match it, while remembering, corrections, availability and refusals work
+  as they do live, since they need no model.
 
 Code, architecture and the MCP server for agents are described in the repository's `README.md`.
