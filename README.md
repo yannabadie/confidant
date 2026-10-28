@@ -65,6 +65,8 @@ it the fact. Keyword lists cannot name every illness or dispute, so a new fact i
 something clearly everyday or work-public. Messages that may carry a date, time or amount, in any form, are
 routed on the device; the router sees the others with their values masked.
 
+**Where Token Factory helped.** A 550-billion-parameter model answered in 1.4 to 4.6 seconds with no GPU to provision or deploy; one key reached the three Nemotron models (Ultra for answers, Nano for routing, Super for the Hermes agent) through one OpenAI-compatible API; reasoning could be switched off per call for the router; and the usage fields of every reply feed Confidant's receipts. A run of the demo costs about $0.013.
+
 All calls use the OpenAI-compatible Token Factory API (`https://api.tokenfactory.nebius.com/v1`).
 Model ids are discovered at start-up from `/v1/models` and can be pinned with `CONFIDANT_MODEL_REASON` and
 `CONFIDANT_MODEL_FAST`. Web search uses **Tavily** when `TAVILY_API_KEY` is set (the recorded demo ran without
