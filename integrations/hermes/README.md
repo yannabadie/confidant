@@ -16,6 +16,13 @@ Two pieces, both running on the user's Mac:
    `python -m confidant brief --delivery`: the brief built from the draft, where each private item is only
    its label, for example `[private: health appointment]`.
 
+3. **A Hermes agent on Nemotron.** [`profile-config.yaml`](profile-config.yaml) is the profile we use for a
+   Hermes agent that runs on Nemotron 3 Super through Nebius Token Factory and reaches the memory only through
+   the MCP server above (`hermes -p confidant chat -t mcp-confidant -s confidant`). Hermes reads the key from
+   the keychain with its `secrets.command` helper: a key exported in the shell does not reach a Hermes gateway
+   that is already running. The first session is in
+   [`docs/hermes-agent-session.md`](../../docs/hermes-agent-session.md).
+
 On our Mac the job was created on 26 October 2026 (job id `f4cb9c44c57b`). Each delivery is listed in
 [`docs/hermes-deliveries.md`](../../docs/hermes-deliveries.md) as soon as it has happened, with the text
 Telegram received.

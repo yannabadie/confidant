@@ -106,8 +106,13 @@ question sent to `guarded_answer` is checked on the device, and the client gets 
 only: saying that a private item falls in it would date that item. Start the server with `--reveal-private` for
 a client of your own that may see everything.
 
-`integrations/hermes/` holds a reusable Hermes skill and the morning-brief job: a Hermes cron job in no-agent
-mode runs [`confidant-brief.sh`](integrations/hermes/confidant-brief.sh), that is
+A Hermes agent that runs on Nemotron 3 Super through Token Factory used these tools on 28 October: it got the
+week with placeholders, an availability answer that dates no private item, and when it tried to store a
+cardiologist visit as personal under its own label, Confidant stored it as private with a category label
+([`docs/hermes-agent-session.md`](docs/hermes-agent-session.md)).
+
+`integrations/hermes/` holds a reusable Hermes skill, that agent's profile and the morning-brief job: a Hermes
+cron job in no-agent mode runs [`confidant-brief.sh`](integrations/hermes/confidant-brief.sh), that is
 `python -m confidant brief --delivery`, and sends its output to Telegram. The delivered text is built from the
 draft, so each private item appears only as its label, and no Hermes model reads the memories. Setup:
 [`integrations/hermes/README.md`](integrations/hermes/README.md); deliveries so far:
@@ -163,8 +168,8 @@ draft, so each private item appears only as its label, and no Hermes model reads
 | `data/replay/` | the demo turns recorded live on 28 October 2026, replayed when no key is set (the correction and the refused PIN make no model call, so nothing is recorded for them) |
 | `space/` | the three files of the Hugging Face Space |
 | `scripts/` | macOS keychain wrapper, Token Factory probes (models, reasoning and token budgets), the router check, the live recorder and the offline leak test |
-| `docs/` | leak test report and machine-readable results, the Token Factory probe, the router check, the Hermes deliveries |
-| `integrations/hermes/` | Hermes Agent skill, the morning-brief cron script and its setup |
+| `docs/` | leak test report and machine-readable results, the Token Factory probe, the router check, the Hermes deliveries and the Hermes agent session |
+| `integrations/hermes/` | Hermes Agent skill, the agent profile, the morning-brief cron script and its setup |
 | `tests/` | offline test suite (all HTTP mocked) |
 
 ## Development

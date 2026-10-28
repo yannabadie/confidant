@@ -1,0 +1,25 @@
+# Hermes Agent profile for Confidant, as used on our Mac (~/.hermes/profiles/confidant/config.yaml).
+# Create the profile with: hermes profile create confidant --no-alias --no-skills
+# then copy this file and confidant/SKILL.md (to skills/confidant/SKILL.md) into the profile.
+#
+# The agent runs on Nemotron 3 Super through Nebius Token Factory. No key is written anywhere: Hermes runs
+# the `secrets.command` helper when it loads the profile, which reads the key from the macOS keychain, and
+# the MCP server starts through scripts/with-keys.sh, which does the same for Confidant's own calls.
+# (A key exported in the shell does not reach a Hermes gateway that is already running and serves the
+# profile, which is why the helper is used.)
+model:
+  default: nvidia/nemotron-3-super-120b-a12b
+  provider: nebius-token-factory
+mcp_servers:
+  confidant:
+    command: /bin/sh
+    args: [scripts/with-keys.sh, .venv/bin/python, -m, confidant, --home, /Users/yannabadie/.confidant-hermes, serve-mcp]
+    cwd: /Users/yannabadie/Documents/code/confidant
+    tools:
+      prompts: false
+      resources: false
+secrets:
+  command:
+    enabled: true
+    command: "printf 'NEBIUS_API_KEY=%s\\n' \"$(security find-generic-password -s nebius-token-factory -w)\""
+_config_version: 51

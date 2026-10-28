@@ -12,9 +12,12 @@ a category label, such as `⟦m7⟧ (private: health appointment)`. The value is
 device.
 
 ## When the user asks something about their own life
-Call `guarded_answer` with the user's question, word for word. Return its answer as it is, citations
-such as `[m6v1]` included. If it contains placeholders, keep them exactly and add one line: "Private items
-are kept on your device; open Confidant to see them." Never ask the user to type a private value.
+For any question about the user's schedule, plans, people or what they told you ("What's on my plate next
+week?", "When is Léa's birthday?"), call `guarded_answer` with the user's question, word for word: it knows
+which period the question means. Use `daily_brief` only when the user asks for the brief itself. Return the
+answer as it is, citations such as `[m6v1]` included. If it contains placeholders, keep them exactly and add
+one line: "Private items are kept on your device; open Confidant to see them." Never ask the user to type a
+private value.
 
 ## When the user asks whether they are free
 For "Am I free on Tuesday morning?" and the like, call `guarded_answer` the same way. Confidant checks it on
