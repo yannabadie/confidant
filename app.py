@@ -324,7 +324,9 @@ class Engine:
         return TurnView(
             question=question,
             draft=BRIEF_RECEIPTS_LINE.sub("", draft) if is_brief else draft,
-            written=turn.draft if getattr(turn, "local", "") and turn.intent == "answer" else "",
+            # what the model wrote, when the device then changed it (filled in, trimmed, put in date order)
+            written=(BRIEF_RECEIPTS_LINE.sub("", turn.draft) if is_brief else turn.draft)
+            if getattr(turn, "local", "") and turn.intent in ("answer", "brief") else "",
             values=values,
             citations=tuple(_memory(m) for m in turn.citations),
             shared=tuple(_memory(m) for m in prepared.shared) if prepared else (),

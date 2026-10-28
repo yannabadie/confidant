@@ -128,3 +128,24 @@ def test_everyday_facts_stay_personal() -> None:
 def test_dates_and_times_in_bare_digits_are_masked_by_their_shape_alone(typed: str, sent: str) -> None:
     # Caught before only by the digit signature of a private value, which showed that they equalled one.
     assert masked_calendar(typed) == sent
+
+
+def test_the_brief_shows_what_nemotron_wrote_not_the_text_put_in_date_order_here() -> None:
+    # Found while preparing the gallery on 29 October: for the daily brief, the Guard tab's "Nemotron wrote" showed
+    # the text the device had put in date order, with ⟦m7⟧ between the events of Friday and Wednesday, as if the
+    # model had known when the appointment is. Nemotron listed the withheld items apart, with no date.
+    import importlib
+    import re
+
+    app = importlib.import_module("app")
+    engine = app.Engine(app.RUNTIME)
+    try:
+        view = engine.ask("Run my daily brief.")
+    finally:
+        engine.close()
+    panel = app.render_guard_panel(view)
+    wrote = panel.split("Nemotron wrote", 1)[1].split("You read", 1)[0]
+    text = re.sub(r"<[^>]+>", " ", wrote).replace("\u202f", " ").replace("\xa0", " ")
+    assert "Withheld" in text and text.index("Fri 6 Nov") < text.index("⟦m7⟧")
+    read = re.sub(r"<[^>]+>", " ", panel.split("You read", 1)[1]).replace("\u202f", " ").replace("\xa0", " ")
+    assert "Dermatologist appointment" in read and read.index("Dermatologist appointment") < read.index("Wed 4 Nov")
