@@ -2,13 +2,13 @@
   "question": "Draft a birthday message for Léa.",
   "outputs": {
     "route": "{\n  \"intent\": \"answer\",\n  \"text\": \"Happy Birthday, [name]! Wishing you a wonderful day filled with joy and cherished moments.\",\n  \"target\": \"[name]\"\n}",
-    "answer": "Happy 30th birthday, Léa! Hope your day is full of peonies, bouldering adventures, and terrible puns [m4v1]. Got you a bouldering day pass and a small bunch of peonies — can't wait to celebrate with you on the 14th [m13v1]."
+    "answer": "Happy 30th birthday, Léa! Hope your day is packed with peonies, bouldering, and terrible puns — love you!\n\n[m4v1]"
   },
   "web_results": [],
   "models": {
     "reason": "nvidia/Nemotron-3-Ultra-550b-a55b",
     "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
   },
-  "recorded_at": "2026-10-28T07:30:17Z",
+  "recorded_at": "2026-10-28T17:48:05Z",
   "mode": "recorded live"
 }

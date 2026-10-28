@@ -1,13 +1,13 @@
 {
   "question": "What's on my plate next week?",
   "outputs": {
-    "answer": "Your week of 2–8 November 2026 includes:\n\n- Quarterly product review – Wednesday 4 November at 15:00 (design team presents onboarding redesign) [m6v1]\n- ⟦m7⟧ (private: health appointment, value withheld)\n- Dinner with friends at the Lebanese place near Bellecour – Friday 6 November at 20:00 [m9v1]\n- ⟦m11⟧ (private: private appointment, value withheld)"
+    "answer": "Quarterly product review on Wednesday 4 Nov 2026 at 15:00 [m6v1]  \nDinner with friends at the Lebanese place near Bellecour on Friday 6 Nov 2026 at 20:00 [m9v1]  \n⟦m7⟧ (private: health appointment, value withheld)  \n⟦m11⟧ (private: private appointment, value withheld)"
   },
   "web_results": [],
   "models": {
     "reason": "nvidia/Nemotron-3-Ultra-550b-a55b",
     "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
   },
-  "recorded_at": "2026-10-28T07:30:13Z",
+  "recorded_at": "2026-10-28T17:47:58Z",
   "mode": "recorded live"
 }

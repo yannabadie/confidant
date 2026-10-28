@@ -1,14 +1,14 @@
 {
   "question": "Find a 10-day taper plan for my half marathon.",
   "outputs": {
-    "answer": "Based on your race on Sunday 15 Nov 2026 [m3v1] and your coach’s guidance to “keep a little intensity but cut weekly volume by about 40 percent” [m25v1], here’s a 10‑day taper (starting 10 days before the race, i.e. 5 Nov – 14 Nov):\n\n- **Day 10 (Thu 5 Nov):** Easy 45 min run + 4 × 30‑sec strides at goal half‑marathon pace.  \n- **Day 9 (Fri 6 Nov):** Rest or 30 min very easy jog.  \n- **Day 8 (Sat 7 Nov):** 60 min steady run, last 15 min at goal pace.  \n- **Day 7 (Sun 8 Nov):** 40 min easy + 3 × 2‑min at goal pace with 2‑min jog recovery.  \n- **Day 6 (Mon 9 Nov):** Rest.  \n- **Day 5 (Tue 10 Nov):** 45 min easy + 4 × 1‑min at goal pace.  \n- **Day 4 (Wed 11 Nov):** 30 min very easy jog.  \n- **Day 3 (Thu 12 Nov):** 30 min easy + 2 × 3‑min at goal pace.  \n- **Day 2 (Fri 13 Nov):** 20 min easy jog + 3 × 30‑sec strides.  \n- **Day 1 (Sat 14 Nov):** Rest, light stretching, mental prep.  \n\nOverall weekly volume is roughly 40 % lower than your normal peak week, while retaining a few goal‑pace segments to keep intensity."
+    "answer": "Based on your half marathon in Lyon on Sunday 15 Nov 2026 [m3v1] and your coach’s advice to keep a little intensity while cutting weekly volume by ~40 % [m25v1], here’s a 10‑day taper starting Thursday 5 Nov:\n\n- **Thu 5 Nov** – 45 min easy run + 4×30 sec strides  \n- **Fri 6 Nov** – Rest or 30 min cross‑training  \n- **Sat 7 Nov** – 60 min easy run  \n- **Sun 8 Nov** – 40 min with 3×5 min at goal half‑marathon pace (target <1:50) [m3v1]  \n- **Mon 9 Nov** – Rest  \n- **Tue 10 Nov** – 30 min easy + 4×30 sec strides  \n- **Wed 11 Nov** – 45 min easy  \n- **Thu 12 Nov** – 30 min with 2×5 min at goal pace  \n- **Fri 13 Nov** – 20 min very easy jog  \n- **Sat 14 Nov** – Rest or 15 min shake‑out jog  \n- **Sun 15 Nov** – Race day, target <1:50 [m3v1]\n\n*General knowledge: a 10‑day taper typically reduces volume 30‑50 % while retaining race‑pace workouts to stay sharp.*"
   },
   "web_results": [],
   "models": {
     "reason": "nvidia/Nemotron-3-Ultra-550b-a55b",
     "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
   },
-  "recorded_at": "2026-10-28T07:30:15Z",
+  "recorded_at": "2026-10-28T17:48:03Z",
   "web_search": "off",
   "mode": "recorded live"
 }
