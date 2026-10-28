@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import calendar
 import re
+from functools import lru_cache
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -627,7 +628,13 @@ def item_span(memory: Memory) -> tuple[int, int] | None:
     when the text says it was moved: "moved from 10:30 to 9:00") to its end time or duration when the text
     gives one ("from 9:00 to 12:30", "at 10:00 until 17:00", "9:00-12:30", "for 2 hours"); ``(start, start +
     1)`` when it gives none. Else the part of the day its text names ("every Sunday morning"), else None."""
-    folded = fold(memory.text)[0]
+    return _item_span_of(memory.text)
+
+
+@lru_cache(maxsize=16384)
+def _item_span_of(text: str) -> tuple[int, int] | None:
+    """:func:`item_span` of a memory's text."""
+    folded = fold(text)[0]
     times = _clock_times(folded)
     if len(times) > 1 and _RESCHEDULED.search(folded[:times[-1][1]]):  # "moved from 10:30 to 9:00"
         start = times[-1][0]
@@ -654,21 +661,27 @@ def event_days(memory: Memory, today: date) -> tuple[date, date] | None:
     """The first and last day of a memory, resolved relative to ``today``: one day for a single date (the
     last one written when the text says it was moved: "rescheduled from 3 Nov to 4 Nov"), every day of a
     range ("from Monday 9 Nov to Wednesday 11 Nov", "9-11 Nov", "du 9 au 11 novembre"); None if undated."""
-    found = find_dates(memory.text)
+    return _event_days_of(memory.text, today)
+
+
+@lru_cache(maxsize=16384)  # a schedule reads each memory several times per day it covers; texts never change
+def _event_days_of(text: str, today: date) -> tuple[date, date] | None:
+    """:func:`event_days` of a memory's text."""
+    found = find_dates(text)
     if not found:
         return None
     # a reschedule word before the last date moves the item there ("moved from 3 Nov to 4 Nov"); one after the
     # dates is about something else ("from 9 Nov to 11 Nov; the venue is now Annecy")
-    moved = bool(_RESCHEDULED.search(fold(memory.text[:found[-1].start])[0]))
+    moved = bool(_RESCHEDULED.search(fold(text[:found[-1].start])[0]))
     if len(found) > 1 and moved:
         day = found[-1].resolve(today)
         return day, day
     first = found[0].resolve(today)
-    if len(found) > 1 and _joins_a_range(memory.text, found[0], found[1]):
+    if len(found) > 1 and _joins_a_range(text, found[0], found[1]):
         last = found[1].resolve(today)
         if first < last <= first + timedelta(days=MAX_RANGE_DAYS):
             return first, last
-    before = None if moved else _DAY_BEFORE_DATE.search(fold(memory.text[:found[0].start])[0])
+    before = None if moved else _DAY_BEFORE_DATE.search(fold(text[:found[0].start])[0])
     if before and int(before["day"]) < first.day:
         return first.replace(day=int(before["day"])), first
     return first, first

@@ -284,7 +284,7 @@ def test_an_unrecorded_question_in_replay_says_no_model_answered_it(make_rig: Ca
     turn = make_rig(live=False, replay=BIRTHDAY_RECORDING).ask("Draft a birthday message for Sam.")
     assert "Happy 30th" not in turn.answer and turn.receipts == []
     assert turn.answer.startswith("No recorded turn matches this question, so no model answered it")
-    assert "remember, correct, availability and refusals run here without a model" in turn.notice
+    assert "What the device recognises without a model runs as it does live" in turn.notice
 
 
 def test_the_recorded_question_is_still_replayed(make_rig: Callable[..., Rig]) -> None:

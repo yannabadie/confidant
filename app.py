@@ -378,8 +378,9 @@ HOSTED_NOTE = " On this hosted demo, Confidant runs on the Space's server, in pl
 LIVE_CTA = "Start with <strong>step 1</strong> of the demo script, or ask your own question."
 REPLAY_CTA = (
     "Start with <strong>step 1</strong> of the demo script: its steps replay a live recording. A question of "
-    "your own gets no model answer here, only the memories that match it; remembering, corrections, "
-    "availability and refusals work as they do live, since they run without a model."
+    "your own gets no model answer here, only the memories that match it. What the device recognises without a "
+    "model works as it does live: <em>Remember that…</em>, a correction such as <em>…moved to Friday</em>, "
+    "<em>Am I free…?</em>, and refusing a password or PIN."
 )
 
 
@@ -1072,8 +1073,8 @@ def render_receipts(summary: SummaryView, receipts: Sequence[ReceiptView]) -> st
         )
     return (
         '<div class="cf cf-panel"><div class="cf-panel__head"><h3 class="cf-panel__title">Receipts</h3>'
-        '<p class="cf-panel__lead">Every call that left this device and was answered during this session; a call '
-        "that fails is reported in its turn.</p></div>"
+        '<p class="cf-panel__lead">Every request that left this device during this session, answered or not: a '
+        "request that got no answer (an HTTP 503, a timeout) has its receipt too.</p></div>"
         f'{render_slip(summary)}<section class="cf-section"><h4 class="cf-section-title">Calls'
         f'<span class="cf-count">{len(receipts)}</span></h4>{calls}</section></div>'
     )

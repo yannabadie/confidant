@@ -259,3 +259,56 @@ def test_an_ordinary_message_is_not_refused_as_a_credential(message: str) -> Non
 @pytest.mark.parametrize("message", MORE_CREDENTIALS)
 def test_more_codes_are_refused(message: str) -> None:
     assert detect_secret(message) is not None
+
+
+# --- Important 9: requests to remember something skipped the router because they start like a question -----
+
+ROUTER_SAYS_REMEMBER = {"route": '{"intent": "remember", "text": "x"}', "answer": "Noted."}
+
+
+@pytest.mark.parametrize("message", ["Remind me to book the restaurant for Léa tomorrow",
+                                     "Could you remember that I'm in Paris next week",
+                                     "Do keep in mind that my parents visit next weekend"])
+def test_a_request_to_keep_something_still_reaches_the_router(make_rig: Callable[..., Rig], message: str) -> None:
+    rig = make_rig(replies=ROUTER_SAYS_REMEMBER)
+    before = len(rig.store.all_current())
+    rig.ask(message)
+    assert "route" in rig.llm.purposes() and len(rig.store.all_current()) == before + 1
+
+
+@pytest.mark.parametrize("message", ["What's on my plate next week", "Show me my plate for next week.",
+                                     "what is on my agenda next week", "Do I have anything on next week"])
+def test_a_question_about_my_week_still_stays_on_the_device(make_rig: Callable[..., Rig], message: str) -> None:
+    rig = make_rig()
+    rig.ask(message)
+    assert "route" not in rig.llm.purposes()
+
+
+# --- Suggestions ----------------------------------------------------------------------------------------------
+
+import httpx  # noqa: E402
+
+from confidant.llm import TokenFactory  # noqa: E402
+from confidant.search import Tavily  # noqa: E402
+
+
+def test_a_proxy_that_refused_the_connection_sent_nothing_and_leaves_no_receipt(tmp_path: Path) -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ProxyError("proxy said no")
+
+    llm = TokenFactory("test-key", http=httpx.Client(transport=httpx.MockTransport(refuse)), retry_delay=0)
+    assistant = Assistant(seeded(tmp_path), Guard(), ReceiptLog(), Budget(1_000_000, 100), llm, models=MODELS)
+    turn = assistant.handle("Draft a birthday message for Léa.", session_id="s")
+    assert turn.receipts == []
+
+
+@pytest.mark.parametrize("body", [{"results": ["x"]}, {"results": [{"url": "https://e.org", "score": "high"}]}])
+def test_a_malformed_search_reply_is_a_failed_search_with_its_receipt(make_rig: Callable[..., Rig],
+                                                                       body: dict[str, Any]) -> None:
+    rig = make_rig()
+    rig.assistant.search = Tavily("test-key", retry_delay=0, http=httpx.Client(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body))))
+    turn = rig.ask("Find a 10-day taper plan for my half marathon.")
+    web = [r for r in turn.receipts if r.purpose == "web_search"]
+    assert [r.status for r in web] == ["no answer (unexpected response)"]
+    assert "Web search failed" in turn.notice

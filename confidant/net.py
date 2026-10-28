@@ -12,7 +12,7 @@ MAX_RETRY_WAIT_S = 10.0
 
 
 # Failures that happen before any byte of the request leaves: nothing was sent, so no receipt is due.
-NOT_SENT = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout, httpx.UnsupportedProtocol)
+NOT_SENT = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout, httpx.UnsupportedProtocol, httpx.ProxyError)
 
 
 class ServiceError(RuntimeError):

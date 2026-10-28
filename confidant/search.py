@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 import httpx
 
 from .memory import Memory, MemoryStore, SecretRefused
-from .net import request_json
+from .net import ServiceError, request_json
 
 TAVILY_SEARCH_URL = "https://api.tavily.com/search"
 # Tavily pay-as-you-go: a basic search costs 1 credit at $0.008. Used for receipt estimates.
@@ -74,15 +74,19 @@ class Tavily:
             unanswered=unanswered,
         )
         results = WebResults(unanswered=tuple(unanswered))
-        for item in (data.get("results") if isinstance(data, dict) else None) or []:
-            url = str(item.get("url") or "").strip()
-            if url:
-                results.append(WebResult(
-                    title=" ".join(str(item.get("title") or url).split()),
-                    url=url,
-                    content=" ".join(str(item.get("content") or "").split()),
-                    score=float(item.get("score") or 0.0),
-                ))
+        try:
+            for item in (data.get("results") if isinstance(data, dict) else None) or []:
+                url = str(item.get("url") or "").strip()
+                if url:
+                    results.append(WebResult(
+                        title=" ".join(str(item.get("title") or url).split()),
+                        url=url,
+                        content=" ".join(str(item.get("content") or "").split()),
+                        score=float(item.get("score") or 0.0),
+                    ))
+        except (AttributeError, TypeError, ValueError):  # the request left and was answered, but not usably
+            raise ServiceError("Tavily search sent an unexpected response.",
+                               unanswered=[*unanswered, "unexpected response"]) from None
         return results
 
     def close(self) -> None:

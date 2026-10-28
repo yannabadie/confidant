@@ -65,9 +65,12 @@ FAST_MAX_TOKENS = 256  # one short JSON object, with reasoning off (see THINKING
 # its whole budget thinking and returned no route (scripts/probe_reasoning.py, docs/token-factory-probe.md).
 THINKING = {"reason": True, "fast": False}
 # A question or request even without its "?": "What's on my plate next week", "Show me my agenda for next week".
+# How a question about the user's own time starts when it has no "?": a question word, or an auxiliary with
+# I, we, my, our, there or it. Not a request ("Remind me to...", "Could you remember that...", "Do keep in mind
+# that..."): those may be something to keep, which the router can tell.
 _QUESTION_START = re.compile(
-    r"^\s*(?:what|what['’]s|whats|when|which|who|how|where|do|does|am|are|is|have|has|can|could|will|would|"
-    r"should|shall|any|anything|show|list|tell|give|remind)\b",
+    r"^\s*(?:what|what['’]s|whats|when|which|who|how|where|any|anything|show|list"
+    r"|(?:do|does|did|am|are|is|have|has|can|could|will|would|should|shall)\s+(?:i|we|my|our|there|it)\b)\b",
     re.I,
 )
 _FIRST_PERSON = frozenset({"i", "me", "my", "mine", "myself", "we", "us", "our", "ours", "ourselves"})
@@ -80,8 +83,9 @@ AVAILABILITY_MAX_DAYS = 14  # an availability check covers at most this many day
 BRIEF_QUESTION = "Run my daily brief."
 # Said when replay has no recording for a question: what can be checked without a model.
 REPLAY_SCOPE = (
-    "In replay, only the recorded demo questions have a model answer; remember, correct, availability and "
-    "refusals run here without a model."
+    "In replay, only the recorded demo questions have a model answer. What the device recognises without a model "
+    "runs as it does live: \"Remember that...\", a correction such as \"... moved to Friday\", \"Am I free...?\", "
+    "and refusing a password or PIN."
 )
 WEB_RESULT_COUNT = 5
 TAVILY_MODEL = "tavily-search-basic"
