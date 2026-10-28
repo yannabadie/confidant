@@ -36,6 +36,12 @@ def test_answer_prompt_carries_the_required_rules() -> None:
         assert rule in ANSWER_SYSTEM_PROMPT
 
 
+def test_answer_prompt_keeps_a_message_for_someone_else_free_of_gifts_and_tags() -> None:
+    # The live birthday message of 28 Oct told Léa her gift ("a bouldering day pass and a small bunch of
+    # peonies") and carried [m4v1] [m13v1] inside the text meant to be sent (outside review, 28 Oct).
+    assert "Never mention a gift" in ANSWER_SYSTEM_PROMPT and "after the message" in ANSWER_SYSTEM_PROMPT
+
+
 def test_answer_prompt_asks_for_no_tables() -> None:
     # Live, Nemotron Ultra answered the taper question with a Markdown table, which neither the chat nor the
     # Telegram delivery renders: the pipes showed as text.
