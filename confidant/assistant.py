@@ -334,33 +334,45 @@ def parse_classification(text: str) -> tuple[str, str, str] | None:
 
 
 _LIST_ITEM = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
+_PLACEHOLDER_LINE = re.compile(r"⟦\s*m\d+")
 
 
 def _in_date_order(text: str, date_key: Callable[[int], tuple[date, int] | None]) -> str:
-    """``text`` with each run of list items sorted by date, when every item of the run names one dated memory
-    (by citation or placeholder) and the dates differ; other lines and runs are left as written.
+    """``text`` with each run of items sorted by date, when every item of the run names one dated memory
+    (by citation or placeholder) and the dates differ; other lines and runs are left as written. An item is a
+    list item, or a plain line naming one memory in a run of such lines that holds a withheld item (models
+    also write a week as plain lines, one per item).
 
     For this device only: the model lists withheld items apart, since they carry no date, and the device, which
     knows their dates, puts them back in order. The draft that may leave keeps the model's order."""
     out: list[str] = []
     run: list[str] = []
+    kind = ""
+
+    def refs(line: str) -> set[int]:
+        return {int(match.group(1) or match.group(2)) for match in _CITATION.finditer(line)}
 
     def flush() -> None:
-        keys = []
-        for line in run:
-            ids = {int(match.group(1) or match.group(2)) for match in _CITATION.finditer(line)}
-            keys.append(date_key(next(iter(ids))) if len(ids) == 1 else None)
-        if len(run) > 1 and all(key is not None for key in keys) and len({key[0] for key in keys}) > 1:
+        keys = [date_key(next(iter(ids))) if len(ids := refs(line)) == 1 else None for line in run]
+        sortable = len(run) > 1 and all(key is not None for key in keys) and len({key[0] for key in keys}) > 1
+        if kind == "plain":
+            sortable = sortable and any(_PLACEHOLDER_LINE.search(line) for line in run)
+        if sortable:
             out.extend(line for _, _, line in sorted(zip(keys, range(len(run)), run)))
         else:
             out.extend(run)
         run.clear()
 
     for line in text.split("\n"):
-        if _LIST_ITEM.match(line):
+        stripped = line.strip()
+        line_kind = ("list" if _LIST_ITEM.match(line)
+                     else "plain" if stripped and not stripped.endswith(":") and len(refs(line)) == 1 else "")
+        if line_kind != kind or not line_kind:
+            flush()
+            kind = line_kind
+        if line_kind:
             run.append(line)
         else:
-            flush()
             out.append(line)
     flush()
     return "\n".join(out)

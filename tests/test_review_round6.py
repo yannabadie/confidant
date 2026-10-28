@@ -489,3 +489,26 @@ def test_a_web_search_that_failed_still_has_its_receipts(make_rig: Callable[...,
     web = [r for r in turn.receipts if r.purpose == "web_search"]
     assert [r.status for r in web] == ["no answer (HTTP 503)", "no answer (HTTP 503)"]
     assert rig.receipts.today_summary().live_calls == len(turn.receipts)
+
+
+# The live run of 28 Oct, 17:48 UTC, wrote the week as plain lines, one item per line, without list markers.
+BARE_LINES = {
+    "route": '{"intent": "answer"}',
+    "answer": "Quarterly product review on Wednesday 4 Nov 2026 at 15:00 [m6v1]  \nDinner with friends at the Lebanese "
+              "place near Bellecour on Friday 6 Nov 2026 at 20:00 [m9v1]  \n⟦m7⟧ (private: health appointment, value "
+              "withheld)  \n⟦m11⟧ (private: private appointment, value withheld)",
+}
+
+
+def test_plain_lines_with_withheld_items_also_read_in_date_order(make_rig: Callable[..., Rig]) -> None:
+    turn = make_rig(replies=BARE_LINES).ask("What's on my plate next week?")
+    assert [line[:16] for line in turn.answer.splitlines()] == ["Dermatologist ap", "Quarterly produc",
+                                                               "Confidential: fi", "Dinner with frie"]
+    assert turn.draft == BARE_LINES["answer"]
+
+
+def test_prose_lines_without_a_withheld_item_keep_their_order(make_rig: Callable[..., Rig]) -> None:
+    replies = {"route": '{"intent": "answer"}',
+               "answer": "Your race is on Sunday 15 Nov [m3v1].\nThe day before, Léa turns 30 [m4v1]."}
+    turn = make_rig(replies=replies).ask("Anything big coming up?")
+    assert turn.answer.splitlines()[0].startswith("Your race")
