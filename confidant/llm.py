@@ -78,6 +78,19 @@ class ChatResult:
         return self.finish_reason == "length"
 
 
+def _count(value: object) -> int:
+    """A token count from a reply's usage field, or 0 when it is missing or not a number ("12k", "n/a")."""
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return max(value, 0)
+    if isinstance(value, float) and value.is_integer():
+        return max(int(value), 0)
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return 0
+
+
 def strip_reasoning(text: str) -> str:
     """The final answer without its reasoning trace.
 
@@ -218,11 +231,12 @@ class TokenFactory:
         except (KeyError, IndexError, TypeError, AttributeError):
             raise ServiceError(f"{SERVICE} ({purpose}) sent an unexpected response shape.",
                                unanswered=[*unanswered, "unexpected response"]) from None
-        usage = data.get("usage") or {}
+        usage = data.get("usage")
+        usage = usage if isinstance(usage, dict) else {}  # a reply without usable counts is still an answer
         return ChatResult(
             text=strip_reasoning(str(content)),
-            prompt_tokens=int(usage.get("prompt_tokens") or 0),
-            completion_tokens=int(usage.get("completion_tokens") or 0),
+            prompt_tokens=_count(usage.get("prompt_tokens")),
+            completion_tokens=_count(usage.get("completion_tokens")),
             latency_ms=latency_ms,
             model=str(data.get("model") or model),
             finish_reason=str(choice.get("finish_reason") or ""),

@@ -53,10 +53,14 @@ from .rules import (
     stem,
     stricter,
     time_window,
+    two_days_asked,
     unread_period,
     web_query_from,
 )
-from .scan import STOPWORDS, detect_secret, digit_runs, find_secrets, find_values, has_value_cues, words
+from .scan import (
+    MONTH_WORDS, STOPWORDS, WEEKDAY_WORDS, detect_secret, digit_runs, find_secrets, find_values, has_value_cues,
+    words,
+)
 from .search import COST_PER_SEARCH_USD, WebResult, record_results, search_payload
 
 REASON_MAX_TOKENS = 8192  # a reasoning trace, then the answer: live, the brief took up to 2,146; 1,024 cut it off
@@ -65,11 +69,15 @@ FAST_MAX_TOKENS = 256  # one short JSON object, with reasoning off (see THINKING
 # its whole budget thinking and returned no route (scripts/probe_reasoning.py, docs/token-factory-probe.md).
 THINKING = {"reason": True, "fast": False}
 # A question or request even without its "?": "What's on my plate next week", "Show me my agenda for next week".
-# How a question about the user's own time starts when it has no "?": a question word, or an auxiliary with
-# I, we, my, our, there or it. Not a request ("Remind me to...", "Could you remember that...", "Do keep in mind
-# that..."): those may be something to keep, which the router can tell.
+# How a question about the user's own time starts when it has no "?": a question word, a request to tell, show,
+# list or give ("Tell me what's on my plate next week", "Can you list my plans..."), "remind me what", or an
+# auxiliary with I, we, my, our, there or it. Not a request to keep something ("Remind me to...", "Could you
+# remember that...", "Do keep in mind that..."): the router can tell those.
 _QUESTION_START = re.compile(
-    r"^\s*(?:what|what['’]s|whats|when|which|who|how|where|any|anything|show|list"
+    r"^\s*(?:please\s+)?(?:what|what['’]s|whats|when|which|who|how|where|any|anything|show|list|tell|give"
+    r"|(?:(?:can|could|would|will)\s+you\s+)?remind\s+me\s+(?:what|when)"
+    r"|(?:can|could|would|will)\s+you\s+(?:please\s+)?(?:tell|show|list|give)"
+    r"|(?:do|does)\s+you\s+know\s+(?:what|when|if|whether)"
     r"|(?:do|does|did|am|are|is|have|has|can|could|will|would|should|shall)\s+(?:i|we|my|our|there|it)\b)\b",
     re.I,
 )
@@ -78,7 +86,6 @@ REASON_TEMPERATURE = 0.3
 FAST_TEMPERATURE = 0.0
 MAX_CONTEXT_MEMORIES = 10
 BRIEF_HORIZON_DAYS = 7
-WITHHELD_HORIZON_DAYS = 60  # private events this far ahead are listed for any period asked, so none is dated
 AVAILABILITY_MAX_DAYS = 14  # an availability check covers at most this many days
 BRIEF_QUESTION = "Run my daily brief."
 # Said when replay has no recording for a question: what can be checked without a model.
@@ -311,27 +318,61 @@ def masked(message: str, *, keep_kind: bool = True) -> str:
 
 
 # Day and month names, which masked() leaves alone: in a private message they can say when a private item is.
-_CALENDAR_NAMES = re.compile(
-    r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|lundi|mardi|mercredi|jeudi|vendredi|samedi|"
-    r"dimanche|january|february|march|april|june|july|august|september|october|november|december|janvier|"
-    r"fevrier|février|avril|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre)\b",
-    re.I,
-)
+# Those that are also everyday words ("may", "march", "sun", "sat", "wed", "sept") count only when capitalised
+# inside a sentence: "in May", not "May I ask" or "you may".
+_AMBIGUOUS_CALENDAR = frozenset({"may", "march", "mar", "mars", "sun", "sat", "wed", "mon", "august", "sept"})
+_LETTERS = re.compile(r"[^\W\d_]+")
 
 
 def masked_private(message: str) -> str:
-    """:func:`masked`, and day and month names too: what Nebius gets of a message the rules find private."""
-    return _CALENDAR_NAMES.sub(lambda match: "[day]" if match.group().lower().endswith(("day", "di", "che"))
-                               else "[month]", masked(message))
+    """:func:`masked`, and day and month names too, whole or abbreviated, in English, French, Spanish, Italian
+    or German: what Nebius gets of a message the rules find private. Names are masked as masked() reads them,
+    capitalised ("Sophie", not "sophie")."""
+    text = masked(message)
+
+    def swap(match: re.Match[str]) -> str:
+        word = match.group()
+        key = word.lower()
+        if key not in WEEKDAY_WORDS and key not in MONTH_WORDS:
+            return word
+        if key in _AMBIGUOUS_CALENDAR:
+            before = text[:match.start()].rstrip(" \t\"'“‘([")
+            if not word[0].isupper() or not before or before[-1] in ".!?:;\n":
+                return word
+        return "[day]" if key in WEEKDAY_WORDS else "[month]"
+
+    return _LETTERS.sub(swap, text)
+
+
+# Words a correction uses to say what changed; they bring no new content of their own.
+_CHANGE_WORDS = frozenset({
+    "moved", "move", "moves", "changed", "change", "changes", "rescheduled", "reschedule", "postponed", "cancelled",
+    "canceled", "brought", "forward", "pushed", "earlier", "later", "now", "instead", "actually", "correction",
+    "update", "updated", "new", "not", "longer", "anymore", "rather", "than", "same", "next", "last", "this",
+})
+
+
+def added_words(old: str, new: str) -> list[str]:
+    """The content words of ``new`` that ``old`` does not hold: no stop words, words saying what changed, or
+    dates, times and numbers, however written."""
+    known = set(words(old))
+    return [word for word in dict.fromkeys(words(new))
+            if word not in known and len(word) >= 3 and word not in STOPWORDS and word not in _CHANGE_WORDS
+            and not has_value_cues(word)]
 
 
 def correction_level(target: Memory, text: str, *, private: bool = False) -> tuple[str, str]:
     """``(sensitivity, label)`` of a correction of ``target`` with ``text``, chat or MCP alike. A correction never
     makes a memory less private; one whose words the local rules find private (a health, money, legal,
     job-search or intimate topic, a secrecy cue) makes it private, with a category label: its label travels
-    wherever its value does not. The memory's own level and label stand otherwise ("the review moved to
-    Thursday" keeps a public meeting public)."""
+    wherever its value does not. The words it adds are judged like a new fact, private unless clearly everyday:
+    the old memory's everyday words ("dinner with friends") cannot vouch for them ("brunch with my sponsor").
+    The memory's own level and label stand otherwise ("the review moved to Thursday" keeps a public meeting
+    public)."""
     sensitivity = stricter(target.sensitivity, "private" if private else classify_sensitivity(text))
+    added = added_words(target.text, text)
+    if added:
+        sensitivity = stricter(sensitivity, classify_new_fact(" ".join(added)))
     label = target.label if sensitivity == target.sensitivity else make_label(text, sensitivity)
     return sensitivity, label
 
@@ -365,6 +406,19 @@ def parse_classification(text: str) -> tuple[str, str, str] | None:
 
 _LIST_ITEM = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+")
 _PLACEHOLDER_LINE = re.compile(r"⟦\s*m\d+")
+
+
+def _without_over(text: str, over: Callable[[int], bool]) -> str:
+    """``text`` without the lines that stand for one withheld item that is over ("- ⟦m7⟧" once 3 Nov has
+    passed). For this device only: Nebius gets every private item whatever its date, so that none is dated by
+    the day it drops out, and the draft that may leave keeps them all."""
+    kept = []
+    for line in text.split("\n"):
+        ids = {int(match.group(1) or match.group(2)) for match in _CITATION.finditer(line)}
+        held = {int(match.group(1)) for match in PLACEHOLDER_RE.finditer(line)}
+        if not (len(ids) == 1 and held == ids and over(next(iter(ids)))):
+            kept.append(line)
+    return "\n".join(kept)
 
 
 def _in_date_order(text: str, date_key: Callable[[int], tuple[date, int] | None]) -> str:
@@ -568,14 +622,18 @@ class _Exchange:
         max_tokens: int = FAST_MAX_TOKENS,
         temperature: float = FAST_TEMPERATURE,
         header: str = "",
+        trailer: str = "",
     ) -> str | None:
         """Ask the ``role`` model (live) or read its recorded output (replay).
 
         The user message passes the guard first and goes out redacted. ``header`` is
         text Confidant wrote from the clock and the request alone (today's date, the
         period asked); it is sent as is, so redacting it cannot hint that a private
-        value shares its date. Returns None when the message is blocked or no output
-        is available, so callers fall back.
+        value shares its date. ``trailer`` follows the checked message as is: another
+        agent's request, masked by kind and checked for credentials only, since
+        redacting the words that match a private value would confirm them to the agent.
+        Returns None when the message is blocked or no output is available, so callers
+        fall back.
         """
         assistant = self.assistant
         decision = assistant.guard.check_outbound(user, NEBIUS, assistant.store.all_versions(), purpose=purpose)
@@ -587,7 +645,7 @@ class _Exchange:
             self.notices.append(f"The guard blocked the {purpose} request, so nothing was sent.")
             return None
         self.sent_ids.update(sent)
-        content = f"{header}\n{decision.redacted_text}" if header else decision.redacted_text
+        content = (f"{header}\n{decision.redacted_text}" if header else decision.redacted_text) + trailer
         messages = [{"role": "system", "content": system}, {"role": "user", "content": content}]
         if self.mode == "replay":
             if self.recorded is None or purpose not in self.recorded.outputs:
@@ -837,6 +895,10 @@ class Assistant:
         if not local and route.intent == "answer":
             ordered = _in_date_order(outcome.draft, self._date_key)  # device only: the order dates the items
             local = ordered if ordered != outcome.draft else ""
+        if route.intent in ("answer", "brief"):  # device only: which items are over dates them
+            current = local or outcome.draft
+            trimmed = _without_over(current, self._is_over)
+            local = trimmed if trimmed != current else local
         shown = local or outcome.draft
         segments = self.guard.segments(shown, prepared)
         unresolved = [segment.text for segment in segments if segment.placeholder and segment.memory is None]
@@ -1025,7 +1087,7 @@ class Assistant:
             exchange.actions.append("web search skipped: the message looks private")
             exchange.notices.append(
                 "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and "
-                "gets the message with its dates, times, amounts, names, days and months masked."
+                "gets the message with its dates, times, amounts, capitalised names, days and months masked."
             )
             return self._answer(exchange, message, route, private)
         if route.source == "model":  # the user did not ask for the web: send only words, none of the values typed
@@ -1048,11 +1110,14 @@ class Assistant:
         events = [
             memory for memory in self._events_between(today, today + timedelta(days=BRIEF_HORIZON_DAYS))
             if self.guard.may_send(memory, NEBIUS)
-        ] + self._upcoming_withheld()
+        ] + self._private_schedule()
         event_ids = {memory.id for memory in events}
+        # Open items and today's routines are picked by their words and weekday: shared memories only. Private
+        # events and routines are all in the list above, whatever their date or weekday, so none is dated.
         extras = [
             memory for memory in self.store.all_current()
-            if memory.id not in event_ids and (is_open_item(memory) or recurs_on(memory, today))
+            if memory.id not in event_ids and self.guard.may_send(memory, NEBIUS)
+            and (is_open_item(memory) or recurs_on(memory, today))
         ]
         request = (
             f"Write my daily brief: the events of the next {BRIEF_HORIZON_DAYS} days, soonest first, then the "
@@ -1085,10 +1150,15 @@ class Assistant:
         last = min(last, first + timedelta(days=AVAILABILITY_MAX_DAYS - 1))
         part = part_of_day(message)
         days = [first + timedelta(days=offset) for offset in range((last - first).days + 1)]
+        heading = _capitalised(_period((first, last), today))
+        pair = two_days_asked(message, today)
+        if pair and (pair[1] - pair[0]).days > 1:  # "on 2 Nov and 30 Nov": those two days, not the 29 between
+            days = list(pair)
+            heading = f"{_capitalised(_long_date(pair[0]))} and {_long_date(pair[1])}"
+        heading += f", {part[0]}" if part else ""
         schedule = {day: self._items_on(day) for day in days}
         shared = [memory for items in schedule.values() for memory in items if self.guard.may_send(memory, NEBIUS)]
         prepared = self.guard.prepare_context([*shared, *pool], NEBIUS)
-        heading = _capitalised(_period((first, last), today)) + (f", {part[0]}" if part else "")
         local, draft = _availability_texts(
             heading, schedule, part, prepared, single=len(days) == 1, today=today, routed_by_cloud=routed_by_cloud,
         )
@@ -1152,7 +1222,7 @@ class Assistant:
                 if self.guard.may_send(memory, NEBIUS):
                     found[memory.id] = memory
         if timed:
-            for memory in self._upcoming_withheld():
+            for memory in self._private_schedule():
                 found.setdefault(memory.id, memory)
         # Restricted to what Nebius may see, the search is also ranked without the private memories: searched
         # with them and filtered after, private matches would use up result slots, so which shared memories
@@ -1177,7 +1247,11 @@ class Assistant:
         return sorted(items, key=lambda memory: ((item_span_on(memory, day, today) or (24 * 60, 0))[0], memory.id))
 
     def _private_schedule(self) -> list[Memory]:
-        """Every current event or weekly routine the reasoning model may not see, whatever its date, by id."""
+        """Every current event or weekly routine the reasoning model may not see, whatever its date, by id.
+
+        Listed whole for any period, a brief or another day: a list cut to a period, or to the days still to
+        come, would date its items by which ones are in it, or by the day one drops out. The device leaves out,
+        in the answer it shows, those that are over (:meth:`_is_over`)."""
         today = self.today()
         return [
             memory for memory in self.store.all_current()
@@ -1185,16 +1259,20 @@ class Assistant:
             and (memory.kind == "event" or any(recurs_on(memory, today + timedelta(days=n)) for n in range(7)))
         ]
 
-    def _upcoming_withheld(self) -> list[Memory]:
-        """Current events the reasoning model may not see, from today to WITHHELD_HORIZON_DAYS
-        ahead, by id."""
-        today = self.today()
-        horizon = today + timedelta(days=WITHHELD_HORIZON_DAYS)
-        return [
-            memory for memory in self.store.all_current()
-            if memory.kind == "event" and not self.guard.may_send(memory, NEBIUS)
-            and (days := event_days(memory, today)) is not None and days[0] <= horizon and today <= days[1]
-        ]
+    def _is_over(self, memory_id: int) -> bool:
+        """True for a current private event whose last day is before today: on this device only, for leaving it
+        out of the answer shown."""
+        try:
+            memory = self.store.get(memory_id)
+        except MemoryNotFound:
+            return False
+        if memory.status != "current" or memory.kind != "event" or self.guard.may_send(memory, NEBIUS):
+            return False
+        try:
+            days = event_days(memory, self.today())
+        except (ValueError, OverflowError):
+            return False
+        return days is not None and days[1] < self.today()
 
     def _compose(
         self, exchange: _Exchange, purpose: str, request: str, memories: list[Memory], notes: Sequence[str] = (),
@@ -1205,20 +1283,25 @@ class Assistant:
         prepared = self.guard.prepare_context(memories, NEBIUS)
         if mask:
             request = masked_private(request)
-        elif exchange.agent:  # every value and name masked alike: redacting only those a private memory holds
-            request = masked(request)  # would tell the agent which of its values are private
-        typed = self.guard.check_outbound(request, NEBIUS, self.store.all_versions(), purpose=purpose, strict=True)
+        elif exchange.agent:  # every value and name masked alike, whatever private memories hold
+            request = masked(request)
+        # What the user typed is checked against every stored value, shared ones included. An agent's words are
+        # checked for credentials only, and sent after the stored-value check of the context: redacting the ones
+        # that match a private value ("11月3日", "half ten", "rossi") would tell the agent which of its guesses
+        # are right, and the request Nebius gets would depend on private memories.
+        typed = self.guard.check_outbound(request, NEBIUS, () if exchange.agent else self.store.all_versions(),
+                                          purpose=purpose, strict=True)
         if typed.withheld_ids or typed.reasons:  # what the user typed: no shared-value exemption
             exchange.decisions.append(typed)
             exchange.withheld_ids.update(typed.withheld_ids)
             request = typed.redacted_text
         header = "\n".join([f"Today is {_long_date(self.today())}.", *notes])
-        prompt = "\n".join([
-            "", "Memories:", prepared.context_text or "(none relevant)", "", f"Request: {request}",
-        ])
+        asked = f"\nRequest: {request}"
+        prompt = "\n".join(["", "Memories:", prepared.context_text or "(none relevant)"])
         raw = exchange.complete(
-            purpose, "reason", ANSWER_SYSTEM_PROMPT, prompt, prepared=prepared,
-            max_tokens=REASON_MAX_TOKENS, temperature=REASON_TEMPERATURE, header=header,
+            purpose, "reason", ANSWER_SYSTEM_PROMPT, prompt + ("" if exchange.agent else f"\n{asked}"),
+            prepared=prepared, max_tokens=REASON_MAX_TOKENS, temperature=REASON_TEMPERATURE, header=header,
+            trailer=f"\n{asked}" if exchange.agent else "",
         )
         return _Outcome(raw if raw is not None else self._fallback(exchange, prepared, memories), prepared)
 

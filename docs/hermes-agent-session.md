@@ -17,7 +17,9 @@ Factory and reaches the user's memory only through Confidant's MCP tools.
 - Each question is one run of
   `hermes -p confidant chat -Q --format stream-json -t mcp-confidant -s confidant --max-turns 6 -q "<question>"`,
   between 18:44:34 and 18:44:46 Paris time. Below, the tool calls and results are copied from the JSON event
-  stream as Hermes wrote it.
+  stream as Hermes wrote it; the raw streams are in
+  [`evidence/2026-10-28-hermes-agent/`](evidence/2026-10-28-hermes-agent/) (`s1` to `s3`; `q1` is the earlier
+  run described at the end).
 
 ## The three exchanges
 
@@ -65,8 +67,10 @@ the category label `health appointment`, and the agent got back only its placeho
 {"id": 26, "version": 1, "text": "⟦m26⟧ (private: health appointment, value withheld)", "sensitivity": "private", "label": "health appointment", "cite": "m26v1", "withheld": true}
 ```
 
-So from then on neither this agent nor Nemotron sees the word "cardiologist", the date or the time; a label
-written by the agent would have travelled with every placeholder.
+The agent's own model had read that sentence, since it wrote the tool call, and its request had reached
+Token Factory: Confidant cannot unsend it. From then on, no request Confidant answers carries the word
+"cardiologist", the date or the time, and a label written by the agent would have travelled with every
+placeholder.
 
 ## What it cost
 

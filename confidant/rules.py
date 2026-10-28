@@ -158,14 +158,13 @@ _PERSONAL_TERMS = re.compile(
     r"friends?|family|birthday|anniversary|kids?|son|daughter|prefers?|favou?rite|loves?|hates?|likes?|"
     r"dinner|holiday|vacation|trip|race|marathon|run|running|gym|home|weekend)\b"
 )
-# What makes a new fact clearly everyday: a taste, or a plan or pastime. A family word alone does not, since
-# facts about family are often the sensitive ones ("My brother lost his job").
 # What makes a new fact clearly everyday: the taste and plan words the rules used before 28 Oct, without the family
 # words (a family word alone is not everyday: "my brother was arrested"). Wider lists made sensitive facts
 # shareable again ("Brunch with my sponsor after Sunday's meeting", "I enjoy a bottle of wine every night").
 _EVERYDAY_TERMS = re.compile(
     r"\b(?:prefers?|favou?rite|loves?|hates?|likes?|rather|usually|always|never|birthday|anniversary|friends?|"
-    r"dinner|holiday|vacation|trip|race|marathon|run|running|gym|home|weekend)\b"
+    r"dinner|holiday|vacation|trip|race|marathon|run|running|gym|home|weekend"
+    r"|vegan|vegetarian|veggie|pescatarian|flexitarian)\b"  # a diet as a taste: "Sam is vegan now"
 )
 _PUBLIC_TERMS = re.compile(
     r"\b(?:team|tools?|workflow|process|guidelines?|checklist|documentation|docs|standup|sprint|"
@@ -577,6 +576,11 @@ _ADJECTIVE_DURATION = re.compile(r"\b(?P<n>\d{1,3}(?:[.,]\d{1,2})?)-(?P<unit>hou
 _RANGE_GAP = re.compile(r"\s*(?:[-–—]|to|until|till|through|thru|au|a|jusqu['’]?\s?au|bis|al|hasta)\s*")
 _BETWEEN = re.compile(r"\b(?:between|entre)\s*$")
 _DAY_BEFORE_DATE = re.compile(r"(?<![\d/.:])(?P<day>[1-9]|[12]\d|3[01])\s?(?:[-–—]|to|au)\s?$")
+# A number that names a step rather than a day: "Sprint 1 - 4 Nov", "Phase 2 - 9 Nov", "Day 3 – 15 Nov".
+_LABEL_BEFORE = re.compile(
+    r"\b(?:sprint|phase|day|week|step|stage|part|room|level|round|lot|batch|wave|session|episode|chapter|season"
+    r"|module|unit|lesson|no|nr|num|number|version|v|#)\s*$")
+_FROM_BEFORE = re.compile(r"\b(?:from|du|de|von|desde)\s*$")  # "moved from 3 to 4 Nov": 3 is the old day
 MAX_RANGE_DAYS = 31  # "from 9 Nov to 11 Nov" is a range; two dates further apart are two mentions
 ONGOING_MINUTES = 180  # an item with no end noted may still be going on this long after it starts
 DAY_MINUTES = 24 * 60
@@ -681,10 +685,28 @@ def _event_days_of(text: str, today: date) -> tuple[date, date] | None:
         last = found[1].resolve(today)
         if first < last <= first + timedelta(days=MAX_RANGE_DAYS):
             return first, last
-    before = None if moved else _DAY_BEFORE_DATE.search(fold(text[:found[0].start])[0])
+    prefix = fold(text[:found[0].start])[0]
+    before = _DAY_BEFORE_DATE.search(prefix)
+    if before and (_LABEL_BEFORE.search(prefix[:before.start()])
+                   or (moved and _FROM_BEFORE.search(prefix[:before.start()]))):
+        before = None  # a step number, or the day an item moved from
     if before and int(before["day"]) < first.day:
         return first.replace(day=int(before["day"])), first
     return first, first
+
+
+def two_days_asked(message: str, today: date) -> tuple[date, date] | None:
+    """The two days of a question that joins two dates with "and" or "or" ("Am I free on 2 Nov and 30 Nov?"),
+    earliest first, or None. :func:`period_asked` reads them as a range, for a question about what happens in
+    them; an availability check takes the two days themselves."""
+    found = find_dates(message)
+    if len(found) != 2:
+        return None
+    gap = fold(message[found[0].end:found[1].start])[0].strip()
+    if gap not in ("and", "et", "or", "ou") or _BETWEEN.search(fold(message[:found[0].start])[0]):
+        return None
+    first, second = sorted((found[0].resolve(today), found[1].resolve(today)))
+    return (first, second) if first != second else None
 
 
 def _joins_a_range(text: str, first: DateMatch, second: DateMatch) -> bool:

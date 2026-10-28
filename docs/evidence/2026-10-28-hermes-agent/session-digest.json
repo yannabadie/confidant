@@ -1,0 +1,120 @@
+[
+ {
+  "tools": [
+   [
+    "use",
+    "mcp__confidant__guarded_answer",
+    {
+     "question": "What's on my plate next week?"
+    }
+   ],
+   [
+    "result",
+    "mcp__confidant__guarded_answer",
+    {
+     "answer": "- Quarterly product review on Wednesday 4 Nov 2026 at 15:00, where the design team presents the onboarding redesign. [m6v1]  \n- Dinner with friends at the Lebanese place near Bellecour on Friday 6 Nov 2026 at 20:00. [m9v1]  \n⟦m7⟧ (private: health appointment, value withheld)  \n⟦m11⟧ (private: private appointment, value withheld)",
+     "placeholders": {
+      "⟦m7⟧": "private: health appointment",
+      "⟦m11⟧": "private: private appointment"
+     },
+     "citations": [
+      "m6v1",
+      "m9v1",
+      "m7v1",
+      "m11v1"
+     ],
+     "guard": "Private memories stay in Confidant: an agent sees at most a placeholder and its category, and only in answers about a period of time.",
+     "mode": "live",
+     "notice": ""
+    }
+   ]
+  ],
+  "final": "- Quarterly product review on Wednesday 4 Nov 2026 at 15:00, where the design team presents the onboarding redesign. [m6v1]  \n- Dinner with friends at the Lebanese place near Bellecour on Friday 6 Nov 2026 at 20:00. [m9v1]  \n⟦m7⟧ (private: health appointment, value withheld)  \n⟦m11⟧ (private: private appointment, value withheld)\n\nPrivate items are kept on your device; open Confidant to see them.",
+  "tokens": {
+   "input": 7884,
+   "output": 221,
+   "total": 8105,
+   "cache_read": 3712,
+   "cache_write": 0
+  },
+  "ts": 1793209479681
+ },
+ {
+  "tools": [
+   [
+    "use",
+    "mcp__confidant__guarded_answer",
+    {
+     "question": "Am I free on Wednesday morning?"
+    }
+   ],
+   [
+    "result",
+    "mcp__confidant__guarded_answer",
+    {
+     "answer": "Wednesday 4 November 2026, morning: no shared item in memory.\nPrivate items are left out of this message: whether one falls in this period shows on your device only.",
+     "placeholders": {},
+     "citations": [],
+     "guard": "Private memories stay in Confidant: an agent sees at most a placeholder and its category, and only in answers about a period of time.",
+     "mode": "live",
+     "notice": ""
+    }
+   ]
+  ],
+  "final": "Answer:  \n**Wednesday 4 November 2026, morning:** no shared item in memory.  \n*Private items are left out of this message: whether one falls in this period shows on your device only.*",
+  "tokens": {
+   "input": 7740,
+   "output": 128,
+   "total": 7868,
+   "cache_read": 3712,
+   "cache_write": 0
+  },
+  "ts": 1793209482342
+ },
+ {
+  "tools": [
+   [
+    "use",
+    "mcp__confidant__memory_record",
+    {
+     "kind": "event",
+     "label": "cardiologist visit",
+     "text": "Seeing a cardiologist about palpitations on Monday 9 Nov at 8:30.",
+     "sensitivity": "personal"
+    }
+   ],
+   [
+    "result",
+    "mcp__confidant__memory_record",
+    {
+     "memory": {
+      "id": 26,
+      "version": 1,
+      "text": "⟦m26⟧ (private: health appointment, value withheld)",
+      "kind": "event",
+      "sensitivity": "private",
+      "status": "current",
+      "source_type": "user",
+      "source_ref": "mcp:mcp",
+      "author": "mcp",
+      "created_at": "2026-10-28T17:44:45Z",
+      "supersedes": null,
+      "label": "health appointment",
+      "note": "",
+      "cite": "m26v1",
+      "withheld": true
+     }
+    }
+   ]
+  ],
+  "final": "Your note has been stored as a private memory (ID 26). Private items stay on your device; open Confidant to view the details.",
+  "tokens": {
+   "input": 12271,
+   "output": 287,
+   "total": 12558,
+   "cache_read": 7776,
+   "cache_write": 0
+  },
+  "ts": 1793209486305
+ }
+]

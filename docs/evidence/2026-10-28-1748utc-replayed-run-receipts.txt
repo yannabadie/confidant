@@ -1,0 +1,6 @@
+17:47:58  live    nebius_token_factory  answer         478+360   tok    1405 ms  sha256 553904932b5a  sent [6, 9]  withheld [7, 11]  nvidia/Nemotron-3-Ultra-550b-a55b
+17:48:03  live    nebius_token_factory  answer         392+1463  tok    4599 ms  sha256 a0582f8e6e67  sent [3, 25]  withheld []  nvidia/Nemotron-3-Ultra-550b-a55b
+17:48:03  live    nebius_token_factory  route          340+43    tok     310 ms  sha256 6e2a05fde387  sent []  withheld []  nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B
+17:48:05  live    nebius_token_factory  answer         419+400   tok    1871 ms  sha256 0c23f05c818c  sent [4, 13, 14]  withheld []  nvidia/Nemotron-3-Ultra-550b-a55b
+17:48:10  live    nebius_token_factory  brief          577+1352  tok    4170 ms  sha256 49752f32718a  sent [6, 8, 9, 14, 15]  withheld [7, 11]  nvidia/Nemotron-3-Ultra-550b-a55b
+Receipts today: 5 outbound calls · 5,824 tokens · ≈$0.0126 · 2 withheld memories never left Confidant

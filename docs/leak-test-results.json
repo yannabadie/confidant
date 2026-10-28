@@ -1,6 +1,6 @@
 {
  "schema": "confidant-leak-test/1",
- "generated_at": "2026-10-28T18:13:13Z",
+ "generated_at": "2026-10-28T18:59:21Z",
  "environment": {
   "python": "3.13.17",
   "platform": "Linux-6.18.44-fc-v180-x86_64-with-glibc2.39"
@@ -10,11 +10,11 @@
   "fixtures_sha256": "99ca842823eef80806100465f680d09fe238a0ebcb8d84fa0b59a9626f6ae4b6",
   "persona_sha256": "fea35165f16025e9dccccc98e38488430be74681b9cc76c089ef9f4283e030c6",
   "sources_sha256": {
-   "confidant/guard.py": "e0b1eb0ed20ac3309231cc93e99d1460f180b7fae994c611b6a06d375500f42a",
+   "confidant/guard.py": "3fa4c0ce9d87758657a06eafed73af78052a20b7efbf1f381fb98fbb6ac697d8",
    "confidant/forms.py": "008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94",
-   "confidant/scan.py": "382fcffbbeab1991d049bb651edd9f7ebade71d3c36406b24d8420d8beb4dc10",
-   "confidant/rules.py": "ec0495de37d904e17d9340b358739661e3adb85f67fd825f3ee01c2b1cf3c1de",
-   "confidant/assistant.py": "b5ffd71cb102c57696325d0f733b8c674fd18f18084fb5746d46560e75084c54"
+   "confidant/scan.py": "66042595554785fcbeadd7ae4dbc126b79d8bc4177056139fae95248b78e1dc5",
+   "confidant/rules.py": "8ed9498c734462cdcf6d3278973d581ae2c476e9bd5571b9e472de924d73cb8c",
+   "confidant/assistant.py": "e52cc5a1add22c9af2cf4a9baea82174d7e4b848fd24fadd6ff2f85785d68e9d"
   },
   "checker_sha256": "123555bb97605f4ee231d081af29fe37f857f964ff0875abbcc8ca6ab8ea5784",
   "libraries": {
@@ -5115,7 +5115,7 @@
        "actions": [
         "web search skipped: the message looks private"
        ],
-       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, names, days and months masked.",
+       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, capitalised names, days and months masked.",
        "receipts": 1,
        "calls": [
         {
@@ -5182,7 +5182,7 @@
        "actions": [
         "web search skipped: the message looks private"
        ],
-       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, names, days and months masked.",
+       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, capitalised names, days and months masked.",
        "receipts": 1,
        "calls": [
         {
@@ -5261,7 +5261,7 @@
        "actions": [
         "web search skipped: the message looks private"
        ],
-       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, names, days and months masked.",
+       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, capitalised names, days and months masked.",
        "receipts": 1,
        "calls": [
         {
@@ -5361,7 +5361,7 @@
        "actions": [
         "web search skipped: the message looks private"
        ],
-       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, names, days and months masked.",
+       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, capitalised names, days and months masked.",
        "receipts": 1,
        "calls": [
         {
@@ -5473,7 +5473,7 @@
        "actions": [
         "web search skipped: the message looks private"
        ],
-       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, names, days and months masked.",
+       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, capitalised names, days and months masked.",
        "receipts": 1,
        "calls": [
         {
@@ -5540,7 +5540,7 @@
        "actions": [
         "web search skipped: the message looks private"
        ],
-       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, names, days and months masked.",
+       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, capitalised names, days and months masked.",
        "receipts": 1,
        "calls": [
         {
@@ -5619,7 +5619,7 @@
        "actions": [
         "web search skipped: the message looks private"
        ],
-       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, names, days and months masked.",
+       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, capitalised names, days and months masked.",
        "receipts": 1,
        "calls": [
         {
@@ -5686,7 +5686,7 @@
        "actions": [
         "web search skipped: the message looks private"
        ],
-       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, names, days and months masked.",
+       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, capitalised names, days and months masked.",
        "receipts": 1,
        "calls": [
         {
@@ -6061,7 +6061,7 @@
        "actions": [
         "web search skipped: the message looks private"
        ],
-       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, names, days and months masked.",
+       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, capitalised names, days and months masked.",
        "receipts": 1,
        "calls": [
         {
@@ -6128,7 +6128,7 @@
        "actions": [
         "web search skipped: the message looks private"
        ],
-       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, names, days and months masked.",
+       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, capitalised names, days and months masked.",
        "receipts": 1,
        "calls": [
         {
@@ -6207,7 +6207,7 @@
        "actions": [
         "web search skipped: the message looks private"
        ],
-       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, names, days and months masked.",
+       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, capitalised names, days and months masked.",
        "receipts": 1,
        "calls": [
         {
@@ -6274,7 +6274,7 @@
        "actions": [
         "web search skipped: the message looks private"
        ],
-       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, names, days and months masked. The answer mentions unknown placeholder(s) ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧; they are shown as written.",
+       "notice": "This message looks private, so nothing was searched on the web. Nemotron answers from memory, and gets the message with its dates, times, amounts, capitalised names, days and months masked. The answer mentions unknown placeholder(s) ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧, ⟦m7⟧, ⟦m10⟧, ⟦m11⟧, ⟦m21⟧; they are shown as written.",
        "receipts": 1,
        "calls": [
         {

@@ -225,8 +225,8 @@ class Guard:
         memory keeps its old value private): their whole text (case-insensitive) or
         any of their dates, times, numbers, e-mail addresses or names, compared in
         normalised form ("1 180,00 €" matches "1,180", "3/11" and "3 novembre" match
-        "November 3rd"). A value the user also stated in a current memory this
-        provider may see is not treated as secret, except for the memories in
+        "November 3rd"). A value that also appears in a current memory this
+        provider may see (one the user stated, or a public web page) is not treated as secret, except for the memories in
         ``strict_ids``, or for all of them when ``strict`` (used for what the user
         typed: next to the private item, a shared value still tells which item it
         belongs to). Values written as bare digits or digit words ("1030",
@@ -246,7 +246,9 @@ class Guard:
         protected = [memory for memory in memories if memory.sensitivity not in allowed]
         if protected:
             outbound = _Outbound(text)
-            declared = [m for m in current if m.sensitivity in allowed and m.source_type != "web"]
+            # web pages included: public text redacted where it happens to equal a private value would date that
+            # value for anyone who can read the page
+            declared = [m for m in current if m.sensitivity in allowed]
             exempt_keys = {value.key for memory in declared for value in find_values(memory.text)}
             exempt_words = {word for memory in declared for word in words(memory.text)}
             exempt_digits = {digits for memory in declared for digits in signatures(memory.text)}

@@ -1,0 +1,61 @@
+
+Quarterly product review on Wednesday 4 Nov 2026 at 15:00 [m6v1]  
+Dinner with friends at the Lebanese place near Bellecour on Friday 6 Nov 2026 at 20:00 [m9v1]  
+Dermatologist appointment on Tuesday 3 Nov 2026 at 10:30.  
+Confidential: final-round interview for a lead designer role on Thursday 5 Nov 2026 at 11:00 (video call); not to be mentioned at work.
+  sources: m6v1 · seed · 2026-10-05 | m9v1 · seed · 2026-10-22 | m7v1 · seed · 2026-10-19 | m11v1 · seed · 2026-10-23
+  guard: 2 private memories never left Confidant · mode: live
+
+Updated [m7v2] (“health appointment”, was v1): Dermatologist appointment moved to Wednesday 4 Nov at 9:00. Its value stays local; cloud models only ever see its label.
+  sources: m7v2 · user · 2026-10-28
+  guard: 1 private memory never left Confidant · mode: live
+  did: corrected m7 → v2
+
+Based on your half marathon in Lyon on Sunday 15 Nov 2026 [m3v1] and your coach’s advice to keep a little intensity while cutting weekly volume by ~40 % [m25v1], here’s a 10‑day taper starting Thursday 5 Nov:
+
+- **Thu 5 Nov** – 45 min easy run + 4×30 sec strides  
+- **Fri 6 Nov** – Rest or 30 min cross‑training  
+- **Sat 7 Nov** – 60 min easy run  
+- **Sun 8 Nov** – 40 min with 3×5 min at goal half‑marathon pace (target <1:50) [m3v1]  
+- **Mon 9 Nov** – Rest  
+- **Tue 10 Nov** – 30 min easy + 4×30 sec strides  
+- **Wed 11 Nov** – 45 min easy  
+- **Thu 12 Nov** – 30 min with 2×5 min at goal pace  
+- **Fri 13 Nov** – 20 min very easy jog  
+- **Sat 14 Nov** – Rest or 15 min shake‑out jog  
+- **Sun 15 Nov** – Race day, target <1:50 [m3v1]
+
+*General knowledge: a 10‑day taper typically reduces volume 30‑50 % while retaining race‑pace workouts to stay sharp.*
+  sources: m3v1 · seed · 2026-09-03 | m25v1 · seed · 2026-10-20
+  guard: No private memory was involved · mode: live
+  note: Web search is off (no TAVILY_API_KEY), so nothing was searched; the guarded query would have been “10-day taper plan for half marathon”. The answer uses memory only.
+
+Happy 30th birthday, Léa! Hope your day is packed with peonies, bouldering, and terrible puns — love you!
+
+[m4v1]
+  sources: m4v1 · seed · 2026-09-08
+  guard: No private memory was involved · mode: live
+
+I won't keep or send that: it looks like a PIN or access code. Confidant never stores credentials; a password manager is the right place for them. Nothing was saved or sent.
+  guard: Nothing was sent to the cloud · mode: live
+  did: refused a PIN or access code: nothing stored, nothing sent
+
+**Events (next 7 days)**  
+- Today, Fri 30 Oct, 17:00 – Weekly review [m8v1]  
+- Wed 4 Nov, 15:00 – Quarterly product review (onboarding redesign) [m6v1]  
+- Fri 6 Nov, 20:00 – Dinner with friends at the Lebanese place near Bellecour [m9v1]  
+
+**Withheld**  
+Dermatologist appointment moved to Wednesday 4 Nov at 9:00.  
+Confidential: final-round interview for a lead designer role on Thursday 5 Nov 2026 at 11:00 (video call); not to be mentioned at work.  
+
+**Open to‑do items**  
+- Book a table for Léa’s birthday dinner by Tue 10 Nov [m14v1]  
+- Send the onboarding redesign slides to the product team before the quarterly review [m15v1]  
+
+**Practical suggestion for today**  
+Use the morning to finalize the onboarding redesign slides so you can send them well before the 4 Nov quarterly review, then clear your inbox and set three priorities during the 17:00 weekly review.
+
+Receipts today: 5 outbound calls · 5,824 tokens · ≈$0.0126 · 2 withheld memories never left Confidant
+  sources: m8v1 · seed · 2026-09-12 | m6v1 · seed · 2026-10-05 | m9v1 · seed · 2026-10-22 | m7v2 · user · 2026-10-28 | m11v1 · seed · 2026-10-23 | m14v1 · seed · 2026-10-24 | m15v1 · seed · 2026-10-27
+  guard: 2 private memories never left Confidant · mode: live

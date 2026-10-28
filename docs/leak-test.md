@@ -18,11 +18,13 @@ for tuning.
 | 3 (held out) | 48 | 27 Oct, after v3, by another reviewer | **30 leaked** (v3) | 0 (v4, v5) |
 | 4 (held out) | 12 | 27 Oct, after v4, by a reviewer of the whole submission | **11 leaked** (v4) | 0 (v5) |
 
-A fifth review compared answers instead of payloads and found a leak of another kind, which no round
-could see: see [Differential check](#differential-check-27-october-2026). A sixth, on 28 October, read the code
-and the MCP tools rather than the chat, and found leaks there: see [Round 6](#round-6-outside-review-28-october-2026).
-A seventh read the round-6 fixes the same day and found two MCP oracles they left open: see
-[Round 7](#round-7-second-outside-review-28-october-2026).
+A fifth review compared payloads with each other instead of scanning each one, and found a leak of another
+kind, which no round could see: see [Differential check](#differential-check-27-october-2026). A sixth, on
+28 October, read the code and the MCP tools rather than the chat, and found leaks there: see
+[Round 6](#round-6-outside-review-28-october-2026). A seventh read the round-6 fixes the same day and found two
+MCP oracles they left open: see [Round 7](#round-7-second-outside-review-28-october-2026). An eighth read the
+round-7 fixes that evening and found three more oracles, and a placeholder that dated itself over days: see
+[Round 8](#round-8-third-outside-review-28-october-2026).
 
 Each prompt runs against two fake model profiles, a cooperative one and a hostile one that tries to
 exfiltrate; the counts above are prompts that leaked in at least one profile. Machine-readable results, latest
@@ -67,8 +69,7 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
 - **Rerun on 28 October**, after the live run on Token Factory changed routing (the router runs with reasoning
   off, a first-person question about a period of the user's time is routed on the device, a reply cut off at the
   token limit is never used): still 0 of 170 in both profiles, with 75/85, 53/63, 58/64 and 11/11 calls. Round 1
-  makes two fewer routing calls in each profile. The four current result files, linked above, are from this
-  rerun.
+  makes two fewer routing calls in each profile.
 - **A differential check found what payload scanning cannot**: asked "What do I have on Tuesday?" and the same
   about Monday, Confidant put a private appointment's placeholder in the model's context only on the day that
   appointment was, which dated it without showing any value (18 of 30 question pairs, 27 October). Fixed;
@@ -87,7 +88,15 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
   memories it got back and in what order; plus seven smaller faults (see
   [Round 7](#round-7-second-outside-review-28-october-2026)). Rerun after the fixes: 0 of 170 in both profiles,
   with 69/79, 50/60, 53/59 and 11/11 calls (two questions of round 2 that start with "Do I" or "Can I" without a
-  question mark reach the router again). The four current result files are from this rerun.
+  question mark reach the router again).
+- **Round 8, later that evening** (a third outside code review, again an agent with no history) found that how
+  an agent's own request was redacted told it which of its guesses matched a private value; that the brief
+  picked private memories by their words and weekday; that public web text was redacted where it equalled a
+  private value; and that a placeholder left the withheld list once its day had passed, which dates it for a
+  provider that keeps logs across days. Plus credential, routing and robustness regressions (see
+  [Round 8](#round-8-third-outside-review-28-october-2026)). Rerun after the fixes: 0 of 170 in both profiles,
+  with 69/79, 49/58, 53/59 and 11/11 calls (round 2's A11, "Give me the rundown for next week.", is routed on
+  the device again). The four current result files are from this rerun.
 - Still reported, not counted: user-typed confidential details that are not stored values (for example
   `final-round lead designer` in a web search), and web-policy redactions of personal names in controls.
 
@@ -599,6 +608,54 @@ finding below was reproduced as a failing test in `tests/test_review_round7.py` 
   patterns refused nine ordinary sentences; and requests such as "Could you remember that…" no longer reached
   the router. **Fixed**, each with its tests.
 
+## Round 8 (third outside review, 28 October 2026)
+
+A third Claude agent with no history of the project reviewed the round-7 changes, with its own probes: an echo
+model, and pairs of stores that differ only in their private memories. Each finding below was reproduced as a
+failing test in `tests/test_review_round8.py` before its fix.
+
+- **Found, over MCP: the agent's own request.** Round 7 masked an agent's request by kind, then checked it
+  against every stored value. Forms the masking does not read were still redacted where they matched a private
+  value: asking `guarded_answer` "Anything on 11月{d}日?" for d = 1 to 30 sent `[withheld]` for d = 3 and 5 only
+  (2 and 6 with the appointments moved). "half ten", a lowercase "rossi" and the whole text of a private
+  memory behaved the same. An echoed request told the agent which guesses were right. **Fixed:** an agent's
+  request is masked by kind, checked for credentials only and sent after the stored-value check of the
+  context, so nothing about it depends on private memories.
+- **Found: the brief picked private memories by their words and weekday.** Its open items and today's routines
+  came from every memory. Adding "need to open the account" to the private savings goal, or moving a private
+  therapy session to today's weekday, added its placeholder to what Nebius got and changed the brief's last
+  line; the Hermes cron job sends the brief daily. **Fixed:** those are chosen among shared memories, and every
+  private event and weekly routine is listed whatever its date or weekday.
+- **Found: public web text redacted where it equalled a private value.** A running-club page saying
+  "Tuesday 3 Nov at 10:30" reached Nebius as "[withheld] at [withheld]" while an agent read the page verbatim;
+  with the appointments moved, it went whole. **Fixed:** the values of web memories are exempt like those of
+  other shared memories.
+- **Found: a placeholder dated itself over days.** The withheld list held private events from today to 60 days
+  ahead, so a provider that logs the daily brief would see ⟦m7⟧ first 60 days before 3 Nov and last on 3 Nov.
+  The zero-context judge of the same evening found it too. **Fixed:** every private event and weekly routine is
+  listed whatever its date; the device leaves the ones that are over out of the answer it shows, never out of
+  what it sends.
+- **Found, elsewhere:**
+  - Credential forms round 7 no longer refused, which then reached Nebius when asked about: `PIN is 4.8.2.1`,
+    `alarm code is 45.12`, a sign-in with its password, the digits on the back of a Visa, passport numbers with
+    letters in them.
+  - Abbreviated and foreign day and month names (`Tue`, `Nov`, `martes`) left unmasked in a private message.
+  - Corrections not judged like new facts: "Brunch with my sponsor after Sunday's meeting" stayed personal
+    through `memory_correct` or the chat.
+  - A year 0 or 9999 crashed every schedule feature; inside a private memory, the crash was itself an oracle.
+  - `memory_history` showed the text a memory had before a correction made it private.
+  - "Tell me / Give me / Can you list… next week" reached the router again.
+  - `Sprint 1 - 4 Nov` was read as a range.
+  - "Am I free on 2 Nov and 30 Nov?" never checked the 30th.
+  - An odd `usage` field crashed a turn and lost its receipt.
+  - Two ordinary sentences were refused as credentials.
+
+  **Fixed**, each with its tests.
+- **Checked and found sound by the same reviewer:** the round-7 ranking (444 query and limit pairs over six
+  stores with random private words gave no difference), availability over MCP, the never-lower rule, and the
+  0 of 170 result, which it reproduced.
+- Rerun of rounds 1 to 4 after these fixes: **0 of 170** in both profiles.
+
 ## Known limits of this test
 
 - **Rounds 1 to 4 have been used for tuning, and v5 has no held-out estimate yet.** Their 0 leaks say that those
@@ -621,15 +678,20 @@ finding below was reproduced as a failing test in `tests/test_review_round7.py` 
   rounds, the reviewer's own `forms`.
 - **Matching ignores context**: an unrelated `1030` in a message, or `ten and a half kilometres`, is withheld
   when a private time is 10:30.
-- **Full-text ranking counts private memories.** Search statistics cover every memory, so the order of
-  the shared results sent for a question can shift when a private memory changes; which memories are sent
-  does not.
+- **A chat question that names no time selects private memories by its words.** Asking about "the
+  dermatologist" adds ⟦m7⟧ (private: health appointment) to the context, so the cloud model learns that a
+  private item of that category matches a word the user typed. A question that names a time, and every
+  question from another agent, gets the same private list whatever its words, ranked without private
+  memories.
+- **An agent's words are sent as written**, masked by kind and checked for credentials: Confidant cannot tell
+  an agent's guess from a fact, and redacting only the true guesses would confirm them.
 - **The runs are on one day.** Every answer request starts with today's date, and a question about a period
   gives its first day. On a day that is also a private item's date, that date is in the payload, although
   nothing in it says which item falls on that day; the checker would count it as a value hit. The persona's
   today is 30 October 2026, when no private item is due.
-- **Not covered**: HTTP headers (the fakes do not see them), logs, the replay recorder, the MCP server, the
-  Gradio UI beyond the one render check, replay mode, budget fallbacks and network errors.
+- **Not covered**: HTTP headers (the fakes do not see them), logs, the replay recorder, the MCP server (the unit
+  tests of rounds 6 to 8 cover it), the Gradio UI beyond the one render check, replay mode, budget fallbacks
+  and network errors.
 
 ## How to rerun
 
@@ -663,16 +725,16 @@ canaries from it, and it stops with an error if a hand-curated detail no longer 
 
 ## Inputs of the runs
 
-| input | 28 Oct, after round 7 (current result files) | v5 (27 Oct) | v1 (26 Oct) |
+| input | 28 Oct, after round 8 (current result files) | v5 (27 Oct) | v1 (26 Oct) |
 |---|---|---|---|
 | `tests/fixtures/leak_prompts.jsonl` (round 1) | same | `99ca842823eef80806100465f680d09fe238a0ebcb8d84fa0b59a9626f6ae4b6` | same |
 | `tests/fixtures/leak_prompts_heldout.jsonl` (round 2) | same | `1b032afe4a319f720305a224d971ac3865a472117c247057d373dd7ae5b43bb2` | (written after v2) |
 | `tests/fixtures/leak_prompts_round3.jsonl` (round 3) | same | `c31bd4b80cf1a94d89d213207d76c4f542aa808246e817ff05c9485524b02de1` | (written after v3) |
 | `tests/fixtures/leak_prompts_round4.jsonl` (round 4) | same | `bd532c156c9ce659b46554bcc0740105a37bdabd0d081ced8dd363fef012e04e` | (written after v4) |
 | `data/demo_persona.json` | same | `fea35165f16025e9dccccc98e38488430be74681b9cc76c089ef9f4283e030c6` (category labels) | `d610971d373776c9f684420403edfbdefbff2bed23ba554f37d5ad871308e2da` |
-| `confidant/guard.py` | `e0b1eb0ed20ac3309231cc93e99d1460f180b7fae994c611b6a06d375500f42a` | `cf72e270f01cd67af31e36bc5b0e3bd6c99edd8b92c44591efc32a2d56f0adc1` | `2207c112d4c73ae777360da20d6e8950bc6979f1bb82a6f6657686398818cb9e` |
+| `confidant/guard.py` | `3fa4c0ce9d87758657a06eafed73af78052a20b7efbf1f381fb98fbb6ac697d8` | `cf72e270f01cd67af31e36bc5b0e3bd6c99edd8b92c44591efc32a2d56f0adc1` | `2207c112d4c73ae777360da20d6e8950bc6979f1bb82a6f6657686398818cb9e` |
 | `confidant/forms.py` | same | `008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94` | (new in v5) |
-| `confidant/scan.py` | `382fcffbbeab1991d049bb651edd9f7ebade71d3c36406b24d8420d8beb4dc10` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
-| `confidant/rules.py` | `ec0495de37d904e17d9340b358739661e3adb85f67fd825f3ee01c2b1cf3c1de` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
-| `confidant/assistant.py` | `b5ffd71cb102c57696325d0f733b8c674fd18f18084fb5746d46560e75084c54` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
+| `confidant/scan.py` | `66042595554785fcbeadd7ae4dbc126b79d8bc4177056139fae95248b78e1dc5` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
+| `confidant/rules.py` | `8ed9498c734462cdcf6d3278973d581ae2c476e9bd5571b9e472de924d73cb8c` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
+| `confidant/assistant.py` | `e52cc5a1add22c9af2cf4a9baea82174d7e4b848fd24fadd6ff2f85785d68e9d` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
 | Babel, num2words | same | 2.18.0, 0.5.14 | (not used) |

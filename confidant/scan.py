@@ -51,6 +51,16 @@ CALENDAR_WORDS = (
     frozenset(MONTHS) | frozenset(FOREIGN_MONTHS) | frozenset(WEEKDAYS) | frozenset(_WEEKDAY_SHORT)
     | frozenset(_FOREIGN_WEEKDAYS)
 )
+# Day and month names as a private message may write them, for masking it (assistant.masked_private): whole or
+# abbreviated, in English, French, Spanish, Italian and German, with and without accents.
+WEEKDAY_WORDS = frozenset([
+    *WEEKDAYS, *_WEEKDAY_SHORT, *_FOREIGN_WEEKDAYS,
+    "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes", "sábado", "sabado", "domingo",
+    "lunedì", "lunedi", "martedì", "martedi", "mercoledì", "mercoledi", "giovedì", "giovedi", "venerdì", "venerdi",
+    "sabato", "domenica",
+    "montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag", "sonnabend", "sonntag",
+])
+MONTH_WORDS = frozenset([*MONTHS, *FOREIGN_MONTHS])
 _ALL_MONTHS = {**FOREIGN_MONTHS, **MONTHS}
 
 
@@ -263,6 +273,8 @@ def _parse_date(match: re.Match[str]) -> DateMatch | None:
     day = int(groups["day"]) if groups.get("day") else DAY_WORDS[re.sub(r"\s+", " ", groups["dayword"].lower())]
     year_text = match.groupdict().get("year")
     year = int(year_text) if year_text else None
+    if year is not None and not 1 <= year <= 9998:  # year 0 is no date; 9999 leaves no room for date arithmetic
+        return None
     if not 1 <= month <= 12 or not 1 <= day <= calendar.monthrange(year or 2024, month)[1]:
         return None
     return DateMatch(match.start(), match.end(), month, day, year)
@@ -582,11 +594,16 @@ class Secret:
 # Words that introduce a PIN or a numeric code, in English, French, German and Spanish. The code itself may be
 # written with gaps ("4 8 2 1", "12-34-56") or digit by digit in words ("four eight two one").
 _CODE_WORDS = (  # not "phone code" (a country's calling code) nor "pass code" ("must pass code review")
-    r"pin(?:\s*(?:code|number))?|passcode|sim\s*pin|puk(?:\s*code)?"
-    r"|(?:door|gate|alarm|garage|access|security|unlock|entry|keypad|building|intercom)\s*code"
+    # "pin" the verb is not one: "PIN the slides", "pin it", "a PIN-up poster"
+    r"pin(?:\s*(?:code|number)|(?![\s-]+(?:the|a|an|this|that|these|those|it|them|up|down)\b))|passcode|sim\s*pin"
+    r"|puk(?:\s*code)?"
+    r"|(?:door|gate|alarm|garage|access|security|unlock|entry|keypad|building|intercom)\s*(?:opener\s+|remote\s+)?code"
     r"|(?:debit|credit|bank|atm)?\s*card\s*(?:code|pin)"
     r"|code\s+(?:for|of|to)\s+(?:the\s+|my\s+)?(?:front\s+|back\s+|main\s+)?(?:door|gate|building|garage|alarm"
     r"|safe|lock|locker|padlock)"
+    # not a business named after it: "the code for the alarm company is ACME-2026"
+    r"(?!\s+(?:company|companies|firm|shop|store|installer|provider|engineer|technician|repairs?|maker|service"
+    r"|services|people|man|guy)\b)"
     r"|lock\s*(?:screen\s*)?code|cvv2?|cvc|cryptogramme(?:\s+visuel)?|digicode"
     r"|code\s+(?:pin|secret|confidentiel|d['’]acc[eè]s|de\s+(?:la\s+)?(?:porte|carte)|de\s+s[ée]curit[ée])"
     r"|geheimzahl|pin-?nummer|zugangscode|t[üu]rcode|c[óo]digo\s+(?:pin|de\s+acceso|de\s+seguridad|secreto)"
@@ -613,8 +630,16 @@ _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         r"|olvidada|incorrecta|nueva|el|una)\b)\S{3,}",
         re.I)),
     ("a PIN or access code", re.compile(rf"\b(?:{_CODE_WORDS})\b\D{{0,20}}?(?:{_CODE_VALUE})", re.I)),
+    # letters inside, right after "is" or a colon: "the digicode is 12A45"
+    ("a PIN or access code", re.compile(
+        rf"\b(?:{_CODE_WORDS})\b[^\n\d.]{{0,20}}?(?:\b(?:is|was|est|ist|es|lautet)\b|[:=])\s*"
+        r"(?<![\w-])(?=[A-Za-z0-9]{4,10}(?![\w-]))(?=(?:[A-Za-z]*\d){3})(?=[0-9]*[A-Za-z])[A-Za-z0-9]+", re.I)),
+    # dotted, right after "is" or a colon: "my PIN is 4.8.2.1", "alarm code: 45.12" (not "pin the 2.1.0 notes")
+    ("a PIN or access code", re.compile(
+        rf"\b(?:{_CODE_WORDS})\b[^\n\d.]{{0,20}}?(?:\b(?:is|was|est|ist|es|lautet)\b|[:=])\s*"
+        r"(?<!\d)\d{1,4}(?:\.\d{1,4}){1,7}(?!\d|\.\d)", re.I)),
     ("a login and its password", re.compile(
-        r"\b(?:login|log-in|logon|credentials|creds|identifiants?|zugangsdaten|anmeldedaten)\b"
+        r"\b(?:login|log-in|logon|sign-?in|credentials|creds|identifiants?|zugangsdaten|anmeldedaten)\b"
         r"(?:[^.\n]{0,30}?\b(?:is|are|est|sont|ist|sind)\b|[^.\n:=\d]{0,30}?[:=])\s*"
         r"(?=[^\s/]*[A-Za-z@])[^\s/]+\s*/\s*\S{3,}",
         re.I)),
@@ -628,7 +653,7 @@ _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         r"\b(?:card|carte|cb|visa|mastercard|amex)\b[^.\n]{0,60}?\b(?:digits|numbers|chiffres)\s+(?:on|at|au)\s+"
         r"(?:the\s+)?(?:back|dos)\b[^.\n]{0,40}?(?<!\d)\d{3,4}(?!\d)"
         r"|\b(?:digits|numbers|chiffres)\s+(?:on|at|au)\s+(?:the\s+)?(?:back|dos)\s+(?:of|de)\s+(?:my|the|your|ma|la)\s+"
-        r"(?:\w+\s+)?(?:card|carte)\b[^.\n]{0,40}?(?<!\d)\d{3,4}(?!\d)",
+        r"(?:\w+\s+)?(?:card|carte|cb|visa|mastercard|amex)\b[^.\n]{0,40}?(?<!\d)\d{3,4}(?!\d)",
         re.I)),
     ("a wallet recovery phrase", re.compile(
         r"\b(?:recovery|seed|mnemonic|secret|backup|wallet)\s+(?:phrase|words|seed)\b[^\n]{0,20}?"
@@ -639,6 +664,11 @@ _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
         r"|passport\s+(?:number|no\.?)|num[ée]ro\s+de\s+(?:s[ée]curit[ée]\s+sociale|s[ée]cu|passeport)|tax\s+id)\b"
         # the number itself: digits with single gaps, at least six, after at most two letters ("AB 12 34 56")
         r"\D{0,20}?(?<![\w-])(?:[A-Za-z]{1,2}[ -]?)?\d(?:[ -]?\d){5,15}(?![\w-])",
+        re.I)),
+    # a passport number with letters inside: "12AB34567", "19FV12345"
+    ("an identity number", re.compile(
+        r"\b(?:passport\s+(?:number|no\.?|n°|#)|num[ée]ro\s+de\s+passeport)\D{0,20}?(?<![\w-])"
+        r"(?=[A-Za-z0-9]{6,12}(?![\w-]))(?=(?:[A-Za-z]*\d){4})[A-Za-z0-9]+",
         re.I)),
     ("an API key or access token", re.compile(
         r"\b(?:sk|pk|rk)-[\w-]{16,}|\btvly-[\w-]{16,}|\bgh[pousr]_[A-Za-z0-9]{20,}|\bgithub_pat_\w{20,}"

@@ -193,7 +193,8 @@ class MemoryStore:
         """Add a corrected version of a memory and mark the previous one superseded.
 
         Kind carries over; so do sensitivity and label unless given (the caller decides, e.g. a correction
-        that makes a memory private). Raises VersionConflict when ``expected_version`` is not the latest
+        that makes a memory private). A correction never makes a memory less private: a lower sensitivity
+        given here keeps the current one, and its label. Raises VersionConflict when ``expected_version`` is not the latest
         version, SecretRefused for credential-like text, and ValueError if the memory was retracted.
         """
         text = _required(new_text, "new_text")
@@ -206,11 +207,14 @@ class MemoryStore:
                 raise ValueError(f"m{memory_id} was retracted; record a new memory instead.")
             if current.version != expected_version:
                 raise VersionConflict(memory_id, expected_version, current.version)
+            # never lower, decided here under the lock: a caller computed its level from the version it read
+            level = current.sensitivity if sensitivity is None else max(
+                sensitivity, current.sensitivity, key=SENSITIVITIES.index)
             updated = replace(
                 current, version=current.version + 1, text=text, status="current",
                 source_type="user", source_ref=source_ref, author=author,
-                created_at=utc_timestamp(), supersedes=current.version, note="",
-                sensitivity=sensitivity or current.sensitivity, label=label or current.label,
+                created_at=utc_timestamp(), supersedes=current.version, note="", sensitivity=level,
+                label=(label or current.label) if level == (sensitivity or current.sensitivity) else current.label,
             )
             self._supersede(current)
             self._insert(updated)

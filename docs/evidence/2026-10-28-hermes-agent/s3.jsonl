@@ -1,0 +1,18 @@
+{"type": "system", "subtype": "init", "model": "", "session_id": "", "timestamp": 1793209482773}
+{"type": "tool_use", "name": "mcp__confidant__memory_record", "tool_call_id": "chatcmpl-tool-87c469b4fd33022e", "input": {"kind": "event", "label": "cardiologist visit", "text": "Seeing a cardiologist about palpitations on Monday 9 Nov at 8:30.", "sensitivity": "personal"}, "timestamp": 1793209485335}
+{"type": "tool_result", "name": "mcp__confidant__memory_record", "tool_call_id": "chatcmpl-tool-87c469b4fd33022e", "output": "{\"result\": \"{\\\"memory\\\": {\\\"id\\\": 26, \\\"version\\\": 1, \\\"text\\\": \\\"⟦m26⟧ (private: health appointment, value withheld)\\\", \\\"kind\\\": \\\"event\\\", \\\"sensitivity\\\": \\\"private\\\", \\\"status\\\": \\\"current\\\", \\\"source_type\\\": \\\"user\\\", \\\"source_ref\\\": \\\"mcp:mcp\\\", \\\"author\\\": \\\"mcp\\\", \\\"created_at\\\": \\\"2026-10-28T17:44:45Z\\\", \\\"supersedes\\\": null, \\\"label\\\": \\\"health appointment\\\", \\\"note\\\": \\\"\\\", \\\"cite\\\": \\\"m26v1\\\", \\\"withheld\\\": true}}\"}", "duration_ms": 10, "is_error": false, "timestamp": 1793209485346}
+{"type": "text", "text": "\n\n\nYour", "timestamp": 1793209486124}
+{"type": "text", "text": " note", "timestamp": 1793209486134}
+{"type": "text", "text": " has", "timestamp": 1793209486146}
+{"type": "text", "text": " been stored", "timestamp": 1793209486156}
+{"type": "text", "text": " as a private memory", "timestamp": 1793209486166}
+{"type": "text", "text": " (ID", "timestamp": 1793209486177}
+{"type": "text", "text": " 26).", "timestamp": 1793209486187}
+{"type": "text", "text": " Private items", "timestamp": 1793209486197}
+{"type": "text", "text": " stay", "timestamp": 1793209486208}
+{"type": "text", "text": " on your device;", "timestamp": 1793209486219}
+{"type": "text", "text": " open Confidant to", "timestamp": 1793209486228}
+{"type": "text", "text": " view", "timestamp": 1793209486241}
+{"type": "text", "text": " the", "timestamp": 1793209486264}
+{"type": "text", "text": " details.", "timestamp": 1793209486265}
+{"type": "result", "session_id": "local-575d87209a57dca8968b6a059a1420498023c84e82748023b624ae3ef6171e19", "exit_code": 0, "text": "Your note has been stored as a private memory (ID 26). Private items stay on your device; open Confidant to view the details.", "tokens": {"input": 12271, "output": 287, "total": 12558, "cache_read": 7776, "cache_write": 0}, "duration_ms": 3531, "timestamp": 1793209486305}

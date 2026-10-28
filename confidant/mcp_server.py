@@ -28,6 +28,7 @@ import json
 import logging
 import sys
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from typing import Any, TextIO
 
 from .assistant import Assistant, cited_memories, correction_level, delivery_text
@@ -286,8 +287,13 @@ class MCPServer:
         return {"memory": self._view(memory)}
 
     def _memory_history(self, arguments: Mapping[str, Any]) -> dict[str, Any]:
-        """Tool: all versions of a memory."""
+        """Tool: all versions of a memory. When its latest version is private, every version is withheld: the
+        text it had before a correction made it private ("Partner Sam is vegetarian") would otherwise sit next
+        to "(private: health)"."""
         versions = self.assistant.store.history(_integer(arguments, "memory_id"))
+        latest = versions[-1] if versions else None
+        if latest is not None and latest.sensitivity == "private" and not self.reveal_private:
+            versions = [replace(memory, sensitivity="private", label=latest.label) for memory in versions]
         return {"versions": [self._view(memory) for memory in versions]}
 
     def _daily_brief(self, arguments: Mapping[str, Any]) -> dict[str, Any]:

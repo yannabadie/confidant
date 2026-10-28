@@ -1,0 +1,19 @@
+{"type": "system", "subtype": "init", "model": "", "session_id": "", "timestamp": 1793209480120}
+{"type": "tool_use", "name": "mcp__confidant__guarded_answer", "tool_call_id": "chatcmpl-tool-82815b51472d2459", "input": {"question": "Am I free on Wednesday morning?"}, "timestamp": 1793209481274}
+{"type": "tool_result", "name": "mcp__confidant__guarded_answer", "tool_call_id": "chatcmpl-tool-82815b51472d2459", "output": "{\"result\": \"{\\\"answer\\\": \\\"Wednesday 4 November 2026, morning: no shared item in memory.\\\\nPrivate items are left out of this message: whether one falls in this period shows on your device only.\\\", \\\"placeholders\\\": {}, \\\"citations\\\": [], \\\"guard\\\": \\\"Private memories stay in Confidant: an agent sees at most a placeholder and its category, and only in answers about a period of time.\\\", \\\"mode\\\": \\\"live\\\", \\\"notice\\\": \\\"\\\"}\"}", "duration_ms": 10, "is_error": false, "timestamp": 1793209481285}
+{"type": "text", "text": "\n\n\n\nAnswer", "timestamp": 1793209482151}
+{"type": "text", "text": ":  ", "timestamp": 1793209482178}
+{"type": "text", "text": "**", "timestamp": 1793209482179}
+{"type": "text", "text": "Wednesday ", "timestamp": 1793209482183}
+{"type": "text", "text": "4 November ", "timestamp": 1793209482193}
+{"type": "text", "text": "2026", "timestamp": 1793209482205}
+{"type": "text", "text": ", morning:** no", "timestamp": 1793209482215}
+{"type": "text", "text": " shared item in memory", "timestamp": 1793209482227}
+{"type": "text", "text": ".  \n*", "timestamp": 1793209482237}
+{"type": "text", "text": "Private items are left", "timestamp": 1793209482248}
+{"type": "text", "text": " out of this message", "timestamp": 1793209482258}
+{"type": "text", "text": ": whether one falls", "timestamp": 1793209482304}
+{"type": "text", "text": " in this period shows", "timestamp": 1793209482305}
+{"type": "text", "text": " on your device only", "timestamp": 1793209482305}
+{"type": "text", "text": ".*", "timestamp": 1793209482306}
+{"type": "result", "session_id": "local-e3b68607142aa7b8a34f433d96544bd13daf37f46bc3ad0414dca8833c169922", "exit_code": 0, "text": "Answer:  \n**Wednesday 4 November 2026, morning:** no shared item in memory.  \n*Private items are left out of this message: whether one falls in this period shows on your device only.*", "tokens": {"input": 7740, "output": 128, "total": 7868, "cache_read": 3712, "cache_write": 0}, "duration_ms": 2222, "timestamp": 1793209482342}

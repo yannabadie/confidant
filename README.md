@@ -7,7 +7,9 @@ Every memory carries its provenance and version history. A guard decides, memory
 your device. When a private fact is needed, the cloud model never sees it: NVIDIA Nemotron on Nebius Token
 Factory writes the answer with a placeholder such as `⟦m7⟧`, and Confidant fills in the real value locally.
 
-- **Live demo:** https://huggingface.co/spaces/yannabadie/confidant (the Space clones this repository; see `space/`)
+- **Hosted demo:** https://huggingface.co/spaces/yannabadie/confidant. It replays the demo turns recorded live on
+  Token Factory on 28 October and says so in its header; with your own key, the same code runs live (below).
+  The Space clones this repository; see `space/`.
 - **Video (2 min 26 s):** https://youtu.be/z6-ygooKppk
 - Built for the Nebius × NVIDIA Global AI Hackathon, Personal AI track.
 
@@ -47,9 +49,9 @@ What we measured on Token Factory on 28 October 2026 ([`docs/token-factory-probe
 - `chat_template_kwargs: {"enable_thinking": false}` switches Nemotron 3's reasoning off; `/no_think` in the
   prompt did not stop Nano. With reasoning on, Nano spent its 256 tokens thinking and returned no route.
 - The six demo turns make 5 calls. In the live run the hosted demo replays (28 October, 17:48 UTC): 5,824
-  tokens, about $0.013 at list prices; the route took 0.3 seconds, the answers 1.4 to 4.6 and the brief 4.2. An
-  earlier recording, at 07:30 UTC, took 5,640 tokens. In the live run filmed for the video:
-  4,597 tokens, $0.0094.
+  tokens, about $0.013 at list prices; the route took 0.3 seconds, the answers 1.4 to 4.6 and the brief 4.2
+  (receipts and transcript in [`docs/evidence/`](docs/evidence/README.md)). An earlier recording, at 07:30 UTC,
+  took 5,640 tokens. In the live run filmed for the video: 4,597 tokens, $0.0094, on screen in its Receipts tab.
 
 The sensitivity of a new memory is decided on the device: asking a model whether a fact is private would show
 it the fact. Keyword lists cannot name every illness or dispute, so a new fact is private unless the rules see
@@ -105,13 +107,18 @@ others without them (which private memories match an agent's words, or how they 
 would tell it what they say); the other tools show a placeholder with a category label,
 and a private memory recorded over MCP gets a category label whatever label the client sends. An availability
 question sent to `guarded_answer` is checked on the device, and the client gets the shared items of that period
-only: saying that a private item falls in it would date that item. Start the server with `--reveal-private` for
-a client of your own that may see everything.
+only: saying that a private item falls in it would date that item. A client's own request is sent to Nebius
+as it wrote it, values masked by kind and credentials refused, after the check of the context: redacting only
+the words that equal a private value would tell the client which of its guesses are right. `memory_history`
+withholds every version of a memory that is now private. Start the server with `--reveal-private` for a client
+of your own that may see everything.
 
 A Hermes agent that runs on Nemotron 3 Super through Token Factory used these tools on 28 October: it got the
 week with placeholders, an availability answer that dates no private item, and when it tried to store a
 cardiologist visit as personal under its own label, Confidant stored it as private with a category label
-([`docs/hermes-agent-session.md`](docs/hermes-agent-session.md)).
+([`docs/hermes-agent-session.md`](docs/hermes-agent-session.md)). The agent's own model, on Token Factory, had
+written that sentence in its tool call, so it had read it first: a guard on the device protects what it stores,
+from then on, not what an agent read before.
 
 `integrations/hermes/` holds a reusable Hermes skill, that agent's profile and the morning-brief job: a Hermes
 cron job in no-agent mode runs [`confidant-brief.sh`](integrations/hermes/confidant-brief.sh), that is
@@ -136,9 +143,13 @@ draft, so each private item appears only as its label, and no Hermes model reads
   fact's words, an old version, event order, sensitive facts stored as personal). A sixth review, on
   28 October, went through the MCP tools instead of the chat and found three leaks there (search results,
   labels, the guard field), plus sensitive facts still stored as personal; a seventh, on the fixes, found two
-  more (which shared memories an agent got back, and in what order, depended on the words of private ones).
-  Each is now a test ([`tests/test_review_round6.py`](tests/test_review_round6.py),
-  [`tests/test_review_round7.py`](tests/test_review_round7.py)). The current version leaks 0 of the 170, a
+  more (which shared memories an agent got back, and in what order, depended on the words of private ones);
+  an eighth, on those fixes, found three more oracles (how an agent's own request was redacted, which private
+  memories the brief picked, public web text redacted where it equalled a private value) and a placeholder
+  that dated itself by leaving the brief once its day had passed. Each is now a test
+  ([`tests/test_review_round6.py`](tests/test_review_round6.py),
+  [`tests/test_review_round7.py`](tests/test_review_round7.py),
+  [`tests/test_review_round8.py`](tests/test_review_round8.py)). The current version leaks 0 of the 170, a
   regression result, not an estimate: no round has been written against it yet. Every failure and every fix
   is listed there.
 - **Differential test** ([`tests/test_differential.py`](tests/test_differential.py)): values are not the only
@@ -146,17 +157,21 @@ draft, so each private item appears only as its label, and no Hermes model reads
   placeholder in the model's context only on its own day, which dated it (18 of 30 question pairs). Fixed:
   the test now moves the private appointments to other days and checks that nothing that leaves the device
   changes, through the chat and over MCP.
-- Withheld items carry no date, so a cloud model cannot tell whether one falls in a given slot. Availability
-  questions are therefore answered on the device, with no model call; the version that may be passed on (MCP,
-  Telegram) lists shared items only.
+- Withheld items carry no date, and a question that names a time, the brief and every agent's question get the
+  same list of them whatever the period and whatever the day, so a cloud model cannot tell whether one falls in
+  a given slot, nor when one is over. Availability questions are answered on the device, with no model call;
+  the version that may be passed on (MCP, Telegram) lists shared items only.
+- A chat question that names no time selects memories by its words, private ones included as placeholders:
+  asking about "the dermatologist" tells the cloud model that a private health item matches that word.
 - Late binding protects the value, not the existence of a withheld memory: the model sees "private: health
   appointment, value withheld", which is itself information. Labels name a category only ("health
-  appointment", "private appointment", "housing cost", "finances"), never a word of the memory. Withheld items
-  are listed apart, without dates, so their position in a list does not date them.
+  appointment", "private appointment", "housing cost", "savings"), never a value (no name, date, time or
+  amount), though the category word may also be in the memory. Withheld items are listed apart, without dates,
+  so their position in a list does not date them.
 - Credentials are refused before anything is stored or sent: passwords and PINs in English, French, German and
-  Spanish, written with gaps or in words (`PIN is 4 8 2 1`, `four eight two one`), unlock codes and
-  combinations, a login with its password, card numbers and the digits on the back of a card, recovery
-  phrases, identity numbers and API keys. A credential phrased in a way these patterns miss is stored like any
+  Spanish, written with gaps, dots or in words (`PIN is 4 8 2 1`, `4.8.2.1`, `four eight two one`), unlock
+  codes and combinations, a login or sign-in with its password, card numbers and the digits on the back of a
+  card, recovery phrases, identity and passport numbers, and API keys. A credential phrased in a way these patterns miss is stored like any
   new fact: private unless clearly everyday, so never sent.
 - **Personal** memories (not private ones) may be sent to Token Factory when a task needs them, for example a
   birthday message; change the policy in `confidant/guard.py` to keep them local too.

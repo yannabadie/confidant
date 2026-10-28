@@ -1,0 +1,40 @@
+{"type": "system", "subtype": "init", "model": "", "session_id": "", "timestamp": 1793209474994}
+{"type": "tool_use", "name": "mcp__confidant__guarded_answer", "tool_call_id": "chatcmpl-tool-8a4a67707b083c9a", "input": {"question": "What's on my plate next week?"}, "timestamp": 1793209476353}
+{"type": "tool_result", "name": "mcp__confidant__guarded_answer", "tool_call_id": "chatcmpl-tool-8a4a67707b083c9a", "output": "{\"result\": \"{\\\"answer\\\": \\\"- Quarterly product review on Wednesday 4 Nov 2026 at 15:00, where the design team presents the onboarding redesign. [m6v1]  \\\\n- Dinner with friends at the Lebanese place near Bellecour on Friday 6 Nov 2026 at 20:00. [m9v1]  \\\\n⟦m7⟧ (private: health appointment, value withheld)  \\\\n⟦m11⟧ (private: private appointment, value withheld)\\\", \\\"placeholders\\\": {\\\"⟦m7⟧\\\": \\\"private: health appointment\\\", \\\"⟦m11⟧\\\": \\\"private: private appointment\\\"}, \\\"citations\\\": [\\\"m6v1\\\", \\\"m9v1\\\", \\\"m7v1\\\", \\\"m11v1\\\"], \\\"guard\\\": \\\"Private memories stay in Confidant: an agent sees at most a placeholder and its category, and only in answers about a period of time.\\\", \\\"mode\\\": \\\"live\\\", \\\"notice\\\": \\\"\\\"}\"}", "duration_ms": 1941, "is_error": false, "timestamp": 1793209478295}
+{"type": "text", "text": "\n\n\n\n-", "timestamp": 1793209479063}
+{"type": "text", "text": " Quarterly product review", "timestamp": 1793209479072}
+{"type": "text", "text": " on Wednesday 4", "timestamp": 1793209479084}
+{"type": "text", "text": " Nov 2", "timestamp": 1793209479095}
+{"type": "text", "text": "026 at", "timestamp": 1793209479105}
+{"type": "text", "text": " 15:", "timestamp": 1793209479117}
+{"type": "text", "text": "00, where", "timestamp": 1793209479127}
+{"type": "text", "text": " the design team presents", "timestamp": 1793209479138}
+{"type": "text", "text": " the onboarding redesign", "timestamp": 1793209479149}
+{"type": "text", "text": ". [m6", "timestamp": 1793209479160}
+{"type": "text", "text": "v1]  ", "timestamp": 1793209479313}
+{"type": "text", "text": "- Dinner with", "timestamp": 1793209479365}
+{"type": "text", "text": " friends at the Lebanese", "timestamp": 1793209479378}
+{"type": "text", "text": " place near Bellec", "timestamp": 1793209479389}
+{"type": "text", "text": "our on Friday ", "timestamp": 1793209479401}
+{"type": "text", "text": "6 Nov ", "timestamp": 1793209479413}
+{"type": "text", "text": "2026", "timestamp": 1793209479425}
+{"type": "text", "text": " at 20", "timestamp": 1793209479436}
+{"type": "text", "text": ":00.", "timestamp": 1793209479480}
+{"type": "text", "text": " [m9v", "timestamp": 1793209479481}
+{"type": "text", "text": "1]  \n", "timestamp": 1793209479481}
+{"type": "text", "text": "⟦m", "timestamp": 1793209479481}
+{"type": "text", "text": "7⟧", "timestamp": 1793209479490}
+{"type": "text", "text": " (private: health", "timestamp": 1793209479502}
+{"type": "text", "text": " appointment,", "timestamp": 1793209479513}
+{"type": "text", "text": " value withheld)", "timestamp": 1793209479523}
+{"type": "text", "text": "  \n", "timestamp": 1793209479534}
+{"type": "text", "text": "⟦m11", "timestamp": 1793209479544}
+{"type": "text", "text": "⟧", "timestamp": 1793209479555}
+{"type": "text", "text": " (private: private", "timestamp": 1793209479567}
+{"type": "text", "text": " appointment, value with", "timestamp": 1793209479577}
+{"type": "text", "text": "held)\n\n", "timestamp": 1793209479588}
+{"type": "text", "text": "Private items are kept", "timestamp": 1793209479599}
+{"type": "text", "text": " on your device;", "timestamp": 1793209479610}
+{"type": "text", "text": " open Confidant to", "timestamp": 1793209479620}
+{"type": "text", "text": " see them.", "timestamp": 1793209479632}
+{"type": "result", "session_id": "local-7a9e6b92a2e09a5d92de19edd5e81deef510100372e9798b4ee263161aacdfd4", "exit_code": 0, "text": "- Quarterly product review on Wednesday 4 Nov 2026 at 15:00, where the design team presents the onboarding redesign. [m6v1]  \n- Dinner with friends at the Lebanese place near Bellecour on Friday 6 Nov 2026 at 20:00. [m9v1]  \n⟦m7⟧ (private: health appointment, value withheld)  \n⟦m11⟧ (private: private appointment, value withheld)\n\nPrivate items are kept on your device; open Confidant to see them.", "tokens": {"input": 7884, "output": 221, "total": 8105, "cache_read": 3712, "cache_write": 0}, "duration_ms": 4687, "timestamp": 1793209479681}
