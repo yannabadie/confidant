@@ -1,17 +1,13 @@
 {
   "question": "Run my daily brief.",
-  "mode": "replay",
-  "recorded_at": null,
-  "note": "Placeholder written by hand to match the seed persona; regenerate from a live run (recorded_at is null until then).",
+  "outputs": {
+    "brief": "**Events (next 7 days, soonest first)**  \n- Today, Friday 30 Oct 2026, 17:00 – Weekly review: clear the inbox, check the calendar for the next two weeks, pick three priorities, log the week’s running kilometres [m8v1]  \n- Wednesday 4 Nov 2026, 15:00 – Quarterly product review (design team presents the onboarding redesign) [m6v1]  \n- Friday 6 Nov 2026, 20:00 – Dinner with friends at the Lebanese place near Bellecour [m9v1]  \n\n**Withheld events**  \n⟦m7⟧ (private: health appointment, value withheld)  \n⟦m11⟧ (private: private appointment, value withheld)  \n\n**Open to‑do items**  \n- Book a table for Léa’s birthday dinner by Tuesday 10 Nov 2026 [m14v1]  \n- Send the onboarding redesign slides to the product team before the quarterly review [m15v1]  \n\n**Practical suggestion for today**  \nDo your weekly review at 17:00: clear the inbox, check the calendar for the next two weeks, pick three priorities, and log the week’s running kilometres [m8v1]."
+  },
+  "web_results": [],
   "models": {
     "reason": "nvidia/Nemotron-3-Ultra-550b-a55b",
     "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
   },
-  "outputs": {
-    "route": {
-      "intent": "brief"
-    },
-    "brief": "Good morning. Here is Friday 30 October.\n\nComing up:\n- **Wednesday 4 Nov, 15:00**: quarterly product review with the onboarding redesign [m6v1]\n- **Friday 6 Nov, 20:00**: dinner with friends near Bellecour [m9v1]\n\nPrivate, filled in on your device:\n- ⟦m7⟧\n- ⟦m11⟧\n\nOpen items:\n- Send the onboarding redesign slides before the review [m15v1]\n- Book a table for Léa's birthday dinner by Tuesday 10 November [m14v1]\n\nFor today: your weekly review is at 17:00 [m8v1], a good moment to finish those slides."
-  },
-  "web_results": []
+  "recorded_at": "2026-10-28T07:30:23Z",
+  "mode": "recorded live"
 }

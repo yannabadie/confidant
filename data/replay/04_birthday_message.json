@@ -1,17 +1,14 @@
 {
   "question": "Draft a birthday message for Léa.",
-  "mode": "replay",
-  "recorded_at": null,
-  "note": "Placeholder written by hand to match the seed persona; regenerate from a live run (recorded_at is null until then).",
+  "outputs": {
+    "route": "{\n  \"intent\": \"answer\",\n  \"text\": \"Happy Birthday, [name]! Wishing you a wonderful day filled with joy and cherished moments.\",\n  \"target\": \"[name]\"\n}",
+    "answer": "Happy 30th birthday, Léa! Hope your day is full of peonies, bouldering adventures, and terrible puns [m4v1]. Got you a bouldering day pass and a small bunch of peonies — can't wait to celebrate with you on the 14th [m13v1]."
+  },
+  "web_results": [],
   "models": {
     "reason": "nvidia/Nemotron-3-Ultra-550b-a55b",
     "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
   },
-  "outputs": {
-    "route": {
-      "intent": "answer"
-    },
-    "answer": "Here is a draft for Saturday 14 November [m4v1]:\n\nHappy 30th, Léa. Thirty suits you: still the boldest climber I know, and the only person whose puns get worse every year. I hope this one brings you new routes, a big bunch of peonies and far too much cake. Love, Alex\n\nThe bouldering pass and peonies stay a surprise [m13v1], and the birthday dinner still needs booking by Tuesday 10 November [m14v1]."
-  },
-  "web_results": []
+  "recorded_at": "2026-10-28T07:30:17Z",
+  "mode": "recorded live"
 }

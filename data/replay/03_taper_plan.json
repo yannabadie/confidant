@@ -1,37 +1,14 @@
 {
   "question": "Find a 10-day taper plan for my half marathon.",
-  "mode": "replay",
-  "recorded_at": null,
-  "note": "Placeholder written by hand to match the seed persona; regenerate from a live run (recorded_at is null until then).",
+  "outputs": {
+    "answer": "Based on your race on Sunday 15 Nov 2026 [m3v1] and your coach’s guidance to “keep a little intensity but cut weekly volume by about 40 percent” [m25v1], here’s a 10‑day taper (starting 10 days before the race, i.e. 5 Nov – 14 Nov):\n\n- **Day 10 (Thu 5 Nov):** Easy 45 min run + 4 × 30‑sec strides at goal half‑marathon pace.  \n- **Day 9 (Fri 6 Nov):** Rest or 30 min very easy jog.  \n- **Day 8 (Sat 7 Nov):** 60 min steady run, last 15 min at goal pace.  \n- **Day 7 (Sun 8 Nov):** 40 min easy + 3 × 2‑min at goal pace with 2‑min jog recovery.  \n- **Day 6 (Mon 9 Nov):** Rest.  \n- **Day 5 (Tue 10 Nov):** 45 min easy + 4 × 1‑min at goal pace.  \n- **Day 4 (Wed 11 Nov):** 30 min very easy jog.  \n- **Day 3 (Thu 12 Nov):** 30 min easy + 2 × 3‑min at goal pace.  \n- **Day 2 (Fri 13 Nov):** 20 min easy jog + 3 × 30‑sec strides.  \n- **Day 1 (Sat 14 Nov):** Rest, light stretching, mental prep.  \n\nOverall weekly volume is roughly 40 % lower than your normal peak week, while retaining a few goal‑pace segments to keep intensity."
+  },
+  "web_results": [],
   "models": {
     "reason": "nvidia/Nemotron-3-Ultra-550b-a55b",
     "fast": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
   },
-  "outputs": {
-    "route": {
-      "intent": "search",
-      "query": "10-day taper plan half marathon"
-    },
-    "answer": "Your race is on Sunday 15 November [m3v1], so a 10-day taper starts on Thursday 5 November.\n\n- **Thu 5 to Sun 8 Nov**: cut weekly volume by about a third and keep one short session at race pace [m26v1]\n- **Mon 9 to Wed 11 Nov**: easy runs plus a few strides; your coach's rule of about 40 percent less volume applies here [m25v1]\n- **Thu 12 and Fri 13 Nov**: two short, easy runs; sleep and familiar food matter more than mileage now [m27v1]\n- **Sat 14 Nov**: rest, or 15 minutes very easy\n- **Sun 15 Nov**: race day\n\nLess volume with a little intensity lets your legs recover without losing sharpness [m28v1]."
-  },
-  "web_results": [
-    {
-      "title": "How to taper for a half marathon",
-      "url": "https://example.org/running/half-marathon-taper",
-      "content": "Start the taper about ten days out. Reduce weekly volume by 30 to 40 percent, keep one short session at race pace so the legs stay sharp, and make the last two days very easy.",
-      "score": 0.91
-    },
-    {
-      "title": "Race week checklist for a half marathon",
-      "url": "https://example.com/guides/race-week-checklist",
-      "content": "In the final days keep runs short and easy, add a few strides, prioritise sleep and stick to familiar food. Do not try new shoes or gels on race day.",
-      "score": 0.86
-    },
-    {
-      "title": "Tapering: why less training helps",
-      "url": "https://example.net/science/tapering",
-      "content": "Cutting volume while keeping some intensity lets glycogen stores and tissue repair catch up, which improves race performance by a few percent.",
-      "score": 0.78
-    }
-  ]
+  "recorded_at": "2026-10-28T07:30:15Z",
+  "web_search": "off",
+  "mode": "recorded live"
 }
