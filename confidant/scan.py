@@ -581,42 +581,54 @@ class Secret:
 
 # Words that introduce a PIN or a numeric code, in English, French, German and Spanish. The code itself may be
 # written with gaps ("4 8 2 1", "12-34-56") or digit by digit in words ("four eight two one").
-_CODE_WORDS = (
-    r"pin(?:\s*(?:code|number))?|pass\s*code|(?:door|gate|alarm|garage|access|security|unlock|phone)\s*code"
+_CODE_WORDS = (  # not "phone code" (a country's calling code) nor "pass code" ("must pass code review")
+    r"pin(?:\s*(?:code|number))?|passcode|sim\s*pin|puk(?:\s*code)?"
+    r"|(?:door|gate|alarm|garage|access|security|unlock|entry|keypad|building|intercom)\s*code"
+    r"|(?:debit|credit|bank|atm)?\s*card\s*(?:code|pin)"
+    r"|code\s+(?:for|of|to)\s+(?:the\s+|my\s+)?(?:front\s+|back\s+|main\s+)?(?:door|gate|building|garage|alarm"
+    r"|safe|lock|locker|padlock)"
     r"|lock\s*(?:screen\s*)?code|cvv2?|cvc|cryptogramme(?:\s+visuel)?|digicode"
     r"|code\s+(?:pin|secret|confidentiel|d['’]acc[eè]s|de\s+(?:la\s+)?(?:porte|carte)|de\s+s[ée]curit[ée])"
     r"|geheimzahl|pin-?nummer|zugangscode|t[üu]rcode|c[óo]digo\s+(?:pin|de\s+acceso|de\s+seguridad|secreto)"
     r"|(?:safe|lock|locker|padlock|suitcase|bike\s*lock)\s+(?:combination|combo|code)"
     r"|combination\s+(?:to|for|of)\s+(?:the|my)\s+(?:safe|lock|locker|padlock|suitcase|bike\s*lock)"
 )
-_CODE_VALUE = (
-    r"(?<!\d)\d(?:[ .-]?\d){2,7}(?!\d)"
+_CODE_VALUE = (  # gaps of a space or a dash; not dots, which make versions, decimals and times ("2.1.0", "9.30")
+    r"(?<!\d)\d(?:[ -]?\d){2,7}(?!\d|[.,]\d)"
     rf"|\b(?:{_DIGIT_WORD})(?:[ ,-]+(?:{_DIGIT_WORD})){{2,7}}\b"
 )
 _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("a password", re.compile(
         r"\b(?:password|passwd|passphrase|pwd|pw|mots?\s+de\s+passe|mdp|passwort|kennwort|contrase[ñn]a"
         r"|wi-?fi\s+(?:key|code)|cl[ée]\s+(?:wi-?fi|wpa)|code\s+wi-?fi)s?\b"
-        r"(?!\s+(?:manager|policy|policies|reset|rules?|hint|strength|field|prompt|change|expiry|generator"
-        r"|requirements?|protected)\b)"
-        r"[^.\n]{0,30}?(?:\b(?:is|was|est|ist|lautet|es|era)\b|[:=])\s*"
+        r"(?!\s+(?:manager|policy|policies|reset|rules?|hints?|strength|field|prompt|change|expiry|generator"
+        r"|requirements?|protected|tips?|advice|training|guide|ideas?|reminders?|rotation|best\s+practices?)\b)"
+        # "is", or a colon right after the keyword or after a few words with no digit ("pw for the router:"),
+        # never one inside a time ("training on Tuesday at 14:00")
+        r"(?:[^.\n]{0,30}?\b(?:is|was|est|ist|lautet|es|era)\b|[^.\n:=\d]{0,30}?[:=])\s*"
         r"(?!(?:strong|weak|wrong|correct|incorrect|expired|required|missing|invalid|too|the|a|an|not|still"
+        r"|written|on|in|at|under|behind|taped|printed|kept|somewhere|available|shared"
         r"|saved|stored|changed|reset|new|trop|tr[eè]s|faible|fort|oubli[ée]e?|perdu|chang[ée]|expir[ée]|le|la"
         r"|les|un|une|zu|sehr|falsch|vergessen|ge[äa]ndert|abgelaufen|neu|der|die|das|ein|eine|muy|demasiado"
         r"|olvidada|incorrecta|nueva|el|una)\b)\S{3,}",
         re.I)),
     ("a PIN or access code", re.compile(rf"\b(?:{_CODE_WORDS})\b\D{{0,20}}?(?:{_CODE_VALUE})", re.I)),
     ("a login and its password", re.compile(
-        r"\b(?:login|log-in|logon|sign-?in|credentials|creds|identifiants?|zugangsdaten|anmeldedaten)\b"
-        r"[^.\n]{0,30}?(?:\b(?:is|are|est|sont|ist|sind)\b|[:=])\s*\S+\s*/\s*\S{3,}",
+        r"\b(?:login|log-in|logon|credentials|creds|identifiants?|zugangsdaten|anmeldedaten)\b"
+        r"(?:[^.\n]{0,30}?\b(?:is|are|est|sont|ist|sind)\b|[^.\n:=\d]{0,30}?[:=])\s*"
+        r"(?=[^\s/]*[A-Za-z@])[^\s/]+\s*/\s*\S{3,}",
         re.I)),
     ("a payment card number", re.compile(
         r"\b(?:card|carte|tarjeta|karte)\s*(?:number|no\.?|num[ée]ro|n°|#|nummer|n[úu]mero)"
         r"\D{0,20}?(?<!\d)\d(?:[ -]?\d){11,18}(?!\d)",
         re.I)),
     ("a card security code", re.compile(
-        r"\b(?:digits|numbers|chiffres)\s+(?:on|at|au)\s+(?:the\s+)?(?:back|dos)\b[^.\n]{0,40}?"
-        r"(?<!\d)\d{3,4}(?!\d)",
+        # only about a card: "the 3 digits on the back of my card", "the CB expires 09/28 and the 3 digits on
+        # the back are 123"; not a race bib
+        r"\b(?:card|carte|cb|visa|mastercard|amex)\b[^.\n]{0,60}?\b(?:digits|numbers|chiffres)\s+(?:on|at|au)\s+"
+        r"(?:the\s+)?(?:back|dos)\b[^.\n]{0,40}?(?<!\d)\d{3,4}(?!\d)"
+        r"|\b(?:digits|numbers|chiffres)\s+(?:on|at|au)\s+(?:the\s+)?(?:back|dos)\s+(?:of|de)\s+(?:my|the|your|ma|la)\s+"
+        r"(?:\w+\s+)?(?:card|carte)\b[^.\n]{0,40}?(?<!\d)\d{3,4}(?!\d)",
         re.I)),
     ("a wallet recovery phrase", re.compile(
         r"\b(?:recovery|seed|mnemonic|secret|backup|wallet)\s+(?:phrase|words|seed)\b[^\n]{0,20}?"
@@ -625,7 +637,8 @@ _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("an identity number", re.compile(
         r"\b(?:ssn|social\s+security(?:\s+(?:number|no\.?))?|national\s+insurance(?:\s+number)?"
         r"|passport\s+(?:number|no\.?)|num[ée]ro\s+de\s+(?:s[ée]curit[ée]\s+sociale|s[ée]cu|passeport)|tax\s+id)\b"
-        r"\D{0,20}?(?<![\w-])(?=(?:[A-Za-z -]*\d){6})[A-Za-z0-9](?:[ -]?[A-Za-z0-9]){5,19}(?![\w-])",
+        # the number itself: digits with single gaps, at least six, after at most two letters ("AB 12 34 56")
+        r"\D{0,20}?(?<![\w-])(?:[A-Za-z]{1,2}[ -]?)?\d(?:[ -]?\d){5,15}(?![\w-])",
         re.I)),
     ("an API key or access token", re.compile(
         r"\b(?:sk|pk|rk)-[\w-]{16,}|\btvly-[\w-]{16,}|\bgh[pousr]_[A-Za-z0-9]{20,}|\bgithub_pat_\w{20,}"

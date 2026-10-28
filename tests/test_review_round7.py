@@ -223,3 +223,39 @@ def test_a_reschedule_word_after_the_dates_keeps_the_range() -> None:
 def test_moved_from_one_day_number_to_a_date_is_the_new_date_only() -> None:
     assert event_days(event("My dentist appointment moved from 3 to 5 Nov at 9:00."), TODAY) == (
         date(2026, 11, 5), date(2026, 11, 5))
+
+
+# --- Important 8: the wider credential patterns refused ordinary messages, and still missed some codes -------
+
+from confidant.scan import detect_secret  # noqa: E402
+
+NOT_CREDENTIALS = [
+    "Remember the IT password training on Tuesday at 14:00.",
+    "Password tips: use three random words.",
+    "Remember to pin the meeting notes at 9.30.",
+    "Pin the 2.1.0 release notes in the design channel.",
+    "The phone code for Morocco is 212.",
+    "Remember my social security appointment on 12 Nov 2026 at 10:30.",
+    "Remember the tax id deadline is 15 May 2027.",
+    "Remember PRs must pass code review for PR 1234.",
+    "Remember the numbers on the back of Léa's race bib are 1234.",
+    "Remember the sign-in desk is open 9:00 / 17:00.",
+    "Remember the wifi password is written on the back of the router.",
+]
+MORE_CREDENTIALS = [
+    "Remember the code for the front door is 4512.",
+    "Remember the entry code is 4512.",
+    "Remember the keypad code at Léa's is 1987.",
+    "Remember my SIM PUK is 12345678.",
+    "Remember my debit card code is 4821.",
+]
+
+
+@pytest.mark.parametrize("message", NOT_CREDENTIALS)
+def test_an_ordinary_message_is_not_refused_as_a_credential(message: str) -> None:
+    assert detect_secret(message) is None
+
+
+@pytest.mark.parametrize("message", MORE_CREDENTIALS)
+def test_more_codes_are_refused(message: str) -> None:
+    assert detect_secret(message) is not None
