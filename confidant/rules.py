@@ -407,7 +407,8 @@ def period_asked(message: str, today: date) -> tuple[date, date] | None:
     "next N days", in English or French; two dates joined as a range ("from Monday 9 Nov to Wednesday 11
     Nov") give every day between them."""
     found = find_dates(message)
-    if len(found) == 2 and _RANGE_GAP.fullmatch(fold(message[found[0].end:found[1].start])[0]):
+    gap = fold(message[found[0].end:found[1].start])[0].strip() if len(found) == 2 else ""
+    if len(found) == 2 and (_joins_a_range(message, found[0], found[1]) or gap in ("and", "et")):
         first, last = found[0].resolve(today), found[1].resolve(today)
         if first < last <= first + timedelta(days=MAX_RANGE_DAYS):
             return first, last
@@ -565,13 +566,16 @@ _BARE_RANGE = re.compile(
     r"(?!\d)"
 )
 _COUNT_WORDS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
-_FOR_DURATION = re.compile(
-    r"\bfor\s+(?:about\s+|around\s+)?(?P<n>\d+(?:[.,]\d+)?|an?|one|two|three|four|five|six)\s+"
+_FOR_DURATION = re.compile(  # at most three digits: "for 999 minutes" is the longest duration read
+    r"\bfor\s+(?:about\s+|around\s+)?(?P<n>\d{1,3}(?:[.,]\d{1,2})?|an?|one|two|three|four|five|six)\s+"
     r"(?P<unit>hours?|hrs?|minutes?|mins?)\b"
 )
-_ADJECTIVE_DURATION = re.compile(r"\b(?P<n>\d+(?:[.,]\d+)?)-(?P<unit>hour|hr|minute|min)\b")
-_RANGE_GAP = re.compile(r"\s*(?:[-–—]|to|until|till|through|thru|and|au|a|jusqu['’]?\s?au|bis|al|hasta)\s*")
-_DAY_BEFORE_DATE = re.compile(r"(?<![\d/.:])(?P<day>[12]?\d|3[01])\s?(?:[-–—]|to|au)\s?$")
+_ADJECTIVE_DURATION = re.compile(r"\b(?P<n>\d{1,3}(?:[.,]\d{1,2})?)-(?P<unit>hour|hr|minute|min)\b")
+# Between two dates of a range ("from 9 Nov to 11 Nov", "du 9 au 11 novembre"). "and" joins a range only after
+# "between": "physio on Wednesday 11 Nov and Friday 13 Nov" is two days, not three.
+_RANGE_GAP = re.compile(r"\s*(?:[-–—]|to|until|till|through|thru|au|a|jusqu['’]?\s?au|bis|al|hasta)\s*")
+_BETWEEN = re.compile(r"\b(?:between|entre)\s*$")
+_DAY_BEFORE_DATE = re.compile(r"(?<![\d/.:])(?P<day>[1-9]|[12]\d|3[01])\s?(?:[-–—]|to|au)\s?$")
 MAX_RANGE_DAYS = 31  # "from 9 Nov to 11 Nov" is a range; two dates further apart are two mentions
 ONGOING_MINUTES = 180  # an item with no end noted may still be going on this long after it starts
 DAY_MINUTES = 24 * 60
@@ -625,7 +629,7 @@ def item_span(memory: Memory) -> tuple[int, int] | None:
     1)`` when it gives none. Else the part of the day its text names ("every Sunday morning"), else None."""
     folded = fold(memory.text)[0]
     times = _clock_times(folded)
-    if times and _RESCHEDULED.search(folded):
+    if len(times) > 1 and _RESCHEDULED.search(folded[:times[-1][1]]):  # "moved from 10:30 to 9:00"
         start = times[-1][0]
         return start, start + 1
     if times:
@@ -653,18 +657,29 @@ def event_days(memory: Memory, today: date) -> tuple[date, date] | None:
     found = find_dates(memory.text)
     if not found:
         return None
-    if len(found) > 1 and _RESCHEDULED.search(fold(memory.text)[0]):
+    # a reschedule word before the last date moves the item there ("moved from 3 Nov to 4 Nov"); one after the
+    # dates is about something else ("from 9 Nov to 11 Nov; the venue is now Annecy")
+    moved = bool(_RESCHEDULED.search(fold(memory.text[:found[-1].start])[0]))
+    if len(found) > 1 and moved:
         day = found[-1].resolve(today)
         return day, day
     first = found[0].resolve(today)
-    if len(found) > 1 and _RANGE_GAP.fullmatch(fold(memory.text[found[0].end:found[1].start])[0]):
+    if len(found) > 1 and _joins_a_range(memory.text, found[0], found[1]):
         last = found[1].resolve(today)
         if first < last <= first + timedelta(days=MAX_RANGE_DAYS):
             return first, last
-    before = _DAY_BEFORE_DATE.search(fold(memory.text[:found[0].start])[0])
+    before = None if moved else _DAY_BEFORE_DATE.search(fold(memory.text[:found[0].start])[0])
     if before and int(before["day"]) < first.day:
         return first.replace(day=int(before["day"])), first
     return first, first
+
+
+def _joins_a_range(text: str, first: DateMatch, second: DateMatch) -> bool:
+    """Whether the words between two dates of ``text`` make them the ends of a range."""
+    gap = fold(text[first.end:second.start])[0]
+    if _RANGE_GAP.fullmatch(gap):
+        return True
+    return gap.strip() == "and" and bool(_BETWEEN.search(fold(text[:first.start])[0]))
 
 
 def event_date(memory: Memory, today: date) -> date | None:

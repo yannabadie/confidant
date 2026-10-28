@@ -868,8 +868,11 @@ class Assistant:
             memory = self.store.get(memory_id)
         except MemoryNotFound:
             return None
-        day = event_date(memory, self.today()) if memory.status == "current" else None
-        return None if day is None else (day, (item_span(memory) or (24 * 60, 0))[0])
+        try:  # ordering is a convenience: a text the date rules cannot read leaves the model's order
+            day = event_date(memory, self.today()) if memory.status == "current" else None
+            return None if day is None else (day, (item_span(memory) or (24 * 60, 0))[0])
+        except (ValueError, OverflowError):
+            return None
 
     def _refuse(self, message: str, reason: str, session_id: str) -> Turn:
         """The turn for a message holding a credential: nothing is stored or sent."""

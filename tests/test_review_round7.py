@@ -165,3 +165,61 @@ def test_a_harmless_correction_over_mcp_keeps_the_level_and_label(tmp_path: Path
 def test_a_fact_that_was_private_before_round_6_is_private_again(fact: str) -> None:
     from confidant.rules import classify_new_fact
     assert classify_new_fact(fact) == "private"
+
+
+# --- Important 6: one odd memory broke every schedule feature ---------------------------------------------
+
+from datetime import date  # noqa: E402
+
+from confidant.memory import Memory  # noqa: E402
+from confidant.rules import event_days, item_span, period_asked  # noqa: E402
+
+TODAY = date(2026, 10, 30)
+
+
+def event(text: str) -> Memory:
+    return Memory(99, 1, text, "event", "personal", "current", "user", "", "u", "", None, "x")
+
+
+@pytest.mark.parametrize("text", ["Sprint 0 - 4 Nov 2026 kickoff at 10:00.", "Day 0 – 15 Nov: race day.",
+                                  "Week 0 to 2 Nov: onboarding."])
+def test_a_day_zero_before_a_date_is_not_a_range(text: str) -> None:
+    first, last = event_days(event(text), TODAY)
+    assert first == last
+
+
+def test_an_absurd_duration_is_ignored_not_a_crash() -> None:
+    span = item_span(event("Fast on Tuesday 3 Nov 2026 at 10:00 for " + "1" * 400 + " hours."))
+    assert span is not None and span[0] == 600
+
+
+def test_the_brief_and_the_week_survive_a_sprint_zero(tmp_path: Path) -> None:
+    mcp = server(seeded(tmp_path))
+    tool(mcp, "memory_record", text="Sprint 0 - 4 Nov 2026 kickoff at 10:00.", kind="event")
+    assert tool(mcp, "daily_brief")["brief"]
+    assert tool(mcp, "guarded_answer", question="Am I free next week?")["answer"]
+    assert mcp.assistant.handle("What's on my plate next week?", session_id="chat").answer
+
+
+# --- Important 7: availability read "and", a later "is now" and "moved from 3 to 5 Nov" as ranges ---------
+
+def test_two_days_joined_by_and_are_not_a_range() -> None:
+    assert event_days(event("Physio on Wednesday 11 Nov and Friday 13 Nov 2026 at 8:00."), TODAY) == (
+        date(2026, 11, 11), date(2026, 11, 11))
+    # a question naming two days still checks both: every day between them is listed day by day
+    assert period_asked("Am I free on 9 Nov and 11 Nov?", TODAY) == (date(2026, 11, 9), date(2026, 11, 11))
+
+
+def test_between_and_is_a_range() -> None:
+    assert event_days(event("Conference between 9 Nov and 11 Nov 2026."), TODAY) == (date(2026, 11, 9),
+                                                                                 date(2026, 11, 11))
+
+
+def test_a_reschedule_word_after_the_dates_keeps_the_range() -> None:
+    assert event_days(event("The offsite runs from 9 Nov to 11 Nov 2026; the venue is now Annecy."), TODAY) == (
+        date(2026, 11, 9), date(2026, 11, 11))
+
+
+def test_moved_from_one_day_number_to_a_date_is_the_new_date_only() -> None:
+    assert event_days(event("My dentist appointment moved from 3 to 5 Nov at 9:00."), TODAY) == (
+        date(2026, 11, 5), date(2026, 11, 5))
