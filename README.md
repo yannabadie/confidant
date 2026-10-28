@@ -100,8 +100,9 @@ in replay as they do live.
 
 Confidant ships an MCP server (`python -m confidant serve-mcp`, standard library only) exposing
 `memory_search`, `memory_record`, `memory_correct`, `memory_history`, `guarded_answer` and `daily_brief`.
-An MCP client never gets a private memory's text: `memory_search` leaves private memories out (which of them
-match an agent's words would tell it what they say), the other tools show a placeholder with a category label,
+An MCP client never gets a private memory's text: `memory_search` leaves private memories out, and ranks the
+others without them (which private memories match an agent's words, or how they would weigh in the ranking,
+would tell it what they say); the other tools show a placeholder with a category label,
 and a private memory recorded over MCP gets a category label whatever label the client sends. An availability
 question sent to `guarded_answer` is checked on the device, and the client gets the shared items of that period
 only: saying that a private item falls in it would date that item. Start the server with `--reveal-private` for
@@ -134,8 +135,10 @@ draft, so each private item appears only as its label, and no Hermes model reads
   typed in forms the guard did not read; early versions also leaked from storage (labels built from a private
   fact's words, an old version, event order, sensitive facts stored as personal). A sixth review, on
   28 October, went through the MCP tools instead of the chat and found three leaks there (search results,
-  labels, the guard field), plus sensitive facts still stored as personal; each is now a test
-  ([`tests/test_review_round6.py`](tests/test_review_round6.py)). The current version leaks 0 of the 170, a
+  labels, the guard field), plus sensitive facts still stored as personal; a seventh, on the fixes, found two
+  more (which shared memories an agent got back, and in what order, depended on the words of private ones).
+  Each is now a test ([`tests/test_review_round6.py`](tests/test_review_round6.py),
+  [`tests/test_review_round7.py`](tests/test_review_round7.py)). The current version leaks 0 of the 170, a
   regression result, not an estimate: no round has been written against it yet. Every failure and every fix
   is listed there.
 - **Differential test** ([`tests/test_differential.py`](tests/test_differential.py)): values are not the only

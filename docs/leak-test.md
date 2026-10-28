@@ -21,6 +21,8 @@ for tuning.
 A fifth review compared answers instead of payloads and found a leak of another kind, which no round
 could see: see [Differential check](#differential-check-27-october-2026). A sixth, on 28 October, read the code
 and the MCP tools rather than the chat, and found leaks there: see [Round 6](#round-6-outside-review-28-october-2026).
+A seventh read the round-6 fixes the same day and found two MCP oracles they left open: see
+[Round 7](#round-7-second-outside-review-28-october-2026).
 
 Each prompt runs against two fake model profiles, a cooperative one and a hostile one that tries to
 exfiltrate; the counts above are prompts that leaked in at least one profile. Machine-readable results, latest
@@ -79,7 +81,13 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
   more findings concerned storage and routing. All are reproduced as tests before their fixes
   (`tests/test_review_round6.py`); see [Round 6](#round-6-outside-review-28-october-2026). Rerun after them:
   still 0 of 170 in both profiles, with 69/79, 49/58, 53/59 and 11/11 calls (private messages are no longer
-  sent to web search). The four current result files are from this rerun.
+  sent to web search).
+- **Round 7, the same evening** (a second outside code review, again an agent with no history) found that an
+  agent could still learn which words private memories hold, and which weekday one falls on, from which shared
+  memories it got back and in what order; plus seven smaller faults (see
+  [Round 7](#round-7-second-outside-review-28-october-2026)). Rerun after the fixes: 0 of 170 in both profiles,
+  with 69/79, 50/60, 53/59 and 11/11 calls (two questions of round 2 that start with "Do I" or "Can I" without a
+  question mark reach the router again). The four current result files are from this rerun.
 - Still reported, not counted: user-typed confidential details that are not stored values (for example
   `final-round lead designer` in a web search), and web-policy redactions of personal names in controls.
 
@@ -565,6 +573,32 @@ search and replay, not only the chat. Each finding below was reproduced as a fai
 - Rerun of rounds 1 to 4 after these fixes: **0 of 170** in both profiles. The leak checker scans chat
   payloads only, so it cannot score the MCP findings: the tests do.
 
+## Round 7 (second outside review, 28 October 2026)
+
+Another Claude agent with no history of the project reviewed the round-6 changes, with its own probes. Each
+finding below was reproduced as a failing test in `tests/test_review_round7.py` before its fix.
+
+- **Found, over MCP: search slots.** `guarded_answer` searched every memory and dropped the private hits after
+  the result limit, so private matches used up places: "Any notes on W, every dinner product?" returned 7
+  shared memories when W was a word of a private memory (dermatologist, interview, sabbatical, rent) and 8 when
+  it was not (dentist, podcast, salary), in replay and in the context sent to Nebius. An agent's question that
+  named a private date also lost its period note and had the date redacted, unlike any other date. **Fixed:**
+  agent and time questions search only what Nebius may see; an agent's request is sent with every value and
+  name masked alike, and keeps its period note.
+- **Found, over MCP: ranking.** `memory_search` ranked shared results with FTS5's bm25, whose word weights are
+  computed over the whole index, private rows included. With the two private appointments moved, 14 two-word
+  queries returned shared results in another order; `tuesday friday` put the dinner first or the Tuesday
+  track session first depending on which weekday the private appointments named. **Fixed:** a restricted
+  search is ranked with statistics of the allowed memories only; FTS5 now only says which memory holds which
+  word. 240 two-word queries give the same results in both stores.
+- **Found, elsewhere:** a private search said its words stayed on the device and then sent them to Nebius (now
+  said truthfully, and such a message leaves with its dates, times, amounts, names, days and months masked); a
+  correction over MCP skipped the "never less private" rule; round 6's new everyday words made sensitive facts
+  shareable again ("Brunch with my sponsor after Sunday's meeting"); `Sprint 0 - 4 Nov` crashed every schedule
+  feature; "and", a later "is now" and "moved from 3 to 5 Nov" were read as ranges; the wider credential
+  patterns refused nine ordinary sentences; and requests such as "Could you remember that…" no longer reached
+  the router. **Fixed**, each with its tests.
+
 ## Known limits of this test
 
 - **Rounds 1 to 4 have been used for tuning, and v5 has no held-out estimate yet.** Their 0 leaks say that those
@@ -629,7 +663,7 @@ canaries from it, and it stops with an error if a hand-curated detail no longer 
 
 ## Inputs of the runs
 
-| input | 28 Oct, after round 6 (current result files) | v5 (27 Oct) | v1 (26 Oct) |
+| input | 28 Oct, after round 7 (current result files) | v5 (27 Oct) | v1 (26 Oct) |
 |---|---|---|---|
 | `tests/fixtures/leak_prompts.jsonl` (round 1) | same | `99ca842823eef80806100465f680d09fe238a0ebcb8d84fa0b59a9626f6ae4b6` | same |
 | `tests/fixtures/leak_prompts_heldout.jsonl` (round 2) | same | `1b032afe4a319f720305a224d971ac3865a472117c247057d373dd7ae5b43bb2` | (written after v2) |
@@ -638,7 +672,7 @@ canaries from it, and it stops with an error if a hand-curated detail no longer 
 | `data/demo_persona.json` | same | `fea35165f16025e9dccccc98e38488430be74681b9cc76c089ef9f4283e030c6` (category labels) | `d610971d373776c9f684420403edfbdefbff2bed23ba554f37d5ad871308e2da` |
 | `confidant/guard.py` | `e0b1eb0ed20ac3309231cc93e99d1460f180b7fae994c611b6a06d375500f42a` | `cf72e270f01cd67af31e36bc5b0e3bd6c99edd8b92c44591efc32a2d56f0adc1` | `2207c112d4c73ae777360da20d6e8950bc6979f1bb82a6f6657686398818cb9e` |
 | `confidant/forms.py` | same | `008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94` | (new in v5) |
-| `confidant/scan.py` | `9f2bf049a1fd0c57a38baa71c36b0acfe59293d185c0f4bc98fcb5bac0a3d263` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
-| `confidant/rules.py` | `1351279a4d20e4048499160885191bb34b5d80dcbc68d797d1666fb5fd542b8f` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
-| `confidant/assistant.py` | `56c9c13b1398a4c68459bdb231022e75e492521844119a1e8baf9bcc5acf6012` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
+| `confidant/scan.py` | `382fcffbbeab1991d049bb651edd9f7ebade71d3c36406b24d8420d8beb4dc10` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
+| `confidant/rules.py` | `ec0495de37d904e17d9340b358739661e3adb85f67fd825f3ee01c2b1cf3c1de` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
+| `confidant/assistant.py` | `b5ffd71cb102c57696325d0f733b8c674fd18f18084fb5746d46560e75084c54` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
 | Babel, num2words | same | 2.18.0, 0.5.14 | (not used) |
