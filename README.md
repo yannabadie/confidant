@@ -10,7 +10,7 @@ Factory writes the answer with a placeholder such as `⟦m7⟧`, and Confidant f
 - **Hosted demo:** https://huggingface.co/spaces/yannabadie/confidant. It replays the demo turns recorded live on
   Token Factory on 28 October and says so in its header; with your own key, the same code runs live (below).
   The Space clones this repository; see `space/`.
-- **Video (2 min 26 s):** https://youtu.be/z6-ygooKppk
+- **Video (2 min 58 s):** https://youtu.be/aag9bRc5n34
 - Built for the Nebius × NVIDIA Global AI Hackathon, Personal AI track.
 
 ## Why
@@ -51,7 +51,8 @@ What we measured on Token Factory on 28 October 2026 ([`docs/token-factory-probe
 - The six demo turns make 5 calls. In the live run the hosted demo replays (28 October, 17:48 UTC): 5,824
   tokens, about $0.013 at list prices; the route took 0.3 seconds, the answers 1.4 to 4.6 and the brief 4.2
   (receipts and transcript in [`docs/evidence/`](docs/evidence/README.md)). An earlier recording, at 07:30 UTC,
-  took 5,640 tokens. In the live run filmed for the video: 4,597 tokens, $0.0094, on screen in its Receipts tab.
+  took 5,640 tokens. In the live run filmed for the video (28 October, 19:28 UTC): 5,164 tokens, $0.0106,
+  on screen in its Receipts tab.
 
 The sensitivity of a new memory is decided on the device: asking a model whether a fact is private would show
 it the fact. Keyword lists cannot name every illness or dispute, so a new fact is private unless the rules see
