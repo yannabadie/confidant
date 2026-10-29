@@ -1,0 +1,2 @@
+06:30:28  live    nebius_token_factory  brief          577+2860  tok    7876 ms  sha256 49752f32718a  sent [6, 8, 9, 14, 15]  withheld [7, 11]  nvidia/Nemotron-3-Ultra-550b-a55b
+Receipts today: 1 outbound call · 3,437 tokens · ≈$0.0092 · 2 withheld memories never left Confidant

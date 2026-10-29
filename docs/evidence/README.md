@@ -14,6 +14,8 @@ listed below. They hold no key: keys came from the macOS keychain through `scrip
 | `2026-10-28-hermes-agent/session-digest.json` | a digest of the three exchanges (`s1` to `s3`) written when they were recorded | tool calls, replies and token counts per session |
 | `2026-10-28-2124utc-filmed-run/receipts-tab.jpg`, `receipts-zoomed.jpg`, `prove-it.jpg` | frames of the screen recording of the run filmed for the video, 28 Oct 2026 from 21:24:39 UTC, live on Token Factory at commit `ffefbbc` (no receipts file: the web app keeps a session's receipts in memory) | its Receipts tab: 5 outbound calls, 2,206 tokens sent and 2,872 received, about $0.0104, 2 withheld memories that never left; the daily brief (577 tokens in, 1,485 out, 3,926 ms, $0.0050, sent m6 m8 m9 m14 m15, withheld m7 m11) and the birthday message (419 in, 421 out, 1,368 ms, $0.0017); the Prove it check, both SHA-256 `553904932b5ae926…`, the hash of the recorded request in `data/replay/` |
 | `2026-10-28-2124utc-filmed-run/run.json` | the recorder's record of that run, paths left out | start time, app header (live, models), the clips and their length |
+| `2026-10-29-0630utc-hermes-brief/cron-output.md` | the output file Hermes Agent's cron job `f4cb9c44c57b` wrote for its run of 29 Oct 2026, 07:30:28 Paris, copied unmodified | the brief as delivered to Telegram: private items as their category only, and its receipts line (1 outbound call, 3,437 tokens, about $0.0092, live) |
+| `2026-10-29-0630utc-hermes-brief/receipts.txt` | `python -m confidant --home ~/.confidant-demo-v5 receipts` right after that run | the call: Nemotron 3 Ultra, 577+2,860 tokens, 7,876 ms, payload SHA-256 `49752f32718a…` (the same as the recorded demo brief), memories sent and withheld |
 
 ```
 52c075608a4e77145db0d5f3a738df450842e77e69cd7f45ed96429aa36e25dc  2026-10-28-1748utc-replayed-run-receipts.txt
@@ -28,6 +30,8 @@ e642aa4eb5c1e0cbea701e7478f8d082ca050912bc87eb478c725835c250542d  2026-10-28-her
 5f430472d9d2d2cd4fd32e4598370a7012e3bf628e8fc9aaccec82d68d255a1e  2026-10-28-2124utc-filmed-run/receipts-zoomed.jpg
 02f886b6e950fb14a8c824c4c1da3043b6db54383d28e2d58162ecae5524ee9e  2026-10-28-2124utc-filmed-run/prove-it.jpg
 495dcfbb9bb412a0738ddd10d6a0696dd958f15e4c67922a8c5c8d763a1749df  2026-10-28-2124utc-filmed-run/run.json
+a5a132a6947dbc78e98841738ddc292a88e15e5956a747221c56de5b20e033a3  2026-10-29-0630utc-hermes-brief/cron-output.md
+ff2e45a40af3c4d744bd49d8c4c6cb4f74f4364fd35192c5f6671fc7f851fa28  2026-10-29-0630utc-hermes-brief/receipts.txt
 ```
 
 What these files cannot show: that Token Factory received exactly these payloads. The receipts are Confidant's

@@ -16,7 +16,9 @@ What the runs showed, and what Confidant does about it:
   replay. The answer budget is now 8,192 tokens: with its trace, the brief took 1,236 to 1,874 tokens in the
   runs below, 2,146 in the first recording of the demo turns (07:30 UTC), 1,214 in the session filmed for the
   first video (07:37 UTC), 1,352 in the recording the hosted demo replays (17:48 UTC), 1,306 in the session
-  filmed at 19:35 UTC and 1,485 in the session filmed for the final video (21:32 UTC, its Receipts tab on screen).
+  filmed at 19:35 UTC, 1,485 in the session filmed for the final video (21:32 UTC, its Receipts tab on screen),
+  and 2,860 in the first brief Hermes delivered live to Telegram (29 October, 06:30 UTC; its receipt is in
+  `docs/evidence/`).
 - **The router reasoned away its budget.** Nemotron 3 Nano spent its 256 tokens thinking in both routed turns and
   returned an empty answer, or an unfinished JSON object; `/no_think` at the end of the system prompt did not
   stop it. With `chat_template_kwargs: {"enable_thinking": false}` it answered in 13 to 43 tokens. The router now
