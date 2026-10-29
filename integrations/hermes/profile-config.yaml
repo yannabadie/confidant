@@ -1,4 +1,6 @@
-# Hermes Agent profile for Confidant, as used on our Mac (~/.hermes/profiles/confidant/config.yaml).
+# Hermes Agent profile for Confidant, as used on our Mac (~/.hermes/profiles/confidant/config.yaml), with the two
+# paths of our Mac replaced by placeholders: put your clone of this repository in `cwd`, and any folder for the
+# agent's memory after `--home`.
 # Create the profile with: hermes profile create confidant --no-alias --no-skills
 # then copy this file and confidant/SKILL.md (to skills/confidant/SKILL.md) into the profile.
 #
@@ -13,8 +15,8 @@ model:
 mcp_servers:
   confidant:
     command: /bin/sh
-    args: [scripts/with-keys.sh, .venv/bin/python, -m, confidant, --home, /Users/yannabadie/.confidant-hermes, serve-mcp]
-    cwd: /Users/yannabadie/Documents/code/confidant
+    args: [scripts/with-keys.sh, .venv/bin/python, -m, confidant, --home, /path/to/.confidant-hermes, serve-mcp]
+    cwd: /path/to/confidant
     tools:
       prompts: false
       resources: false

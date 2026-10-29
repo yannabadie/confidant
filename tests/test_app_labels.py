@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 
 from confidant import ReplayBook, WebResult
 from confidant.replay import RecordedTurn
@@ -35,7 +36,7 @@ def test_the_guard_tab_shows_each_exact_payload_with_the_hash_of_its_receipt() -
     assert "Exactly what left this device" in html_text
     for call in view.outbound:
         assert hashlib.sha256(call.canonical_json.encode("utf-8")).hexdigest() == call.payload_sha256
-        assert call.payload_sha256 in html_text
+        assert call.payload_sha256 in re.sub(r"<[^>]+>", "", html_text)  # shown whole (it may wrap in its middle)
     assert [c.payload_sha256 for c in view.outbound] == [r.payload_sha256 for r in view.receipts]
 
 

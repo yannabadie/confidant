@@ -88,7 +88,10 @@ class Memory:
 
 
 _COLUMNS = tuple(field.name for field in fields(Memory))
-_SCHEMA = """
+# How full-text search reads words: English stems ("Tuesdays" finds "Tuesday"), accents ignored, any other
+# character a separator ("Tuesday-ish" holds "Tuesday"). rules.names_time reads a message the same way.
+FTS_TOKENIZE = "porter unicode61 remove_diacritics 2"
+_SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS memories (
     id          INTEGER NOT NULL,
     version     INTEGER NOT NULL,
@@ -107,7 +110,7 @@ CREATE TABLE IF NOT EXISTS memories (
 );
 CREATE INDEX IF NOT EXISTS memories_by_status ON memories (status);
 CREATE VIRTUAL TABLE IF NOT EXISTS memory_index USING fts5(
-    text, label, tokenize = 'porter unicode61 remove_diacritics 2'
+    text, label, tokenize = '{FTS_TOKENIZE}'
 );
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """

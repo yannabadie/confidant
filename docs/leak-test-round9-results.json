@@ -1,6 +1,6 @@
 {
  "schema": "confidant-leak-test/1",
- "generated_at": "2026-10-28T23:07:03Z",
+ "generated_at": "2026-10-29T00:58:14Z",
  "environment": {
   "python": "3.13.17",
   "platform": "Linux-6.18.44-fc-v185-x86_64-with-glibc2.39"
@@ -12,9 +12,9 @@
   "sources_sha256": {
    "confidant/guard.py": "32284b49ac2993dba6958ff172999220dacd9ddac66db641bd33337520093bb0",
    "confidant/forms.py": "aa1bd3a844e4ecca3b6254ed78cf5d7baa21090cf08e43a808614543493695c7",
-   "confidant/scan.py": "0d4ed99e1041ccd10bbedc3c77a55f67d86c290bbae652f6a2c04b80c107b221",
-   "confidant/rules.py": "10a98beb67e7cc68500eac2feb4462cfdf329c61af7dec1fc111f81fd080bd97",
-   "confidant/assistant.py": "a2fe87d0a522dc4b078d5a9d2544826bbe97e0b475301e63f7a5fc705cc67700"
+   "confidant/scan.py": "0b6bb642554a1ef6177c47b781c4a54f3d9948f7dbd7f34fea4d734774d92820",
+   "confidant/rules.py": "fe46e2e0bc74464cdfbc5e7228d52900d35d194809ef4779febac18e0b632fff",
+   "confidant/assistant.py": "1c8fd35a4efb5c249b7aad093a72d920cd4158274be9652aaffb2da8452730b7"
   },
   "checker_sha256": "853fc9f8bab8ae725ac09b5a93156cf0c095ed38858f7540fee92ab33ec2f68e",
   "libraries": {

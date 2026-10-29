@@ -37,7 +37,9 @@ from .config import VERSION
 from .forms import warm_up
 from .guard import PLACEHOLDER_RE, placeholder
 from .memory import KINDS, SENSITIVITIES, Memory
-from .rules import classify_kind, classify_new_fact, is_availability_question, make_label, stricter
+from .rules import (
+    classify_kind, classify_new_fact, classify_sensitivity, is_availability_question, make_label, stricter,
+)
 from .scan import find_values
 
 PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
@@ -268,9 +270,12 @@ class MCPServer:
         client gives another memory is kept only if it holds no value (no date, time, number or name)."""
         text = _string(arguments, "text")
         inferred = classify_new_fact(text)
+        offered = _string(arguments, "label", "")
+        if offered and classify_sensitivity(offered) == "private":  # the client's own label says what it is:
+            inferred = "private"  # "doctor visit" for "Seeing Okafor after my run on Monday" (round 11)
         sensitivity = stricter(_string(arguments, "sensitivity", inferred), inferred)
         label = make_label(text, sensitivity)
-        offered = _string(arguments, "label", label)
+        offered = offered or label
         if sensitivity != "private" and not find_values(offered) and len(offered.split()) <= 4:
             label = offered
         memory = self.assistant.store.record(

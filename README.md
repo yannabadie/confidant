@@ -53,18 +53,20 @@ What we measured on Token Factory on 28 October 2026 ([`docs/token-factory-probe
 - A reply that reaches `max_tokens` before its reasoning trace closes can arrive with the unfinished trace as its
   text, untagged; the first live daily brief was such a trace. Confidant never uses a reply that stopped at the
   token limit: the turn falls back to a local answer, says so, and is never recorded for replay. Answers get
-  8,192 tokens; with its trace, the brief took 1,214 to 2,146 in the live runs.
+  8,192 tokens; with its trace, the brief took 1,214 to 2,146 in the live runs listed there, 1,352 and 1,485
+  in the two whose receipts are published.
 - `chat_template_kwargs: {"enable_thinking": false}` switches Nemotron 3's reasoning off; `/no_think` in the
   prompt did not stop Nano. With reasoning on, Nano spent its 256 tokens thinking and returned no route.
 - The seven demo steps make 5 calls (the correction, the refused PIN and the availability check make none). In the live run the hosted demo replays (28 October, 17:48 UTC): 5,824
   tokens, about $0.013 at list prices; the route took 0.3 seconds, the answers 1.4 to 4.6 and the brief 4.2
   (receipts and transcript in [`docs/evidence/`](docs/evidence/README.md)). An earlier recording, at 07:30 UTC,
-  took 5,640 tokens. In the live run filmed for the video (28 October, 21:24 UTC): 5,078 tokens, $0.0104,
+  took 5,640 tokens (its receipts are not published). In the live run filmed for the video (28 October, 21:24 UTC): 5,078 tokens, $0.0104,
   on screen in its Receipts tab.
 
 The sensitivity of a new memory is decided on the device: asking a model whether a fact is private would show
 it the fact. Keyword lists cannot name every illness or dispute, so a new fact is private unless the rules see
-something clearly everyday or work-public. Messages that may carry a date, time or amount, in any form, are
+something clearly everyday or work-public; a sensitive fact in words the lists miss, next to an everyday word
+("before the gym"), is still stored as personal. Messages that may carry a date, time or amount, in any form, are
 routed on the device; the router sees the others with their values masked.
 
 **Where Token Factory helped.** A 550-billion-parameter model answered in 1.4 to 4.6 seconds with no GPU to provision or deploy; one key reached the three Nemotron models (Ultra for answers, Nano for routing, Super for the Hermes agent) through one OpenAI-compatible API; reasoning could be switched off per call for the router; and the usage fields of every reply feed Confidant's receipts. A run of the demo costs about $0.013.
@@ -116,7 +118,9 @@ Confidant ships an MCP server (`python -m confidant serve-mcp`, standard library
 An MCP client never gets a private memory's text: `memory_search` leaves private memories out, and ranks the
 others without them (which private memories match an agent's words, or how they would weigh in the ranking,
 would tell it what they say); the other tools show a placeholder with a category label,
-and a private memory recorded over MCP gets a category label whatever label the client sends. An availability
+and a private memory recorded over MCP gets a category label whatever label the client sends. The device decides
+how private a recorded memory is, from its words and from the client's label ("doctor visit"); a client may only
+make it stricter. An availability
 question sent to `guarded_answer` is checked on the device, and the client gets the shared items of that period
 only: saying that a private item falls in it would date that item. A client's own request is sent to Nebius
 as it wrote it, values masked by kind and credentials refused, after the check of the context: redacting only
@@ -126,8 +130,8 @@ of your own that may see everything.
 
 A Hermes agent that runs on Nemotron 3 Super through Token Factory used these tools on 28 October: it got the
 week with placeholders, an availability answer that dates no private item, and when it tried to store a
-cardiologist visit as personal under its own label, Confidant stored it as private with a category label
-([`docs/hermes-agent-session.md`](docs/hermes-agent-session.md)). The agent's own model, on Token Factory, had
+cardiologist visit as personal under its own label, Confidant stored it as private with a category label,
+since its local rules list cardiology as a health word ([`docs/hermes-agent-session.md`](docs/hermes-agent-session.md)). The agent's own model, on Token Factory, had
 written that sentence in its tool call, so it had read it first: a guard on the device protects what it stores,
 from then on, not what an agent read before.
 
@@ -164,11 +168,16 @@ draft, so each private item appears only as its label, and no Hermes model reads
   of the month typed back ("rent ... on the 5th"). A tenth review, on 29 October, typed round 8's agent
   questions into the chat and pressed Prove it: a date or time written in a form the scanners do not read
   ("half ten", "3 de novembro", "11月3日") was masked only when it equalled a private value, and so was one
-  inside a shared memory, which dated the private item without showing it. Each finding is now a test
+  inside a shared memory, which dated the private item without showing it. An eleventh, the same day, checked
+  every claim of the Devpost page against the code: "What happens on Tuesdays?" was not read as a time, while
+  full-text search stems "Tuesdays" to "Tuesday", so the request listed only the private item held on a Tuesday;
+  more dates and times in bare digits were masked only by a private value's digits; health facts and credentials
+  in forms the lists missed were stored instead of kept private or refused; and the Prove it comparison skipped
+  the setup turns of 44 messages. Each finding is now a test
   ([`tests/test_review_round6.py`](tests/test_review_round6.py) to
-  [`tests/test_review_round10.py`](tests/test_review_round10.py)), and the suite runs the leak test and the
-  Prove it comparison on all 199 messages ([`tests/test_leak_suite.py`](tests/test_leak_suite.py)): none
-  leaks, and none sends a different request when the private appointments move (11 did before the fix). That
+  [`tests/test_review_round11.py`](tests/test_review_round11.py)), and the suite runs the leak test and the
+  Prove it comparison on all 199 messages, setup turns included ([`tests/test_leak_suite.py`](tests/test_leak_suite.py)):
+  none leaks, and none sends a different request when the private appointments move (11 did before round 10). That
   is a regression result, not an estimate: no new round of attack messages has been written against this
   version yet. Every failure and every fix is listed there.
 - **Differential test** ([`tests/test_differential.py`](tests/test_differential.py)): values are not the only
@@ -186,9 +195,11 @@ draft, so each private item appears only as its label, and no Hermes model reads
 - Dates, clock times and days of the month that you type are masked alike in what Nebius gets ("What's on
   [date]?"), and put back in the answer shown on the device: in the forms the scanners read, in the written
   forms of every date and of every time of day on a five-minute grid ("half ten", "3 de novembro", "11月3日",
-  "03NOV"), and in bare digits by their shape ("20261103", "set for 1030"). Masked only when they equal a
+  "03NOV"), and in bare digits by their shape ("20261103", "05112026", "set for 1030", "do 1030", "at 10 30").
+  A weekday counts in any form full-text search would match ("Tuesdays", "Tuesday-ish"). Masked only when they equal a
   private value, as until 28 October, they told Nebius which dates hold a private item (the Prove it check
-  found it). For the same reason they never make a message private by themselves. A time off that grid written
+  found it). For the same reason they never make a message private by themselves. A bare number with no word
+  before it that leads to a time ("Is 1030 ok?"), which may as well be an amount, a time off that grid written
   in words ("twenty-two past ten"), typed amounts and names are still masked only when they equal a stored
   value, and a web query still loses a typed value equal to a private one, which tells the search provider that
   it matched.
@@ -202,8 +213,9 @@ draft, so each private item appears only as its label, and no Hermes model reads
 - Credentials are refused before anything is stored or sent: passwords and PINs in English, French, German,
   Spanish, Italian and Portuguese, written with gaps, dots, slashes or in words (`PIN is 4 8 2 1`, `4.8.2.1`,
   `4/8/2/1`, `four eight two one`, `forty-eight twenty-one`, `quattro otto due uno`), the value first (`4821 is my
-  bank PIN`) or after a longer description (`my bank PIN, the one I chose at the branch, is 4821`), unlock codes
-  and combinations, a login or sign-in with its password, card numbers
+  bank PIN`) or after a longer description (`my bank PIN, the one I chose at the branch, is 4821`, `the PIN on my
+  bank card reads 4821`), `password's`, a wifi key (`the wifi at home is BlueCat2026`), unlock codes
+  (`my phone unlocks with 4821`) and combinations, a login or sign-in with its password, card numbers
   and the digits on the back of a card, recovery phrases, identity and passport numbers, and API keys
   ([`tests/test_credential_forms.py`](tests/test_credential_forms.py)). These are patterns, not understanding. A
   code phrased in a way they miss (`my bank PIN is the year my mum was born, 1957`) is stored like any new fact:

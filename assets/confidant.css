@@ -1280,6 +1280,10 @@ footer {
   margin-top: 2px;
 }
 
+.cf .cf-check__reasons code {
+  overflow-wrap: anywhere; /* a SHA-256 wraps (in its middle, see sha_html) instead of losing characters at the edge */
+}
+
 .cf .cf-context {
   font-family: var(--cf-mono);
   font-size: 12.5px;

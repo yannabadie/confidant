@@ -8,13 +8,16 @@ from __future__ import annotations
 
 import calendar
 import re
+import sqlite3
+import threading
 from functools import lru_cache
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from .memory import SENSITIVITIES, Memory
+from .memory import FTS_TOKENIZE, SENSITIVITIES, Memory
 from .scan import (
-    CALENDAR_WORDS, FOREIGN_MONTHS, MONTHS, STOPWORDS, WEEKDAYS, DateMatch, find_dates, find_values, fold, words,
+    CALENDAR_WORDS, FOREIGN_MONTHS, MONTHS, STOPWORDS, WEEKDAY_WORDS, WEEKDAYS, DateMatch, find_dates, find_values,
+    fold, words,
 )
 
 INTENTS = ("answer", "remember", "correct", "search", "brief", "availability")
@@ -109,6 +112,14 @@ _HEALTH_TERMS = (
     r"lupus|crohn\w*|arthritis|multiple sclerosis|fibromyalgia|endometriosis|migraines?|blood pressure|"
     r"eating disorder|anorexi\w*|bulimi\w*|self-harm|suicid\w*|"
     r"\d+ weeks along|weeks pregnant|(?:first|second|third) trimester|expecting a baby|morning sickness|"
+    # round 11: a doctor named by title, symptoms, vaccines, allergies, pharmacies and common medicines, which an
+    # everyday word next to them ("before the gym", "after my run") made personal
+    r"dr\.? [a-z]{2,}|palpitations?|arrhythmi\w*|chest pains?|panic attacks?|insomnia|allerg\w*|vaccin\w*|"
+    r"blood ?work|check-?ups?|pharmac\w*|inhalers?|epipens?|insulin|methadone|buprenorphine|suboxone|naltrexone|"
+    r"metformin|statins?|sertraline|fluoxetine|citalopram|escitalopram|paroxetine|venlafaxine|duloxetine|bupropion|"
+    r"mirtazapine|lithium|lamotrigine|quetiapine|olanzapine|risperidone|aripiprazole|methylphenidate|ritalin|"
+    r"adderall|prozac|zoloft|xanax|valium|diazepam|lorazepam|clonazepam|zolpidem|ozempic|wegovy|semaglutide|"
+    r"antiretrovirals?|"
     r"medecin|ordonnance|maladie|enceinte|grossesse|hopital|clinique|prise de sang|arret maladie|mutuelle"
 )
 _MONEY_TERMS = (
@@ -534,18 +545,43 @@ _RELATIVE_TIME = re.compile(
 )
 
 
+_CALENDAR_INDEX_LOCK = threading.Lock()
+
+
+@lru_cache(maxsize=1)
+def _calendar_index() -> sqlite3.Connection:
+    """Day and month names in a full-text table read as the memory index reads words (FTS_TOKENIZE)."""
+    db = sqlite3.connect(":memory:", check_same_thread=False)
+    db.execute(f"CREATE VIRTUAL TABLE calendar USING fts5(word, tokenize = '{FTS_TOKENIZE}')")
+    db.executemany("INSERT INTO calendar (word) VALUES (?)", [(word,) for word in sorted(CALENDAR_WORDS | WEEKDAY_WORDS)])
+    return db
+
+
+def matches_calendar_word(message: str) -> bool:
+    """True when full-text search would match a word of ``message`` with a day or month name: "Tuesdays" and
+    "Tuesday-ish" match "Tuesday", "mardis" matches "mardi", "dienstags" matches "dienstag"."""
+    tokens = sorted({token for token in re.findall(r"[^\W_]+", fold(message)[0]) if len(token) > 1 and not token.isdigit()})
+    if not tokens:
+        return False
+    query = " OR ".join(f'"{token}"' for token in tokens)
+    with _CALENDAR_INDEX_LOCK:
+        return _calendar_index().execute("SELECT 1 FROM calendar WHERE calendar MATCH ? LIMIT 1", (query,)).fetchone() is not None
+
+
 def names_time(message: str) -> bool:
     """True when a message refers to a time: a date or clock time in any form the scanners read, a weekday or
     month, an ordinal day ("the 12th"), or a relative word ("tomorrow", "next week", "this morning").
 
     Such a message must not pick private memories by the words they share with it: "Tuesday" matching
-    "Dermatologist appointment on Tuesday 3 Nov" would tell a cloud model which day that item is."""
+    "Dermatologist appointment on Tuesday 3 Nov" would tell a cloud model which day that item is. Full-text search
+    stems words, so a day or month counts in any form it would match: "What happens on Tuesdays?" listed only the
+    private item held on a Tuesday until round 11 (tests/test_review_round11.py)."""
     if find_dates(message) or any(value.kind in ("date", "time") for value in find_values(message)):
         return True
     if any(word in CALENDAR_WORDS for word in words(message)):
         return True
     folded = fold(message)[0]
-    return bool(_ORDINAL_DAY.search(folded) or _RELATIVE_TIME.search(folded))
+    return bool(_ORDINAL_DAY.search(folded) or _RELATIVE_TIME.search(folded) or matches_calendar_word(message))
 
 
 def clock_minutes(key: str) -> int:

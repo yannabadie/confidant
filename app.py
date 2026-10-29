@@ -447,6 +447,12 @@ def esc(value: object) -> str:
     return html.escape(str(value), quote=True)
 
 
+def sha_html(value: str) -> str:
+    """A SHA-256 that may wrap in its middle, and only there, when its panel is too narrow: cut at the edge, it
+    showed 63 of its 64 characters. The text read or copied from the page is still the whole hash."""
+    return f"{esc(value[:32])}<wbr>{esc(value[32:])}" if len(value) == 64 else esc(value)
+
+
 def plural(n: int, one: str, many: str) -> str:
     """``1 memory`` / ``3 memories``."""
     return f"{n} {one if n == 1 else many}"
@@ -966,7 +972,7 @@ def render_outbound(calls: Sequence[OutboundView], known: Collection[int]) -> st
         items.append(
             f'<li class="cf-check"><span class="cf-verdict">{esc(outbound_verdict(call))}</span>'
             f'<div class="cf-check__body"><span class="cf-check__what">{esc(what)} · {esc(call.model)}</span>'
-            f'<span class="cf-check__reasons">SHA-256 <code>{esc(call.payload_sha256)}</code>, the same as its '
+            f'<span class="cf-check__reasons">SHA-256 <code>{sha_html(call.payload_sha256)}</code>, the same as its '
             "receipt. Hash the compact JSON below to check it.</span>"
             f'<details class="cf-payload"><summary>Exact {body} Confidant {verb} (JSON)</summary>'
             f"{render_payload(call.payload_json, known)}"
@@ -1069,8 +1075,8 @@ def render_proof(turn: TurnView, proof: Proof) -> str:
         rows.append(
             f'<li class="cf-check"><span class="cf-verdict{"" if same else " cf-verdict--blocked"}">'
             f'{"Same" if same else "Differs"}</span><div class="cf-check__body"><span class="cf-check__what">'
-            f'{esc(what)}</span><span class="cf-check__reasons">As stored{mark}: <code>{esc(before)}</code></span>'
-            f'<span class="cf-check__reasons">Moved: <code>{esc(after)}</code></span></div></li>'
+            f'{esc(what)}</span><span class="cf-check__reasons">As stored{mark}: <code>{sha_html(before)}</code></span>'
+            f'<span class="cf-check__reasons">Moved: <code>{sha_html(after)}</code></span></div></li>'
         )
     aimed = ""
     if proof.aimed_moves:

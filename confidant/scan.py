@@ -644,16 +644,21 @@ _CODE_VALUE = (  # gaps of a space or a dash; not dots, which make versions, dec
 )
 # "is" in the languages the code words are read in, Italian and Portuguese included ("è", "é")
 _COPULA = r"is|was|est|ist|es|lautet|era|è|é"
+_CODE_VERB = _COPULA + r"|reads|read|says|shows"  # "the PIN on my bank card reads 4821" (round 11)
+# what may follow "password" without a password: "password manager", "the password's strength meter"
+_PASSWORD_NOUNS = (r"manager|policy|policies|reset|rules?|hints?|strength|field|prompt|change|expiry|generator"
+                   r"|requirements?|protected|tips?|advice|training|guide|ideas?|reminders?|rotation|best\s+practices?")
 _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("a password", re.compile(
         r"\b(?:password|passwd|passphrase|pwd|pw|mots?\s+de\s+passe|mdp|passwort|kennwort|contrase[ñn]a|senha"
         r"|parola\s+d['’]ordine|palavra-?passe"
         r"|wi-?fi\s+(?:key|code)|cl[ée]\s+(?:wi-?fi|wpa)|code\s+wi-?fi)s?\b"
-        r"(?!\s+(?:manager|policy|policies|reset|rules?|hints?|strength|field|prompt|change|expiry|generator"
-        r"|requirements?|protected|tips?|advice|training|guide|ideas?|reminders?|rotation|best\s+practices?)\b)"
+        rf"(?!\s+(?:{_PASSWORD_NOUNS})\b)"
         # "is", or a colon right after the keyword or after a few words with no digit ("pw for the router:"),
         # never one inside a time ("training on Tuesday at 14:00")
-        r"(?:[^.\n]{0,30}?\b(?:is|was|est|ist|lautet|es|era|è|é)\b|[^.\n:=\d]{0,30}?[:=])\s*"
+        r"(?:[^.\n]{0,30}?\b(?:is|was|est|ist|lautet|es|era|è|é)\b|[^.\n:=\d]{0,30}?[:=]"
+        # or "password's", unless a noun follows ("the password's strength meter") (round 11)
+        rf"|['’]s(?!\s+(?:{_PASSWORD_NOUNS})\b))\s*"
         r"(?!(?:strong|weak|wrong|correct|incorrect|expired|required|missing|invalid|too|the|a|an|not|still"
         r"|written|on|in|at|under|behind|taped|printed|kept|somewhere|available|shared"
         r"|saved|stored|changed|reset|new|trop|tr[eè]s|faible|fort|oubli[ée]e?|perdu|chang[ée]|expir[ée]|le|la"
@@ -673,7 +678,17 @@ _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # chose at the branch last spring, is 4821"; no sentence break, digit or other "is" in between, so "the gate code
     # is on the fridge, my flight number is 4821" is not one
     ("a PIN or access code", re.compile(
-        rf"\b(?:{_CODE_WORDS})\b(?:(?!\b(?:{_COPULA})\b)[^\n\d.;:!?]){{0,60}}?\b(?:{_COPULA})\b\s*(?:{_CODE_VALUE})",
+        rf"\b(?:{_CODE_WORDS})\b(?:(?!\b(?:{_CODE_VERB})\b)[^\n\d.;:!?]){{0,60}}?\b(?:{_CODE_VERB})\b\s*(?:{_CODE_VALUE})",
+        re.I)),
+    # what unlocks with a code: "my phone unlocks with 4821", "the locker opens with 0412" (round 11)
+    ("a PIN or access code", re.compile(
+        r"\b(?:unlock(?:s|ed)?|(?:lock|locker|padlock|safe|door|gate|garage)\b[^.;\n\d]{0,30}?\bopens?)\s+with\s+"
+        rf"(?:(?:the|my|a)\s+)?(?:(?:code|pin|passcode)\s+)?(?:{_CODE_VALUE})",
+        re.I)),
+    # a wifi network's key, with no "password" word: "the wifi at home is BlueCat2026" (round 11)
+    ("a password", re.compile(
+        r"\bwi-?fi\b[^.\n\d]{0,30}?(?:\b(?:is|was|est|ist|es)\b|[:=])\s*"
+        r"(?=[^\s,;!?]*\d)(?=[^\s,;!?]*[A-Za-z])[^\s,;!?]{6,}",
         re.I)),
     # single digits joined by underscores or slashes, right after "is" or a colon: "my PIN is 4_8_2_1", "4/8/2/1"
     # (not a date: "expires on 12/2027")

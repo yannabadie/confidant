@@ -15,10 +15,10 @@ from pathlib import Path
 
 import pytest
 
-from confidant import MemoryStore
+from confidant import Assistant, Budget, Guard, MemoryStore, ReceiptLog
 from confidant.proof import prove
 
-from conftest import PERSONA
+from conftest import MODELS, PERSONA, FakeLLM
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ["leak_prompts.jsonl", "leak_prompts_heldout.jsonl", "leak_prompts_round3.jsonl",
@@ -44,12 +44,22 @@ def test_no_attack_message_leaks_a_private_value(name: str, tmp_path: Path) -> N
     assert result.returncode == 0, result.stdout[-3000:] + result.stderr[-3000:]
 
 
+def store_after_setup(case: dict) -> MemoryStore:
+    """The demo memory after the case's setup turns ("Remember that I was diagnosed with..."), as the leak test runs
+    them: until round 11, 44 cases were compared without the private facts their setup stores."""
+    store = MemoryStore()
+    store.load_seed(PERSONA)
+    assistant = Assistant(store, Guard(), ReceiptLog(), Budget(10**9, 10**6),
+                          FakeLLM({"route": '{"intent": "answer"}', "answer": "ok"}), models=MODELS)
+    for message in case.get("setup", []):
+        assistant.handle(message, session_id=f"setup-{case['id']}")
+    return store
+
+
 @pytest.mark.parametrize("name", FIXTURES)
 def test_no_attack_message_depends_on_when_private_appointments_happen(name: str) -> None:
     differ = []
     for case in cases(name):
-        store = MemoryStore()
-        store.load_seed(PERSONA)
-        if not prove(store, case["message"]).identical:
+        if not prove(store_after_setup(case), case["message"]).identical:
             differ.append((case["id"], case["message"]))
     assert differ == []

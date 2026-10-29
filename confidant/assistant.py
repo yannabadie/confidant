@@ -326,15 +326,24 @@ CALENDAR_KINDS = ("date", "time", "day")
 # Dates and times written as digits in forms the scanners do not read, matched whatever private memories hold: a
 # bare digit run is otherwise caught only by the digit signature of a private value, which tells the receiver that
 # it equals one ("Remind me what 20261103 holds", "wasn't it first set for 1030?", "on 3-11", "on 3.XI.2026").
+_NOT_A_TIME_UNIT = (r"(?!\s*(?:km|kg|m|mi|miles?|steps|people|guests|calories|kcal|euros?|eur|dollars?|usd|pounds?|gbp"
+                    r"|[€$£%]))")
 _DIGIT_CALENDAR = (
     (re.compile(r"(?<![\d.])(?P<v>(?:19|20)\d\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01]))(?![\d.])"), "date"),
+    # eight digits that read as a day, a month and a year, either way round ("05112026", "11052026"), whatever
+    # they stand for: masked as a date, an order number loses nothing, and the mask tells nothing (round 11)
+    (re.compile(r"(?<![\d.])(?P<v>(?:0[1-9]|[12]\d|3[01])(?:0[1-9]|1[0-2])(?:19|20)\d\d)(?![\d.])"), "date"),
+    (re.compile(r"(?<![\d.])(?P<v>(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])(?:19|20)\d\d)(?![\d.])"), "date"),
     (re.compile(r"(?i)(?<![\w.])(?P<v>(?:0?[1-9]|[12]\d|3[01]) ?[./ -] ?(?:xii|xi|ix|x|viii|vii|vi|iv|v|iii|ii|i)"
                 r" ?[./ -] ?(?:\d{4}|\d{2}))(?![\w.])"), "date"),
     (re.compile(r"(?i)\b(?:on|by|until|till|from|before|after|since|for) (?P<v>(?:0?[1-9]|[12]\d|3[01])-(?:0?[1-9]|1[0-2]))"
                 r"(?![\w/-]|\.\d)"), "date"),
-    (re.compile(r"(?i)\b(?:at|for|by|around|until|till|from|before|after|about) (?P<v>(?:[01]?\d|2[0-3])[0-5]\d)\b"
-                r"(?!\s*(?:km|kg|m|mi|miles?|steps|people|guests|calories|kcal|euros?|eur|dollars?|usd|pounds?|gbp"
-                r"|[€$£%]))"), "time"),
+    # a clock time in bare digits after a word that leads to one: "at 1030", "can we do 1030", "move it to 1100";
+    # or as hours and minutes apart, "at 10 30" (round 11)
+    (re.compile(r"(?i)\b(?:at|for|by|around|until|till|from|before|after|about|to|do|say) (?P<v>(?:[01]?\d|2[0-3])[0-5]\d)\b"
+                + _NOT_A_TIME_UNIT), "time"),
+    (re.compile(r"(?i)\b(?:at|for|by|around|until|till|from|before|after|about|to|do|say) (?P<v>(?:[01]?\d|2[0-3]) [0-5]\d)\b"
+                r"(?![-/.,]?\d)" + _NOT_A_TIME_UNIT), "time"),
 )
 
 

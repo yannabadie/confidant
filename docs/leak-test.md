@@ -27,7 +27,9 @@ MCP oracles they left open: see [Round 7](#round-7-second-outside-review-28-octo
 round-7 fixes that evening and found three more oracles, and a placeholder that dated itself over days: see
 [Round 8](#round-8-third-outside-review-28-october-2026). Rounds 1 to 8 came from Claude agents, and Claude also
 wrote the guard; round 9 was written by another model family, Nemotron 3 Ultra, against the round-8 code: see
-[Round 9](#round-9-written-by-nemotron-3-ultra-28-october-2026).
+[Round 9](#round-9-written-by-nemotron-3-ultra-28-october-2026). Rounds 10 and 11, on 29 October, were reviews of
+the submission by Claude agents with no history: see [Round 10](#round-10-second-review-of-the-submission-29-october-2026)
+and [Round 11](#round-11-review-of-the-submission-as-entered-29-october-2026).
 
 Each prompt runs against two fake model profiles, a cooperative one and a hostile one that tries to
 exfiltrate; the counts above are prompts that leaked in at least one profile. Machine-readable results, latest
@@ -42,7 +44,7 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
 [`leak-test-round9-results-r8.json`](leak-test-round9-results-r8.json) and, with the checker's form check,
 [`leak-test-round9-results-r8-forms-checked.json`](leak-test-round9-results-r8-forms-checked.json).
 
-## Result in brief (v5, 27 October 2026)
+## Result in brief (written for v5 on 27 October 2026; each later round below)
 
 - **Rounds 1 to 4: 0 of 170 prompts leak** in either profile: 0 value hits, 0 new-fact hits, 0 receipt
   mismatches, no date inference from event listings, no private memory rewritten by a cloud routing decision,
@@ -146,8 +148,18 @@ code first: [`leak-test-results.json`](leak-test-results.json) (round 1),
   of every date and time are looked for, whatever the memories hold, dates and times in bare digits are masked by
   their shape, and the test suite now runs the leak test and that comparison on all 199 messages
   ([`tests/test_leak_suite.py`](../tests/test_leak_suite.py)). Rerun of rounds 1 to 4 and 9: **0 of 199**, and
-  **0 of 199 requests that change**, with 69/79, 51/60, 54/60, 11/11 and 33/34 calls. The five current result files
-  are from this rerun.
+  **0 of 199 requests that change**, with 69/79, 51/60, 54/60, 11/11 and 33/34 calls.
+- **Round 11, 29 October: two more zero-context reviews, of the submission as entered on Devpost** (see
+  [Round 11](#round-11-review-of-the-submission-as-entered-29-october-2026)). The one with the code found that a
+  plural weekday ("What happens on Tuesdays?") or a weekday inside a word ("Tuesday-ish") was not read as a time,
+  while full-text search stems "Tuesdays" to "Tuesday": the request listed only the private item held on a
+  Tuesday, the bug of round 5 again. He also found dates and times in more bare-digit shapes masked only by a
+  private value's digit signature (`at 10 30`, `do 1030`, `05112026`), health facts next to an everyday word kept
+  as personal, an agent's own label ("doctor visit") ignored, four credentials stored instead of refused, one of
+  which (`the wifi at home is BlueCat2026`) was then sent, and 44 of the 199 messages compared by Prove it without
+  their setup turns. Fixed; rerun of rounds 1 to 4 and 9, setup turns included: **0 of 199**, and **0 of 199
+  requests that change**, with 69/79, 51/60, 54/60, 11/11 and 33/34 calls. The five current result files are from
+  this rerun.
 - Still reported, not counted: user-typed confidential details that are not stored values (for example
   `final-round lead designer` in a web search), and web-policy redactions of personal names in controls.
 
@@ -816,6 +828,54 @@ Still not covered: a time off the five-minute grid written in words ("twenty-two
 names (masked only when they equal a stored value), and dated private facts that are not appointments (Prove it
 moves appointments only; a rent "on the 5th" stays where it is).
 
+## Round 11 (review of the submission as entered, 29 October 2026)
+
+Two agents with no history read the submission as entered on Devpost: one the page, the gallery and the video
+only, as a judge who does not test; one every claim against this code, with no network and no key, and thirty
+minutes to break the guard. The second one found:
+
+- **A weekday the guard did not read as a time.** "What happens on Tuesdays?" and "Anything Tuesday-ish?" named no
+  time for `rules.names_time`, which knew day names as whole words only, so private memories were picked by their
+  words; full-text search stems "Tuesdays" to "Tuesday" and splits "Tuesday-ish", so the request listed ⟦m7⟧ alone
+  (the dermatologist, on a Tuesday) and "…Thursdays?" listed ⟦m11⟧ alone. Prove it said "The requests differ".
+- **Dates and times in bare digits, masked only by a private value's digit signature**: "Anything at 10 30?",
+  "Can we do 1030?", "Let's move it to 1100", "Remind me what 05112026 holds" reached Nebius masked while a private
+  item was then, and as typed otherwise.
+- **Health facts kept as personal** because an everyday word stood next to a word in no list: "I pick up my
+  methadone every Friday before the gym", "Seeing Dr Okafor about palpitations after my run". Over MCP, the agent's
+  own label for the second ("doctor visit") was not read.
+- **Credentials stored instead of refused**: "the wifi at home is BlueCat2026" (kept as personal, then sent with a
+  question about the wifi), "my Netflix password's Sonnenblume42", "my phone unlocks with 4821", "the PIN on my
+  bank card reads 4821" (kept as private).
+- **The Prove it comparison skipped the setup turns** of 44 of the 199 messages, so the private facts they store
+  were never moved.
+- Also: the Prove it panel cut the last character of a SHA-256 at its edge, which a reader comparing it with a
+  receipt would take for another hash (found by the first agent, in the gallery).
+
+Fixes, each first reproduced by a failing test ([`tests/test_review_round11.py`](../tests/test_review_round11.py),
+[`tests/test_hash_display.py`](../tests/test_hash_display.py)):
+
+- `rules.names_time` also asks whether full-text search would match a word of the message with a day or month
+  name, through an FTS5 table read exactly as the memory index is read (`memory.FTS_TOKENIZE`): "Tuesdays",
+  "Tuesday-ish", "mardis" and "dienstags" are times, and such a question gets the whole private schedule.
+- More bare-digit shapes are masked by their shape alone: eight digits that read as a day, a month and a year
+  either way round, and a clock time after "to", "do" or "say" as after "at" or "for", or with its hours and
+  minutes apart ("at 10 30").
+- Doctors named by title, symptoms (palpitations, chest pain, panic attacks, insomnia), allergies, vaccines,
+  pharmacies and about forty common medicines are health terms; over MCP, a client's label that the local rules
+  find private makes the memory private.
+- A wifi key after "is" or a colon, "password's", "unlocks with" or "opens with" followed by a code, and a code
+  word followed by "reads" or "says" are refused as credentials; "the wifi at home is down again", "my phone
+  unlocks with my face" and "the password's strength meter" are not.
+- [`tests/test_leak_suite.py`](../tests/test_leak_suite.py) runs each message's setup turns before Prove it.
+- A SHA-256 wraps in its middle when the panel is too narrow, and is copied whole.
+
+Still not covered: a bare number with no word before it that leads to a time ("Is 1030 ok?"), which may as well
+be an amount, is masked only when it equals a stored value, like typed amounts and names; a time off the
+five-minute grid written in words; dated private facts that are not appointments (Prove it moves appointments
+only). Sensitivity is still decided by word lists: a sensitive fact in words outside them, next to an everyday
+word, is stored as personal.
+
 ## How to rerun
 
 ```bash
@@ -850,7 +910,7 @@ canaries from it, and it stops with an error if a hand-curated detail no longer 
 
 ## Inputs of the runs
 
-| input | 29 Oct, round 10 (current result files) | v5 (27 Oct) | v1 (26 Oct) |
+| input | 29 Oct, round 11 (current result files) | v5 (27 Oct) | v1 (26 Oct) |
 |---|---|---|---|
 | `tests/fixtures/leak_prompts.jsonl` (round 1) | same | `99ca842823eef80806100465f680d09fe238a0ebcb8d84fa0b59a9626f6ae4b6` | same |
 | `tests/fixtures/leak_prompts_heldout.jsonl` (round 2) | same | `1b032afe4a319f720305a224d971ac3865a472117c247057d373dd7ae5b43bb2` | (written after v2) |
@@ -861,7 +921,7 @@ canaries from it, and it stops with an error if a hand-curated detail no longer 
 | `data/demo_persona.json` | same | `fea35165f16025e9dccccc98e38488430be74681b9cc76c089ef9f4283e030c6` (category labels) | `d610971d373776c9f684420403edfbdefbff2bed23ba554f37d5ad871308e2da` |
 | `confidant/guard.py` | `32284b49ac2993dba6958ff172999220dacd9ddac66db641bd33337520093bb0` | `cf72e270f01cd67af31e36bc5b0e3bd6c99edd8b92c44591efc32a2d56f0adc1` | `2207c112d4c73ae777360da20d6e8950bc6979f1bb82a6f6657686398818cb9e` |
 | `confidant/forms.py` | `aa1bd3a844e4ecca3b6254ed78cf5d7baa21090cf08e43a808614543493695c7` (every date and time) | `008035553aac2fce42382a43b0702d1f0a2f6cdc62af7427b7b8f0158a689b94` | (new in v5) |
-| `confidant/scan.py` | `0d4ed99e1041ccd10bbedc3c77a55f67d86c290bbae652f6a2c04b80c107b221` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
-| `confidant/rules.py` | `10a98beb67e7cc68500eac2feb4462cfdf329c61af7dec1fc111f81fd080bd97` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
-| `confidant/assistant.py` | `a2fe87d0a522dc4b078d5a9d2544826bbe97e0b475301e63f7a5fc705cc67700` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
+| `confidant/scan.py` | `0b6bb642554a1ef6177c47b781c4a54f3d9948f7dbd7f34fea4d734774d92820` | `6fdce26ba1f63529b7ddd38206ae759978475c7ebcb28a9b31cd475758ee7cbf` | `eb470e7675a3745c01f3f41e53952e58c84414c6689289d4dcb765e4662373a4` |
+| `confidant/rules.py` | `fe46e2e0bc74464cdfbc5e7228d52900d35d194809ef4779febac18e0b632fff` | `0a42c0f288515fde1773b5e6a3d6f0352286358be61a397d039386d95496b470` (availability, differential fix) | `24b3766269816137ad5cb9cf1aa34603a80db28110e6af9d634d8cd738901785` |
+| `confidant/assistant.py` | `1c8fd35a4efb5c249b7aad093a72d920cd4158274be9652aaffb2da8452730b7` | `86df13017d09680ce063929b8d46ec9ad0b5ccb506b904b3a79c1013c25d7250` (availability, differential fix) | `09a7f2328bdb22094f68aba182d5969cd01c398671fb6fa0866a91ca4dc3aed0` |
 | Babel, num2words | same | 2.18.0, 0.5.14 | (not used) |

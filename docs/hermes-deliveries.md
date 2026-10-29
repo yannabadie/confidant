@@ -7,8 +7,9 @@ Hermes recorded it in the job's output file. Status and time come from `hermes c
 ## 27 October 2026, 07:30:22 (Paris): job `f4cb9c44c57b`, replay
 
 Status `ok`, dispatched on time, no error, failure streak 0. **Replay mode:** the Nebius key was not yet in the
-keychain, so the brief was written from the recorded sample turns, not by a live Nemotron call; the last line
-says so. Private items left only as their category.
+keychain, so the brief came from the sample turns written by hand that stood in for recordings until the demo
+turns were first recorded live (28 October, 07:30 UTC), not from a Nemotron call; the last line says "replay".
+Private items left only as their category.
 
 ```text
 Confidant · daily brief (demo persona Alex Martin, synthetic data)
@@ -37,8 +38,8 @@ Private items stay on your device; open Confidant to see them. (2 private memori
 ## 28 October 2026, 07:30:17 (Paris): job `f4cb9c44c57b`, replay
 
 Status `completed`, on time. **Replay mode again:** the Nebius key went into the keychain later that morning
-(the demo turns were recorded live at 08:30 Paris), so the brief came from the recorded turns. The text is the
-same as on 27 October except for the receipts line, which counted 1 replayed call instead of 2.
+(the demo turns were recorded live at 08:30 Paris), so the brief came from the same hand-written sample. The text
+is the same as on 27 October except for the receipts line, which counted 1 replayed call instead of 2.
 
 ```text
 Receipts today: 0 outbound calls, 1 replayed · 0 tokens · ≈$0.0000 · 2 withheld memories never left Confidant
