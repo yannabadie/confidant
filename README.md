@@ -10,7 +10,7 @@ Factory writes the answer with a placeholder such as `⟦m7⟧`, and Confidant f
 - **Hosted demo:** https://huggingface.co/spaces/yannabadie/confidant. It replays the demo turns recorded live on
   Token Factory on 28 October and says so in its header; with your own key, the same code runs live (below).
   The Space clones this repository; see `space/`.
-- **Video (2 min 51 s):** https://youtu.be/YYO4ssdY8dg
+- **Video (2 min 40 s):** https://youtu.be/4WIy2Oa15bo
 - Built for the Nebius × NVIDIA Global AI Hackathon, Personal AI track.
 
 ## Why
